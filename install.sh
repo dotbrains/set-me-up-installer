@@ -17,6 +17,9 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 # Available versions:
 # 1. 'master' (MacOS)
 # 2. 'debian'
+# By default the installer will assume you are running MacOS.
+# However, if you are running Debian, it will automatically
+# download the 'debian' version.
 readonly SMU_VERSION=${SMU_VERSION:-"master"}
 
 # A set of ignored paths that 'git' will ignore
@@ -373,6 +376,13 @@ function main() {
 	warn "${bold}Ensure your Mac or *debian* linux system is fully up-to-date${normal}."
 
 	header
+
+	# Check if OS is supported by 'set-me-up' installer
+	# E.g, not MacOS or Debian
+	if [[ "$SMU_OS" != "macos" ]] && [[ "$SMU_OS" != "debian" ]]; then
+		echo -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
+		exit 1
+	fi
 
 	# Check if we are running on MacOS
 	if [[ "$SMU_OS" = "macos" ]]; then

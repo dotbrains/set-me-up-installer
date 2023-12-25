@@ -18,6 +18,9 @@ NORMAL = '\033[0m'
 smu_home_dir = os.getenv("SMU_HOME_DIR", os.path.join(os.path.expanduser("~"), "set-me-up"))
 module_path = os.path.join(smu_home_dir, ".dotfiles/modules")
 
+# 'set-me-up' installer scripts
+installer_scripts_path = os.path.join(smu_home_dir, "scripts")
+
 # rcm configuration file path
 rcrc = os.path.join(smu_home_dir, ".dotfiles/rcrc")
 
@@ -60,7 +63,19 @@ def remove_symlinks():
 
 def create_boot_disk():
     # Execute create boot disk script
-    script_path = os.path.join(module_path, "create_boot_disk/create_boot_disk.sh")
+    script_path = os.path.join(installer_scripts_path, "create_boot_disk/create_boot_disk.sh")
+    subprocess.run(f"bash {script_path}", shell=True)
+
+def update():
+    """
+    Update the given OS.
+    """
+
+    if debian:
+        script_path = os.path.join(installer_scripts_path, "update/debian.sh")
+    elif macOS:
+        script_path = os.path.join(installer_scripts_path, "update/macos.sh")
+
     subprocess.run(f"bash {script_path}", shell=True)
 
 def provision_module(module_name):
@@ -159,6 +174,9 @@ def self_update():
 
 def main():
     parser = argparse.ArgumentParser(description="set-me-up installer")
+    parser.add_argument("--version", action="version", version="set-me-up 1.0.0")
+    parser.add_argument("--debianupdate", action="store_true", help="Update Debian-based system")
+    parser.add_argument("--macosupdate", action="store_true", help="Update MacOS system")
     parser.add_argument("-b", "--base", action="store_true", help="Run base module")
     parser.add_argument("--no-base", action="store_true", help="Do not run base module")
     parser.add_argument("--selfupdate", action="store_true", help="Update set-me-up")
@@ -199,6 +217,16 @@ def main():
         symlink()
     elif args.rcdn:
         remove_symlinks()
+    elif args.debianupdate:
+        if not debian:
+            die("This module is only supported on Debian-based systems.")
+
+        update()
+    elif args.macosupdate:
+        if not macOS:
+            die("This module is only supported on MacOS.")
+
+        update()
     elif args.create_boot_disk:
         if not macOS:
             die("This module is only supported on MacOS.")
@@ -216,24 +244,6 @@ def main():
             return modules
 
         modules = set_modules(args)
-
-        if macOS and "debianupdate" in modules:
-            warn("The 'debianupdate' module is not supported on MacOS, skipping.")
-            modules.remove('debianupdate')
-
-        if linux and "macosupdate" in modules:
-            warn("The 'macosupdate' module is not supported on Linux, skipping.")
-            modules.remove('macosupdate')
-
-        # Check if 'macosupdate' is contained in module list and if so, queue it at the beginning.
-        if "macosupdate" in modules and macOS:
-            modules.remove('macosupdate')  # Remove it from its current position
-            modules.insert(0, 'macosupdate')  # Insert it at the beginning
-
-        # Check if 'debianupdate' is contained in module list and if so, queue it at the beginning.
-        if "debianupdate" in modules and debian:
-            modules.remove('debianupdate') # Remove it from its current position
-            modules.insert(0, 'debianupdate') # Insert it at the beginning
 
         # If the 'base' module is not in the module list, add it to the beginning.
         if args.base and "base" not in modules:
