@@ -31,11 +31,25 @@ readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 readonly smu_download="https://github.com/nicholasadamou/set-me-up/tarball/${SMU_VERSION}"
 readonly smu_blueprint_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMU_BLUEPRINT_BRANCH}"
 
+# Get the absolute path of the 'utilities' directory.
+readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 # Determine if we're on MacOS or Debian
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	readonly SMU_OS="macos"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	readonly SMU_OS="debian"
+fi
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Check if '--no-header' flag is set
+if [[ "$1" = "--no-header" ]]; then
+	readonly show_header=false
+else
+	readonly show_header=true
 fi
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -353,27 +367,10 @@ function setup() {
 	fi
 }
 
-function header() {
-	echo -en "\n███████╗███████╗████████╗   ███╗   ███╗███████╗    ██╗   ██╗██████╗"
-	echo -en "\n██╔════╝██╔════╝╚══██╔══╝   ████╗ ████║██╔════╝    ██║   ██║██╔══██╗"
-	echo -en "\n███████╗█████╗     ██║█████╗██╔████╔██║█████╗█████╗██║   ██║██████╔╝"
-	echo -en "\n╚════██║██╔══╝     ██║╚════╝██║╚██╔╝██║██╔══╝╚════╝██║   ██║██╔═══╝"
-	echo -en "\n███████║███████╗   ██║      ██║ ╚═╝ ██║███████╗    ╚██████╔╝██║"
-	echo -en "\n╚══════╝╚══════╝   ╚═╝      ╚═╝     ╚═╝╚══════╝     ╚═════╝ ╚═╝"
-	echo -en "\n\n"
-}
-
 function main() {
-	echo -e "\n${bold}\$HOME sweet /~\n${normal}"
-
-	echo -e "Welcome to the '${bold}set-me-up${normal}' installer."
-	echo -e "For more information, please see [https://github.com/nicholasadamou/set-me-up-installer]."
-	echo -e "Please follow the on-screen instructions.\n"
-
-	warn "${bold}This script sets up new machines, *use with caution*${normal}."
-	warn "${bold}Ensure your Mac or *debian* linux system is fully up-to-date${normal}."
-
-	header
+	if [[ "$show_header" = false ]]; then
+		bash "${installer_utilities_path}"/header.sh
+	fi
 
 	# Check if OS is supported by 'set-me-up' installer
 	# E.g, not MacOS or Debian
@@ -415,4 +412,4 @@ function main() {
 	setup
 }
 
-main
+main "$@"

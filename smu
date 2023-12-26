@@ -12,17 +12,19 @@ readonly smu_home_dir=${smu_home_dir:-"${HOME}/set-me-up"}
 # <path-to-smu>/scripts/somedotfile vs <path-to-smu>/scripts/brew/../somedotfile
 readonly installer_scripts_path="${smu_home_dir}/set-me-up-installer/scripts"
 
+# Get the absolute path of the 'utilities' directory.
+readonly installer_utilities_path="${smu_home_dir}/set-me-up-installer/utilities"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-header() {
-	echo -en "\n███████╗███████╗████████╗   ███╗   ███╗███████╗    ██╗   ██╗██████╗"
-	echo -en "\n██╔════╝██╔════╝╚══██╔══╝   ████╗ ████║██╔════╝    ██║   ██║██╔══██╗"
-	echo -en "\n███████╗█████╗     ██║█████╗██╔████╔██║█████╗█████╗██║   ██║██████╔╝"
-	echo -en "\n╚════██║██╔══╝     ██║╚════╝██║╚██╔╝██║██╔══╝╚════╝██║   ██║██╔═══╝"
-	echo -en "\n███████║███████╗   ██║      ██║ ╚═╝ ██║███████╗    ╚██████╔╝██║"
-	echo -en "\n╚══════╝╚══════╝   ╚═╝      ╚═╝     ╚═╝╚══════╝     ╚═════╝ ╚═╝"
-	echo -en "\n\n"
-}
+# Determine if we're on MacOS or Debian
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	readonly SMU_OS="macos"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+	readonly SMU_OS="debian"
+fi
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 create_bash_local() {
 
@@ -59,16 +61,9 @@ main() {
 	# It is used to check if the (minimal) required dependencies are installed.
 	# If they are not installed, then this script will attempt to install them.
 
-	echo -e "\n${bold}\$HOME sweet /~\n${normal}"
+	bash "${installer_utilities_path}"/header.sh
 
-	echo -e "Welcome to the '${bold}set-me-up${normal}' installer."
-	echo -e "For more information, please see [https://github.com/nicholasadamou/set-me-up]."
-	echo -e "Please follow the on-screen instructions.\n"
-
-	warn "${bold}This script sets up new machines, *use with caution*${normal}."
-	warn "${bold}Ensure your Mac or *Debian* Linux system is fully up-to-date${normal}."
-
-	header
+	warn "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
 
 	warn "'${bold}set-me-up${normal}' may overwrite existing files in your home directory."
 
