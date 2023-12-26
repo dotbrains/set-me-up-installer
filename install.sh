@@ -2,9 +2,7 @@
 
 # shellcheck disable=SC2001
 
-source /dev/stdin <<<"$(
-	curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/master/scripts/base/base.sh"
-)"
+source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
