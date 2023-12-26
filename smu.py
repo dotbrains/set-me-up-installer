@@ -145,13 +145,13 @@ def self_update():
         # Iterate over each submodule,
         # determine the default branch,
         # and pull updates from the default branch
-        update_submodules_cmd = """
+        update_submodules_cmd = r"""
         git -C "$HOME"/set-me-up submodule foreach --recursive '(
             # Get the URL of the remote repository
             remote_url=$(git config --get remote.origin.url)
 
             # Get the default branch of the remote repository
-            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\\/heads\\//, \\"\\", \$2); print \$2}")
+            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\/heads\//, \"\", $2); print $2}")
             
             # Checkout the default branch
             git checkout "$default_branch"
