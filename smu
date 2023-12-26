@@ -138,14 +138,14 @@ main() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Check that the 'smu.py' script exists
-	if [ ! -f "${smu_home_dir}/smu.py" ]; then
+	if [ ! -f "${smu_home_dir}/set-me-up-installer/smu.py" ]; then
 		print_error "'smu.py' does not exist."
 		exit 1
 	fi
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-	python3 "${smu_home_dir}"/smu.py "$@"
+	python3 "${smu_home_dir}"/set-me-up-installer/smu.py "$@"
 
 }
 
