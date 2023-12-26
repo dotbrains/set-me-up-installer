@@ -20,7 +20,7 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 # By default the installer will assume you are running MacOS.
 # However, if you are running Debian, it will automatically
 # download the 'debian' version.
-readonly SMU_VERSION=${SMU_VERSION:-"master"}
+SMU_VERSION=${SMU_VERSION:-"master"}
 
 # A set of ignored paths that 'git' will ignore
 # syntax: '<path>|<path>'
