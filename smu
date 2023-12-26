@@ -97,14 +97,14 @@ main() {
 	fi
 
 	# Check if 'brew' is installed
-	if ! command_exists "brew"; then
+	if ! cmd_exists "brew"; then
 		print_error "'brew' is not installed."
 
 		# Install 'brew'
 		install_brew
 	fi
 
-	if ! command_exists "python3"; then
+	if ! cmd_exists "python3"; then
 		print_error "Python 3 is not installed."
 
 		# Install 'python3' via 'brew' and 'pyenv'
@@ -124,7 +124,7 @@ main() {
 		"lsrc"
 	)
 
-	if ! commands_exist "${commands[@]}"; then
+	if ! cmd_exists "${commands[@]}"; then
 		print_error "'rcm' is not installed."
 
 		# Install 'rcm' via 'brew'
@@ -132,7 +132,7 @@ main() {
 	fi
 
 	# Determine if 'git' is installed
-	if ! command_exists "git"; then
+	if ! cmd_exists "git"; then
 		print_error "'git' is not installed."
 
 		# Install 'git' via 'brew'
