@@ -63,7 +63,7 @@ main() {
 
 	bash "${installer_utilities_path}"/header.sh
 
-	warn "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
+	success "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
 
 	printf "\n"
 
