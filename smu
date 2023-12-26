@@ -1,10 +1,6 @@
 #!/bin/bash
 
-source /dev/stdin <<<"$(
-	curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/master/scripts/base/base.sh"
-)"
-
-# TODO - split the installer script into its own repository and use it as a submodule
+source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/master/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
