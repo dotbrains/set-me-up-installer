@@ -143,6 +143,8 @@ def self_update():
 
         run_install_script()
 
+        action("Updating 'set-me-up' submodules\n")
+
         # Iterate over each submodule,
         # determine the default branch,
         # and pull updates from the default branch
