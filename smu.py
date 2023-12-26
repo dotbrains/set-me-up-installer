@@ -4,9 +4,11 @@ import argparse
 import subprocess
 import os
 import sys
+import tempfile
 
 # ANSI escape codes for colors
 COL_YELLOW = '\033[93m'
+COL_RED = '\033[91m'
 COL_GREEN = '\033[92m'
 COL_RESET = '\033[0m'
 
@@ -44,7 +46,7 @@ def action(message):
     print(f"{COL_YELLOW}[action]{COL_RESET} ⇒ {message}")
 
 def die(message, exit_code=1):
-    print(message, file=sys.stderr)
+    print(f"{COL_RED}[error]{COL_RESET} {message}", file=sys.stderr)
     sys.exit(exit_code)
 
 def list_symlinks():
@@ -141,20 +143,58 @@ def self_update():
 
             subprocess.run(f"{installer_path}/install.sh --no-header", shell=True)
 
-        run_install_script()
+        def clone_specific_branch(branch_name, repo_url):
+            """
+            Clone a specific branch from a Git repository.
+            """
+
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    subprocess.run(f"git clone --recursive -b {branch_name} {repo_url} {tmp_dir}", shell=True, check=True)
+
+                    return tmp_dir
+            except subprocess.CalledProcessError as e:
+                die(f"Error during cloning: {e}", file=sys.stderr)
+
+                return None
+            
+        # Determine the target branch
+        branch = "master" # MacOS
+
+        if debian:
+            branch = "debian"
+
+        tmp_dir = clone_specific_branch(branch, "https://github.com/nicholasadamou/set-me-up")
+
+        # Compare the .dotfiles directories
+        local_dotfiles_dir = os.path.join(smu_home_dir, '.dotfiles')
+        cloned_dotfiles_dir = os.path.join(tmp_dir, 'set-me-up', '.dotfiles')
+
+        diff_result = subprocess.run(f"diff -r {local_dotfiles_dir} {cloned_dotfiles_dir}", shell=True)
+
+        # Delete the temporary directory
+        subprocess.run(f"rm -rf {tmp_dir}", shell=True)
+
+        if diff_result.returncode != 0:
+            action("Differences found in '.dotfiles'. Running 'install.sh'.\n")
+
+            # Run the install.sh script
+            run_install_script()
+        else:
+            warn("No differences found in '.dotfiles'. Skipping 'install.sh'.\n")
 
         action("Updating 'set-me-up' submodules\n")
 
         # Iterate over each submodule,
         # determine the default branch,
         # and pull updates from the default branch
-        update_submodules_cmd = r"""
-        git -C "$HOME"/set-me-up submodule foreach --recursive '(
+        update_submodules_cmd = f"""
+        git -C {smu_home_dir} submodule foreach --recursive '(
             # Get the URL of the remote repository
             remote_url=$(git config --get remote.origin.url)
 
             # Get the default branch of the remote repository
-            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\/heads\//, \"\", \$2); print \$2}")
+            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {{sub(/refs\/heads\//, \"\", $2); print $2}}")
 
             # Checkout the default branch
             git checkout "$default_branch"
@@ -171,7 +211,7 @@ def self_update():
         # Symlink new files
         symlink()
 
-        print("Successfully updated 'set-me-up'.")
+        success("Successfully updated 'set-me-up'.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
 
