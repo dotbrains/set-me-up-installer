@@ -19,7 +19,7 @@ readonly installer_utilities_path="${smu_home_dir}/set-me-up-installer/utilities
 
 # Determine if we're on MacOS or Debian
 if [[ "$OSTYPE" == "darwin"* ]]; then
-	readonly SMU_OS="macos"
+	readonly SMU_OS="MacOS"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	readonly SMU_OS="debian"
 fi
@@ -64,15 +64,6 @@ main() {
 	bash "${installer_utilities_path}"/header.sh
 
 	warn "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
-
-	warn "'${bold}set-me-up${normal}' may overwrite existing files in your home directory."
-
-	printf "\n"
-
-	read -r -p "Are you sure you want to continue? (y/n) " -n 1
-	echo ""
-
-	[[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

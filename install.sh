@@ -38,7 +38,7 @@ readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities
 
 # Determine if we're on MacOS or Debian
 if [[ "$OSTYPE" == "darwin"* ]]; then
-	readonly SMU_OS="macos"
+	readonly SMU_OS="MacOS"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	readonly SMU_OS="debian"
 fi
@@ -374,13 +374,13 @@ function main() {
 
 	# Check if OS is supported by 'set-me-up' installer
 	# E.g, not MacOS or Debian
-	if [[ "$SMU_OS" != "macos" ]] && [[ "$SMU_OS" != "debian" ]]; then
+	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]]; then
 		echo -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
 		exit 1
 	fi
 
 	# Check if we are running on MacOS
-	if [[ "$SMU_OS" = "macos" ]]; then
+	if [[ "$SMU_OS" = "MacOS" ]]; then
 		if ! are_xcode_command_line_tools_installed; then
 			install_xcode_command_line_tools
 		else
