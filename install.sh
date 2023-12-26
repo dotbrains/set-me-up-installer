@@ -188,7 +188,7 @@ function confirm() {
 	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
 		warn "This script will download '${bold}$SMU_BLUEPRINT${normal}' on branch '${bold}$SMU_BLUEPRINT_BRANCH${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	else
-		warn "This script will download '${bold}set-me-up${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+		warn "This script will download '${bold}set-me-up${normal}' for '${bold}${SMU_OS}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	fi
 
 	printf "\n"
@@ -411,9 +411,6 @@ function main() {
 	if [[ "$SMU_OS" = "debian" ]]; then
 		SMU_VERSION="debian"
 	fi
-
-	# Show which version of 'set-me-up' is being installed (MacOS or Debian)
-	warn "Installing '${bold}set-me-up${normal}' for '${bold}$SMU_OS${normal}'\n"
 
 	setup
 }
