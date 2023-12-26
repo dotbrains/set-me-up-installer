@@ -150,7 +150,9 @@ def self_update():
 
             try:
                 with tempfile.TemporaryDirectory() as tmp_dir:
-                    subprocess.run(f"git clone --recursive -b {branch_name} {repo_url} {tmp_dir}", shell=True, check=True)
+                    action(f"Cloning '{repo_url}' branch '{branch_name}' into '{tmp_dir}'\n")
+
+                    subprocess.run(f"git clone --recursive -b {branch_name} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
 
                     return tmp_dir
             except subprocess.CalledProcessError as e:
@@ -188,13 +190,14 @@ def self_update():
         # Iterate over each submodule,
         # determine the default branch,
         # and pull updates from the default branch
-        update_submodules_cmd = f"""
-        git -C {smu_home_dir} submodule foreach --recursive '(
+        export_smu_home_dir = f"export SMU_HOME_DIR={smu_home_dir};"
+        update_submodules_cmd = export_smu_home_dir + r"""
+        git -C $SMU_HOME_DIR submodule foreach --recursive '(
             # Get the URL of the remote repository
             remote_url=$(git config --get remote.origin.url)
 
             # Get the default branch of the remote repository
-            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {{sub(/refs\/heads\//, \"\", $2); print $2}}")
+            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\/heads\//, \"\", $2); print $2}")
 
             # Checkout the default branch
             git checkout "$default_branch"
