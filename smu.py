@@ -174,7 +174,6 @@ def self_update():
         # Symlink new files
         symlink()
 
-        print(f"\n")
         success("Successfully updated 'set-me-up'.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
