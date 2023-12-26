@@ -139,6 +139,12 @@ main() {
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+	# Pull the latest changes from the 'set-me-up-installer' repository
+
+	git -C "${smu_home_dir}"/set-me-up-installer pull origin main --quiet
+
+	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 	python3 "${smu_home_dir}"/set-me-up-installer/smu.py "$@"
 
 }

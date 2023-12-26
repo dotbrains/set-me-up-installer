@@ -210,6 +210,8 @@ function confirm() {
 	echo ""
 
 	[[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
+
+	printf "\n"
 }
 
 function obtain() {

@@ -154,7 +154,7 @@ def self_update():
         with tempfile.TemporaryDirectory() as tmp_dir:
             action(f"Cloning '{repo_url}' branch '{branch}' into '{tmp_dir}/set-me-up'\n")
 
-            subprocess.run(f"git clone --recursive -b {branch} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
+            subprocess.run(f"git clone -b {branch} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
 
             # Compare the .dotfiles directories
             local_dotfiles_dir = os.path.join(smu_home_dir, '.dotfiles')
@@ -199,7 +199,8 @@ def self_update():
         # Symlink new files
         symlink()
 
-        success("\nSuccessfully updated 'set-me-up'.")
+        print(f"\n")
+        success("Successfully updated 'set-me-up'.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
 
