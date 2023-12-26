@@ -63,6 +63,14 @@ main() {
 
 	bash "${installer_utilities_path}"/header.sh
 
+	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+	# Check if detected OS is supported
+	if [[ "${SMU_OS}" != "MacOS" ]] && [[ "${SMU_OS}" != "debian" ]]; then
+		error "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
+		exit 1
+	fi
+
 	success "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
 
 	printf "\n"
@@ -71,7 +79,7 @@ main() {
 
 	# Check if ~/.bash.local exists
 	if [ ! -f "${HOME}/.bash.local" ]; then
-		print_error "'~/.bash.local' does not exist."
+		error "'~/.bash.local' does not exist."
 
 		# We must first create the $HOME/.bash.local configuration file
 		# in order for the brew module to properly install Homebrew.
@@ -80,14 +88,14 @@ main() {
 
 	# Check if 'brew' is installed
 	if ! cmd_exists "brew"; then
-		print_error "'brew' is not installed."
+		error "'brew' is not installed."
 
 		# Install 'brew'
 		install_brew
 	fi
 
 	if ! cmd_exists "python3"; then
-		print_error "Python 3 is not installed."
+		error "Python 3 is not installed."
 
 		# Install 'python3' via 'brew' and 'pyenv'
 		# 'pyenv' is a Python version management tool
@@ -107,7 +115,7 @@ main() {
 	)
 
 	if ! cmd_exists "${commands[@]}"; then
-		print_error "'rcm' is not installed."
+		error "'rcm' is not installed."
 
 		# Install 'rcm' via 'brew'
 		bash "${installer_scripts_path}"/rcm/rcm.sh
@@ -115,7 +123,7 @@ main() {
 
 	# Determine if 'git' is installed
 	if ! cmd_exists "git"; then
-		print_error "'git' is not installed."
+		error "'git' is not installed."
 
 		# Install 'git' via 'brew'
 		brew_install "git"
@@ -125,7 +133,7 @@ main() {
 
 	# Check that the 'smu.py' script exists
 	if [ ! -f "${smu_home_dir}/set-me-up-installer/smu.py" ]; then
-		print_error "'smu.py' does not exist."
+		error "'smu.py' does not exist."
 		exit 1
 	fi
 
