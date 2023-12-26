@@ -152,8 +152,8 @@ def self_update():
             remote_url=$(git config --get remote.origin.url)
 
             # Get the default branch of the remote repository
-            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\/heads\//, \"\", $2); print $2}")
-            
+            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk ''/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+
             # Checkout the default branch
             git checkout "$default_branch"
 
