@@ -368,7 +368,7 @@ function setup() {
 }
 
 function main() {
-	if [[ "$show_header" = false ]]; then
+	if [[ "$show_header" = true ]]; then
 		bash "${installer_utilities_path}"/header.sh
 	fi
 
