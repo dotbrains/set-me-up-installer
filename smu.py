@@ -139,7 +139,7 @@ def self_update():
             Run the install.sh script from the 'set-me-up-installer' directory.
             """
 
-            subprocess.run(f"${installer_path}/install.sh", shell=True)
+            subprocess.run(f"{installer_path}/install.sh", shell=True)
 
         run_install_script()
 
@@ -152,7 +152,7 @@ def self_update():
             remote_url=$(git config --get remote.origin.url)
 
             # Get the default branch of the remote repository
-            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk ''/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+            default_branch=$(git ls-remote --symref "$remote_url" HEAD | awk "/^ref:/ {sub(/refs\/heads\//, \"\", \$2); print \$2}")
 
             # Checkout the default branch
             git checkout "$default_branch"
