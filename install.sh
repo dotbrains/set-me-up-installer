@@ -403,6 +403,12 @@ function main() {
 		fi
 	fi
 
+	# Check if 'git' is installed
+	if ! command -v git &>/dev/null; then
+		error "'${bold}git${normal}' is not installed.\n"
+		exit 1
+	fi
+
 	# Check if we are running on Debian
 	if [[ "$SMU_OS" = "debian" ]]; then
 		SMU_VERSION="debian"
