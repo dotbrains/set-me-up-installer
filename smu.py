@@ -19,7 +19,8 @@ smu_home_dir = os.getenv("SMU_HOME_DIR", os.path.join(os.path.expanduser("~"), "
 module_path = os.path.join(smu_home_dir, ".dotfiles/modules")
 
 # 'set-me-up' installer scripts
-installer_scripts_path = os.path.join(smu_home_dir, "scripts")
+installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
+installer_scripts_path = os.path.join(installer_path, "scripts")
 
 # rcm configuration file path
 rcrc = os.path.join(smu_home_dir, ".dotfiles/rcrc")
@@ -126,7 +127,7 @@ def self_update():
     """
     
     # Check that module_path/install.sh exists
-    if not os.path.exists(f"{module_path}/install.sh"):
+    if not os.path.exists(f"{installer_path}/install.sh"):
         warn(f"{module_path}/install.sh does not seem to exist.\nPlease run the '{BOLD}base{NORMAL}' module prior to executing '{BOLD}selfupdate{NORMAL}'.")
         return
 
@@ -138,7 +139,7 @@ def self_update():
             Run the install.sh script in the given module path.
             """
 
-            subprocess.run(f"${module_path}/install.sh", shell=True)
+            subprocess.run(f"${installer_path}/install.sh", shell=True)
 
         run_install_script()
 
