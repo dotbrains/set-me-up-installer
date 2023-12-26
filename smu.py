@@ -142,23 +142,6 @@ def self_update():
             """
 
             subprocess.run(f"{installer_path}/install.sh --no-header", shell=True)
-
-        def clone_specific_branch(branch_name, repo_url):
-            """
-            Clone a specific branch from a Git repository.
-            """
-
-            try:
-                with tempfile.TemporaryDirectory() as tmp_dir:
-                    action(f"Cloning '{repo_url}' branch '{branch_name}' into '{tmp_dir}/set-me-up'\n")
-
-                    subprocess.run(f"git clone --recursive -b {branch_name} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
-
-                    return tmp_dir
-            except subprocess.CalledProcessError as e:
-                die(f"Error during cloning: {e}", file=sys.stderr)
-
-                return None
             
         # Determine the target branch
         branch = "master" # MacOS
@@ -166,24 +149,26 @@ def self_update():
         if debian:
             branch = "debian"
 
-        tmp_dir = clone_specific_branch(branch, "https://github.com/nicholasadamou/set-me-up")
+        repo_url = "https://github.com/nicholasadamou/set-me-up"
 
-        # Compare the .dotfiles directories
-        local_dotfiles_dir = os.path.join(smu_home_dir, '.dotfiles')
-        cloned_dotfiles_dir = os.path.join(tmp_dir, 'set-me-up', '.dotfiles')
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            action(f"Cloning '{repo_url}' branch '{branch}' into '{tmp_dir}/set-me-up'\n")
 
-        diff_result = subprocess.run(f"diff -r {local_dotfiles_dir} {cloned_dotfiles_dir}", shell=True)
+            subprocess.run(f"git clone --recursive -b {branch} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
 
-        # Delete the temporary directory
-        subprocess.run(f"rm -rf {tmp_dir}", shell=True)
+            # Compare the .dotfiles directories
+            local_dotfiles_dir = os.path.join(smu_home_dir, '.dotfiles')
+            cloned_dotfiles_dir = os.path.join(tmp_dir, 'set-me-up', '.dotfiles')
 
-        if diff_result.returncode != 0:
-            action("Differences found in '.dotfiles'. Running 'install.sh'.\n")
+            diff_result = subprocess.run(f"diff -r {local_dotfiles_dir} {cloned_dotfiles_dir}", shell=True)
 
-            # Run the install.sh script
-            run_install_script()
-        else:
-            warn("No differences found in '.dotfiles'. Skipping 'install.sh'.\n")
+            if diff_result.returncode != 0:
+                action("Differences found in '.dotfiles'. Running 'install.sh'.\n")
+
+                # Run the install.sh script
+                run_install_script()
+            else:
+                warn("No differences found in '.dotfiles'. Skipping 'install.sh'.\n")
 
         action("Updating 'set-me-up' submodules\n")
 
@@ -214,7 +199,7 @@ def self_update():
         # Symlink new files
         symlink()
 
-        success("Successfully updated 'set-me-up'.")
+        success("\nSuccessfully updated 'set-me-up'.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
 
