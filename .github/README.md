@@ -15,7 +15,7 @@ sudo chsh -s $(which bash) $(whoami)
 Once the default shell is `bash`, close and reopen the terminal window. Then, run the following command in your console.
 
 (⚠️ **DO NOT** run the `install` snippet if you don't fully
-understand [what it does](install.sh). Seriously, **DON'T**!)
+understand [what it does](../install.sh). Seriously, **DON'T**!)
 
 ```bash
 bash <(curl -s -L https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/install.sh)
