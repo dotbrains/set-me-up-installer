@@ -412,6 +412,9 @@ function main() {
 		SMU_VERSION="debian"
 	fi
 
+	# Show which version of 'set-me-up' is being installed (MacOS or Debian)
+	echo -e "Installing '${bold}set-me-up${normal}' for '${bold}$SMU_OS${normal}'\n"
+
 	setup
 }
 
