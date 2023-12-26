@@ -65,6 +65,8 @@ main() {
 
 	warn "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
 
+	printf "\n"
+
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Check if ~/.bash.local exists
