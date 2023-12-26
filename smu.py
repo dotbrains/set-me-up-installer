@@ -136,7 +136,7 @@ def self_update():
         
         def run_install_script():
             """
-            Run the install.sh script in the given module path.
+            Run the install.sh script from the 'set-me-up-installer' directory.
             """
 
             subprocess.run(f"${installer_path}/install.sh", shell=True)
