@@ -143,63 +143,7 @@ def self_update():
 
             subprocess.run(f"{installer_path}/install.sh --no-header", shell=True)
 
-        def parse_submodules():
-            """
-            Parse the .gitmodules file to get the submodule directories.
-            """
-
-            # Get the contents of the .gitmodules file
-            gitmodules = subprocess.check_output(f"cat {smu_home_dir}/.gitmodules", shell=True).decode("utf-8")
-
-            # Split the contents of the .gitmodules file by newline
-            gitmodules_lines = gitmodules.split("\n")
-
-            # Filter out empty lines
-            gitmodules_lines = list(filter(None, gitmodules_lines))
-
-            # Filter out lines that do not start with 'path = '
-            gitmodules_lines = list(filter(lambda line: line.startswith("path = "), gitmodules_lines))
-
-            # Remove the 'path = ' prefix from each line
-            gitmodules_lines = list(map(lambda line: line.replace("path = ", ""), gitmodules_lines))
-
-            # Return the list of submodule directories
-            return gitmodules_lines
-            
-        # Determine the target branch
-        branch = "master" # MacOS
-
-        if debian:
-            branch = "debian"
-
-        repo_url = "https://github.com/nicholasadamou/set-me-up"
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            action(f"Cloning '{repo_url}' branch '{branch}' into '{tmp_dir}/set-me-up'\n")
-
-            subprocess.run(f"git clone -b {branch} {repo_url} {tmp_dir}/set-me-up", shell=True, check=True)
-
-            # Compare the .dotfiles directories
-            local_dotfiles_dir = os.path.join(smu_home_dir, '.dotfiles')
-            cloned_dotfiles_dir = os.path.join(tmp_dir, 'set-me-up', '.dotfiles')
-
-            # Get the list of submodule directories
-            excluded_submodules = parse_submodules()
-
-            # Construct the exclude options for the diff command
-            exclude_options = ' '.join([f"--exclude={submodule}" for submodule in excluded_submodules])
-
-            # Construct and run the diff command with the exclude options
-            diff_command = f"diff -r {exclude_options} {local_dotfiles_dir} {cloned_dotfiles_dir}"
-            diff_result = subprocess.run(diff_command, shell=True)
-
-            if diff_result.returncode != 0:
-                action("Differences found in '.dotfiles'. Running 'install.sh'.\n")
-
-                # Run the install.sh script
-                run_install_script()
-            else:
-                warn("No differences found in '.dotfiles'. Skipping 'install.sh'.\n")
+        run_install_script()
 
         action("Updating 'set-me-up' submodules\n")
 
