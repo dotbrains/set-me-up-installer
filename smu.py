@@ -98,7 +98,7 @@ def provision_module(module_name):
         return
 
     # Check that bash is installed
-    if subprocess.call(["command", "-v", "bash"], shell=True) != 0:
+    if subprocess.call("command -v bash &> /dev/null", shell=True) != 0:
         warn("'bash' is not installed, skipping.")
         return
 
@@ -195,7 +195,7 @@ def main():
     # Check if 'rcm' is installed, because it is required for this script to work.
     # 'rcm' is a dotfile management tool that is used to symlink files into the home directory.
     # see: https://github.com/thoughtbot/rcm
-    rcm = subprocess.call("command -v rcup", shell=True) == 0
+    rcm = subprocess.call("command -v rcup &> /dev/null", shell=True) == 0
 
     command = ""
 
