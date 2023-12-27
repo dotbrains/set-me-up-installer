@@ -18,6 +18,8 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 # By default the installer will assume you are running MacOS.
 # However, if you are running Debian, it will automatically
 # download the 'debian' version.
+# If neither of these versions are available, the installer
+# will determine if it was invoked via SMU Blueprint.
 SMU_VERSION=${SMU_VERSION:-"master"}
 
 # A set of ignored paths that 'git' will ignore
@@ -367,47 +369,89 @@ function setup() {
 	fi
 }
 
+function install_rosetta_if_needed() {
+	# Installing Rosetta 2 on Apple Silicon Macs
+	# See https://derflounder.wordpress.com/2020/11/17/installing-rosetta-2-on-apple-silicon-macs/
+	if can_install_rosetta && ! is_rosetta_installed; then
+		install_rosetta
+	elif is_rosetta_installed; then
+		success "'${bold}Rosetta${normal}' is already installed\n"
+	fi
+}
+
+function install_xcode_command_line_tools_if_needed() {
+	if ! are_xcode_command_line_tools_installed; then
+		install_xcode_command_line_tools
+	else
+		success "'${bold}Xcode Command Line Tools${normal}' are already installed\n"
+	fi
+}
+
+function invoked_via_smu_blueprint() {
+	# Check if both SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH are set
+	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
+		# Both variables are set, so we can assume that the installer was invoked via SMU Blueprint.
+		return 0
+	fi
+
+	return 1
+}
+
+function check_os_support() {
+	# Check if both SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH are set
+	if invoked_via_smu_blueprint; then
+		# If invoked via SMU Blueprint, then we can assume that the OS is supported.
+		# This is because the SMU Blueprint is responsible for determining if the OS is supported.
+		# By default, 'nicholasadamou/set-me-up' (non-blueprint) supports MacOS and Debian.
+		return 0
+	fi
+
+	# Check if OS is supported (MacOS or Debian)
+	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]]; then
+		error -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
+		exit 1
+	fi
+}
+
 function main() {
 	if [[ "$show_header" = true ]]; then
 		bash "${installer_utilities_path}"/header.sh
 	fi
 
-	# Check if OS is supported by 'set-me-up' installer
-	# E.g, not MacOS or Debian
-	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]]; then
-		echo -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
-		exit 1
-	fi
+	# Determine if the operating system is supported
+	# by the base 'set-me-up' configuration.
+	check_os_support
 
-	# Check if we are running on MacOS
+	# Check if we are running on MacOS, if so, install
+	# 'Xcode Command Line Tools' and 'Rosetta' if needed.
 	if [[ "$SMU_OS" = "MacOS" ]]; then
-		if ! are_xcode_command_line_tools_installed; then
-			install_xcode_command_line_tools
-		else
-			success "'${bold}Xcode Command Line Tools${normal}' are already installed\n"
-		fi
+		install_xcode_command_line_tools_if_needed
 
-		# Installing Rosetta 2 on Apple Silicon Macs
-		# See https://derflounder.wordpress.com/2020/11/17/installing-rosetta-2-on-apple-silicon-macs/
-		if can_install_rosetta; then
-			if ! is_rosetta_installed; then
-				install_rosetta
-			else
-				success "'${bold}Rosetta${normal}' is already installed\n"
-			fi
-		fi
+		install_rosetta_if_needed
 	fi
 
 	# Check if 'git' is installed
+	# 'git' is required to install 'set-me-up'
+	# given that 'set-me-up' is a git repository and requires submodules.
 	if ! command -v git &>/dev/null; then
 		error "'${bold}git${normal}' is not installed.\n"
 		exit 1
 	fi
 
-	# Check if we are running on Debian
-	if [[ "$SMU_OS" = "debian" ]]; then
-		SMU_VERSION="debian"
+	# Preemptively check if installer was invoked via SMU Blueprint.
+	if ! invoked_via_smu_blueprint; then
+
+		# Assuming the installer was not invoked via SMU Blueprint,
+		# check if the user is running Debian.
+		# This is accomplished by determining if the SMU OS is 'debian',
+		# then set SMU_VERSION to 'debian'.
+		if [[ "$SMU_OS" = "debian" ]]; then
+			SMU_VERSION="debian"
+		fi
 	fi
+
+	# If SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH are set,
+	# Then the installer was invoked via SMU Blueprint.
 
 	setup
 }
