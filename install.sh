@@ -415,7 +415,15 @@ function check_os_support() {
 
 function main() {
 	if [[ "$show_header" = true ]]; then
-		bash "${installer_utilities_path}"/header.sh
+		# Check if 'header.sh' exists
+		# If it does, source it.
+		# Otherwise, source it from 'https://github.com/nicholasadamou/set-me-up-installer/raw/main/utilities/header.sh'
+
+		if [[ -f "${installer_utilities_path}/header.sh" ]]; then
+			source "${installer_utilities_path}/header.sh"
+		else
+			source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/utilities/header.sh")"
+		fi
 	fi
 
 	# Determine if the operating system is supported
