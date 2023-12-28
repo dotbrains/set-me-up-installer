@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import os
 import sys
-import tempfile
 
 # ANSI escape codes for colors
 COL_YELLOW = '\033[93m'
