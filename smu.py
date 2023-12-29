@@ -195,19 +195,19 @@ def update_submodules():
 
 def main():
     parser = argparse.ArgumentParser(description="set-me-up installer")
-    parser.add_argument("--version", action="version", version="set-me-up 1.0.0")
-    parser.add_argument("--debianupdate", action="store_true", help="Update Debian-based system")
-    parser.add_argument("--macosupdate", action="store_true", help="Update MacOS system")
+    parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
+    parser.add_argument("-du", "--debian_update", action="store_true", help="Update Debian-based system")
+    parser.add_argument("-mu", "--macos_update", action="store_true", help="Update MacOS system")
     parser.add_argument("-b", "--base", action="store_true", help="Run base module")
-    parser.add_argument("--no-base", action="store_true", help="Do not run base module")
-    parser.add_argument("--selfupdate", action="store_true", help="Update set-me-up")
-    parser.add_argument("--update_submodules", action="store_true", help="Update set-me-up submodules")
+    parser.add_argument("-nb", "--no-base", action="store_true", help="Do not run base module")
+    parser.add_argument("-su", "--self_update", action="store_true", help="Update set-me-up")
+    parser.add_argument("-us", "--update_submodules", action="store_true", help="Update set-me-up submodules")
     parser.add_argument("-p", "--provision", action="store_true", help="Provision given modules")
     parser.add_argument("-m", "--modules", nargs='*', default=[], help="Modules to provision")
     parser.add_argument("--lsrc", action="store_true", help="List files that will be symlinked via 'rcm' into your home directory")
     parser.add_argument("--rcup", action="store_true", help="Symlink files via 'rcm' into your home directory")
     parser.add_argument("--rcdn", action="store_true", help="Remove files that were symlinked via 'rcup")
-    parser.add_argument("--create_boot_disk", action="store_true", help="Creates a MacOS boot disk")
+    parser.add_argument("-cbd", "--create_boot_disk", action="store_true", help="Creates a MacOS boot disk")
 
     args = parser.parse_args()
 
