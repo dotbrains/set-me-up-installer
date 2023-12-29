@@ -239,12 +239,12 @@ def main():
         symlink()
     elif args.rcdn:
         remove_symlinks()
-    elif args.debianupdate:
+    elif args.debian_update:
         if not debian:
             die("This module is only supported on Debian-based systems.")
 
         update()
-    elif args.macosupdate:
+    elif args.macos_update:
         if not macOS:
             die("This module is only supported on MacOS.")
 
@@ -254,7 +254,7 @@ def main():
             die("This module is only supported on MacOS.")
 
         create_boot_disk()
-    elif args.selfupdate:
+    elif args.self_update:
         self_update()
     elif args.update_submodules:
         update_submodules()
