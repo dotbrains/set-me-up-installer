@@ -144,6 +144,27 @@ def self_update():
 
         run_install_script()
 
+        # Update the 'set-me-up' submodules
+        update_submodules()
+
+        # Clean up old symlinks
+        remove_symlinks()
+
+        # Symlink new files
+        symlink()
+
+        print()
+        success("Successfully updated 'set-me-up'.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
+
+def update_submodules():
+    """
+    Update the 'set-me-up' submodules from the remote Git repository.
+    This function assumes that the 'set-me-up' directory is a Git repository.
+    """
+
+    try:
         action("Updating 'set-me-up' submodules\n")
 
         # Iterate over each submodule,
@@ -166,17 +187,11 @@ def self_update():
         )'
         """
         subprocess.check_call(update_submodules_cmd, shell=True)
-
-        # Clean up old symlinks
-        remove_symlinks()
-
-        # Symlink new files
-        symlink()
-
+    
         print()
-        success("Successfully updated 'set-me-up'.")
+        success("Successfully updated 'set-me-up' submodules.")
     except subprocess.CalledProcessError as e:
-        print(f"Failed to update 'set-me-up': {e}", file=sys.stderr)
+        print(f"Failed to update 'set-me-up' submodules: {e}", file=sys.stderr)
 
 def main():
     parser = argparse.ArgumentParser(description="set-me-up installer")
@@ -186,6 +201,7 @@ def main():
     parser.add_argument("-b", "--base", action="store_true", help="Run base module")
     parser.add_argument("--no-base", action="store_true", help="Do not run base module")
     parser.add_argument("--selfupdate", action="store_true", help="Update set-me-up")
+    parser.add_argument("--update_submodules", action="store_true", help="Update set-me-up submodules")
     parser.add_argument("-p", "--provision", action="store_true", help="Provision given modules")
     parser.add_argument("-m", "--modules", nargs='*', default=[], help="Modules to provision")
     parser.add_argument("--lsrc", action="store_true", help="List files that will be symlinked via 'rcm' into your home directory")
@@ -240,6 +256,8 @@ def main():
         create_boot_disk()
     elif args.selfupdate:
         self_update()
+    elif args.update_submodules:
+        update_submodules()
     elif args.provision:
         def set_modules(args):
             """
