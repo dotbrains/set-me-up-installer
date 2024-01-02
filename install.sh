@@ -54,8 +54,9 @@ skip_confirmation=false
 
 # Iterate over all arguments
 for arg in "$@"; do
+	echo "$arg"
 	if [[ "$arg" == "--skip-confirm" ]]; then
-		# If '-y' is found, set the flag to "true"
+		# If '--skip-confirm' is found, set the flag to "true"
 		skip_confirmation=true
 		break
 	elif [[ "$arg" == "--no-header" ]]; then
