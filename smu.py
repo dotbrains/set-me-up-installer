@@ -199,11 +199,6 @@ def self_update():
     Update the 'set-me-up' scripts from the remote Git repository.
     This function assumes that the 'set-me-up' directory is a Git repository.
     """
-    
-    # Check that module_path/install.sh exists
-    if not os.path.exists(f"{installer_path}/install.sh"):
-        warn(f"{module_path}/install.sh does not seem to exist.\nPlease run the '{BOLD}base{NORMAL}' module prior to executing '{BOLD}selfupdate{NORMAL}'.")
-        return
 
     try:
         # Update the 'set-me-up' repository
@@ -213,7 +208,7 @@ def self_update():
             Run the install.sh script from the 'set-me-up-installer' repository.
             """
 
-            command = "bash <(curl -s -L https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/install.sh) --no-header"
+            command = "bash <(curl -s -L https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/install.sh) --no-header --skip-confirm"
 
             subprocess.run(
                 ['bash', '-c', command]
@@ -222,6 +217,7 @@ def self_update():
         # Clean the 'set-me-up' directory
         action("Cleaning 'set-me-up' directory")
         subprocess.run(f"rm -rf {smu_home_dir}", shell=True)
+        success("Successfully cleaned 'set-me-up' directory.")
         print()
 
         run_install_script()

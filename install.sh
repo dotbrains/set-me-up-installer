@@ -44,12 +44,26 @@ fi
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Check if '--no-header' flag is set
-if [[ "$1" = "--no-header" ]]; then
-	readonly show_header=false
-else
-	readonly show_header=true
-fi
+# Handle CLI arguments
+
+# Initialize the flag to "true" for showing the header
+show_header=true
+
+# Initialize the flag to "false" for skipping the confirmation
+skip_confirmation=false
+
+# Iterate over all arguments
+for arg in "$@"; do
+	if [[ "$arg" == "--skip-confirm" ]]; then
+		# If '-y' is found, set the flag to "true"
+		skip_confirmation=true
+		break
+	elif [[ "$arg" == "--no-header" ]]; then
+		# If '--no-header' is found, set the flag to "false"
+		show_header=false
+		break
+	fi
+done
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -205,6 +219,13 @@ function confirm() {
 	fi
 
 	printf "\n"
+
+	# Check if 'confirmation' is set to 'true'
+	# If it is, then skip the confirmation prompt.
+	if [[ "$skip_confirmation" = true ]]; then
+		return 0
+	fi
+
 	read -r -p "Would you like '${bold}set-me-up${normal}' to continue? (y/n) " -n 1
 	echo ""
 
