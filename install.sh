@@ -212,20 +212,6 @@ function install_rosetta() {
 }
 
 function confirm() {
-	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
-		warn "This script will download '${bold}$SMU_BLUEPRINT${normal}' on branch '${bold}$SMU_BLUEPRINT_BRANCH${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
-	else
-		warn "This script will download '${bold}set-me-up${normal}' for '${bold}${SMU_OS}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
-	fi
-
-	printf "\n"
-
-	# Check if 'confirmation' is set to 'true'
-	# If it is, then skip the confirmation prompt.
-	if [[ "$skip_confirmation" = true ]]; then
-		return 0
-	fi
-
 	read -r -p "Would you like '${bold}set-me-up${normal}' to continue? (y/n) " -n 1
 	echo ""
 
@@ -243,7 +229,20 @@ function obtain() {
 }
 
 function setup() {
-	confirm
+	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
+		warn "This script will download '${bold}$SMU_BLUEPRINT${normal}' on branch '${bold}$SMU_BLUEPRINT_BRANCH${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+	else
+		warn "This script will download '${bold}set-me-up${normal}' for '${bold}${SMU_OS}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+	fi
+
+	printf "\n"
+
+	# Check if 'confirmation' is set to 'false'
+	# If it is, then show the confirmation prompt.
+	if [[ "$skip_confirmation" = false ]]; then
+		confirm
+	fi
+
 	mkcd "${SMU_HOME_DIR}"
 
 	printf "\n"
