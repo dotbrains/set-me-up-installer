@@ -46,15 +46,18 @@ fi
 
 # Handle CLI arguments
 
-# Initialize the flag to "true" for showing the header
+# Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
+# By default, the header will be shown.
 show_header=true
 
-# Initialize the flag to "false" for skipping the confirmation
+# Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
+# By default, the confirmation prompt will be shown.
 skip_confirmation=false
+
+echo "$@"
 
 # Iterate over all arguments
 for arg in "$@"; do
-	echo "$arg"
 	if [[ "$arg" == "--skip-confirm" ]]; then
 		# If '--skip-confirm' is found, set the flag to "true"
 		skip_confirmation=true
