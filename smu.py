@@ -215,10 +215,7 @@ def self_update():
             )
 
         # Clean the 'set-me-up' directory
-        action("Cleaning 'set-me-up' directory")
         subprocess.run(f"rm -rf {smu_home_dir}", shell=True)
-        success("Successfully cleaned 'set-me-up' directory.")
-        print()
 
         run_install_script()
 
