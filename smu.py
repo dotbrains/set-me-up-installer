@@ -222,11 +222,9 @@ def self_update():
         # Clean the 'set-me-up' directory
         action("Cleaning 'set-me-up' directory")
         subprocess.run(f"rm -rf {smu_home_dir}", shell=True)
+        print()
 
         run_install_script()
-
-        # Update the 'set-me-up' submodules
-        update_submodules()
 
         # Clean up old symlinks
         remove_symlinks()
