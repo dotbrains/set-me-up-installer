@@ -207,13 +207,21 @@ def self_update():
 
     try:
         # Update the 'set-me-up' repository
-        
+
         def run_install_script():
             """
-            Run the install.sh script from the 'set-me-up-installer' directory.
+            Run the install.sh script from the 'set-me-up-installer' repository.
             """
 
-            subprocess.run(f"{installer_path}/install.sh --no-header", shell=True)
+            command = "bash <(curl -s -L https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/install.sh) --no-header"
+
+            subprocess.run(
+                ['bash', '-c', command]
+            )
+
+        # Clean the 'set-me-up' directory
+        action("Cleaning 'set-me-up' directory")
+        subprocess.run(f"rm -rf {smu_home_dir}", shell=True)
 
         run_install_script()
 
