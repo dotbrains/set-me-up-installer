@@ -13,11 +13,8 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 
 # The set-me-up version to download
 # Available versions:
-# 1. 'master' (MacOS)
-# 2. 'debian'
-# By default the installer will assume you are running MacOS.
-# However, if you are running Debian, it will automatically
-# download the 'debian' version.
+# 1. 'master' (Universal (MacOS & Debian))
+# By default the installer will derive the OS and download the appropriate version.
 # If neither of these versions are available, the installer
 # will determine if it was invoked via SMU Blueprint.
 SMU_VERSION=${SMU_VERSION:-"master"}

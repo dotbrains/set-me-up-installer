@@ -80,21 +80,94 @@ def update():
 
     subprocess.run(f"bash {script_path}", shell=True)
 
-def provision_module(module_name):
-    script_path = ""
+def get_module_path(module_name):
+    """
+    Get the path to the given module.
+    If the module is not supported on the current OS or does not exist then return None.
+    """
 
-    # Determine the script path based on the module name
-    if '/' in module_name:
-        # If the module name contains a subdirectory
-        dir_name, script_name = module_name.split('/', 1)
-        script_path = os.path.join(module_path, dir_name, script_name, f"{script_name}.sh")
-    elif module_name == "base":
-        script_path = os.path.join(smu_home_dir, ".dotfiles/base", f"{module_name}.sh")
-    else:
-        script_path = os.path.join(module_path, f"{module_name}.sh")
+    def extract_dir_and_module_name(module):
+        """
+        Extract the directory name and module name from the given string.
+        """
+
+        # Get the directory name and module name
+        # e.g., python/pip (module_name)
+        # dir_name = python/pip
+        # module_name = pip
+
+        # Split the string by '/'
+        parts = module.split('/')
+
+        # The directory name is the input string itself
+        dir_name = module
+
+        # The module name is the last part of the split string
+        module_name = parts[-1]
+
+        return dir_name, module_name
+
+    def obtain_universal_module_path(module_name):
+        """
+        Get the path to the given universal module.
+        If the module does not exist then return None.
+        """
+
+        # If the module name contains a '/', then the module is in a subdirectory of the 'universal' directory
+        # e.g., modules/universal/python/pip/pip.sh
+        if '/' in module_name:
+            dir_name, module_name = extract_dir_and_module_name(module_name)
+
+            script_path = os.path.join(module_path, "universal", dir_name, f"{module_name}.sh")
+
+            return script_path if os.path.exists(script_path) else None
+
+        # Universal module path
+        # e.g., modules/universal/fonts/fonts.sh
+        script_path = os.path.join(module_path, "universal", module_name, f"{module_name}.sh")
+
+        return script_path if os.path.exists(script_path) else None
+
+    # If we are trying to get the 'base' module, then return the path to the 'base' directory
+    if module_name == "base":
+        return os.path.join(smu_home_dir, ".dotfiles/base", f"{module_name}.sh")
+
+    # Determine the OS of the module by checking if the module is part of an OS-specific directory
+    # e.g., modules/macos/fonts/fonts.sh
+    #       modules/debian/fonts/fonts.sh
+    # If the module is not part of an OS-specific directory, then the module is universal, so 
+    # check the 'universal' directory for the module
+    # e.g., modules/universal/python/pip/pip.sh
+
+    if not macOS or not debian:
+        return obtain_universal_module_path(module_name)
+
+    smu_os = ""
+
+    if macOS:
+        smu_os = "macos"
+    elif debian:
+        smu_os = "debian"
+
+    # Module path
+    # e.g., modules/macos/fonts/fonts.sh
+    #       modules/debian/fonts/fonts.sh
+    script_path = os.path.join(module_path, smu_os, module_name, f"{module_name}.sh")
+
+    if not os.path.exists(script_path):
+        return obtain_universal_module_path(module_name)
+
+    # Check if the module exists for the current OS
+    # e.g., modules/macos/app_store/app_store.sh
+    return script_path
+    
+
+def provision_module(module_name):
+    # Get the path to the module
+    script_path = get_module_path(module_name)
 
     # Check if the script exists
-    if not os.path.exists(script_path):
+    if not script_path:
         warn(f"'{script_path}' does not seem to exist, skipping.")
         return
 
