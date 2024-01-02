@@ -212,6 +212,7 @@ function install_rosetta() {
 }
 
 function confirm() {
+	printf "\n"
 	read -r -p "Would you like '${bold}set-me-up${normal}' to continue? (y/n) " -n 1
 	echo ""
 
@@ -234,8 +235,6 @@ function setup() {
 	else
 		warn "This script will download '${bold}set-me-up${normal}' for '${bold}${SMU_OS}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	fi
-
-	printf "\n"
 
 	# Check if 'confirmation' is set to 'false'
 	# If it is, then show the confirmation prompt.
