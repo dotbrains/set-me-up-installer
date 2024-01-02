@@ -54,18 +54,14 @@ show_header=true
 # By default, the confirmation prompt will be shown.
 skip_confirmation=false
 
-echo "$@"
-
 # Iterate over all arguments
 for arg in "$@"; do
 	if [[ "$arg" == "--skip-confirm" ]]; then
 		# If '--skip-confirm' is found, set the flag to "true"
 		skip_confirmation=true
-		break
 	elif [[ "$arg" == "--no-header" ]]; then
 		# If '--no-header' is found, set the flag to "false"
 		show_header=false
-		break
 	fi
 done
 
