@@ -462,18 +462,6 @@ function main() {
 		exit 1
 	fi
 
-	# Preemptively check if installer was invoked via SMU Blueprint.
-	if ! invoked_via_smu_blueprint; then
-
-		# Assuming the installer was not invoked via SMU Blueprint,
-		# check if the user is running Debian.
-		# This is accomplished by determining if the SMU OS is 'debian',
-		# then set SMU_VERSION to 'debian'.
-		if [[ "$SMU_OS" = "debian" ]]; then
-			SMU_VERSION="debian"
-		fi
-	fi
-
 	# If SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH are set,
 	# Then the installer was invoked via SMU Blueprint.
 
