@@ -2,11 +2,11 @@
 
 # shellcheck disable=SC2001
 
-source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/master/utilities.sh")"
+source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/utilities/master/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# GitHub user/repo & branch value of your set-me-up blueprint (e.g.: nicholasadamou/set-me-up-blueprint/master).
+# GitHub user/repo & branch value of your set-me-up blueprint (e.g.: dotbrains/set-me-up-blueprint/master).
 # Set this value when the installer should additionally obtain your blueprint.
 readonly SMU_BLUEPRINT=${SMU_BLUEPRINT:-""}
 readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
@@ -27,7 +27,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
-readonly smu_download="https://github.com/nicholasadamou/set-me-up/tarball/${SMU_VERSION}"
+readonly smu_download="https://github.com/dotbrains/set-me-up/tarball/${SMU_VERSION}"
 readonly smu_blueprint_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMU_BLUEPRINT_BRANCH}"
 
 # Get the absolute path of the 'utilities' directory.
@@ -252,12 +252,12 @@ function setup() {
 	if ! is_git_repo; then
 		git -C "${SMU_HOME_DIR}" init &>/dev/null
 
-		# If (nicholasadamou/set-me-up) has submodules
+		# If (dotbrains/set-me-up) has submodules
 		# make sure to install them prior to installing
 		# set-me-up-blueprint submodules.
 
 		if has_submodules; then
-			# Store contents of (nicholasadamou/set-me-up) '.gitmodules' in variable
+			# Store contents of (dotbrains/set-me-up) '.gitmodules' in variable
 			# to later append to 'set-me-up-blueprint .gitmodules' if it exists.
 
 			submodules="$(cat "${SMU_HOME_DIR}/.gitmodules")"
@@ -272,7 +272,7 @@ function setup() {
 		fi
 	fi
 
-	# Handle (nicholasadamou/set-me-up-blueprint) installation
+	# Handle (dotbrains/set-me-up-blueprint) installation
 	if [[ "${SMU_BLUEPRINT}" != "" ]]; then
 		if is_git_repo && has_remote_origin; then
 			if has_untracked_changes; then
@@ -300,7 +300,7 @@ function setup() {
 
 				# Make sure that '$files' is not empty.
 				# If it is not empty then, commit changes
-				# to the (nicholasadamou/set-me-up-blueprint) repo.
+				# to the (dotbrains/set-me-up-blueprint) repo.
 
 				if [[ -n "$files" ]]; then
 					git -C "${SMU_HOME_DIR}" \
@@ -353,7 +353,7 @@ function setup() {
 				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 				# If '$submodules' is not empty, meaning,
-				# (nicholasadamou/set-me-up) has submodules
+				# (dotbrains/set-me-up) has submodules
 				# append its contents to the set-me-up-blueprint
 				#'.gitmodules' file.
 
@@ -381,7 +381,7 @@ function setup() {
 	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
 		echo -e "\nFor more information concerning how to install various modules, please see: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
 	else
-		echo -e "\nFor more information concerning how to install various modules, please see: [https://github.com/nicholasadamou/set-me-up/tree/$SMU_VERSION]\n"
+		echo -e "\nFor more information concerning how to install various modules, please see: [https://github.com/dotbrains/set-me-up/tree/$SMU_VERSION]\n"
 	fi
 }
 
@@ -418,7 +418,7 @@ function check_os_support() {
 	if invoked_via_smu_blueprint; then
 		# If invoked via SMU Blueprint, then we can assume that the OS is supported.
 		# This is because the SMU Blueprint is responsible for determining if the OS is supported.
-		# By default, 'nicholasadamou/set-me-up' (non-blueprint) supports MacOS and Debian.
+		# By default, 'dotbrains/set-me-up' (non-blueprint) supports MacOS and Debian.
 		return 0
 	fi
 
@@ -433,12 +433,12 @@ function main() {
 	if [[ "$show_header" = true ]]; then
 		# Check if 'header.sh' exists
 		# If it does, source it.
-		# Otherwise, source it from 'https://github.com/nicholasadamou/set-me-up-installer/raw/main/utilities/header.sh'
+		# Otherwise, source it from 'https://github.com/dotbrains/set-me-up-installer/raw/main/utilities/header.sh'
 
 		if [[ -f "${installer_utilities_path}/header.sh" ]]; then
 			source "${installer_utilities_path}/header.sh"
 		else
-			source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/utilities/header.sh")"
+			source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/utilities/header.sh")"
 		fi
 	fi
 

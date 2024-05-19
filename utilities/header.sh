@@ -1,4 +1,4 @@
-source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/nicholasadamou/utilities/master/utilities.sh")"
+source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/utilities/master/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -17,7 +17,7 @@ header() {
 echo -e "\n${bold}\$HOME sweet /~\n${normal}"
 
 echo -e "Welcome to the '${bold}set-me-up${normal}' installer."
-echo -e "For more information, please see [https://github.com/nicholasadamou/set-me-up]."
+echo -e "For more information, please see [https://github.com/dotbrains/set-me-up]."
 echo -e "Please follow the on-screen instructions.\n"
 
 warn "${bold}This script sets up new machines, *use with caution*${normal}."

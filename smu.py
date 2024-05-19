@@ -208,7 +208,7 @@ def self_update():
             Run the install.sh script from the 'set-me-up-installer' repository.
             """
 
-            command = "bash <(curl -s -L https://raw.githubusercontent.com/nicholasadamou/set-me-up-installer/main/install.sh) --no-header --skip-confirm"
+            command = "bash <(curl -s -L https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/install.sh) --no-header --skip-confirm"
 
             subprocess.run(
                 ['bash', '-c', command]
