@@ -280,9 +280,9 @@ function setup() {
 				# obtaining list of modified files
 
 				if [[ -n "$SMU_IGNORED_PATHS" ]]; then
-					IGNORED_PATHS=".gitmodules|.dotfiles/modules/install.sh|${SMU_IGNORED_PATHS}"
+					IGNORED_PATHS=".gitmodules|dotfiles/modules/install.sh|${SMU_IGNORED_PATHS}"
 				else
-					IGNORED_PATHS=".gitmodules|.dotfiles/modules/install.sh"
+					IGNORED_PATHS=".gitmodules|dotfiles/modules/install.sh"
 				fi
 
 				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

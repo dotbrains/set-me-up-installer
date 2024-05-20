@@ -17,14 +17,14 @@ NORMAL = '\033[0m'
 
 # set-me-up paths
 smu_home_dir = os.getenv("SMU_HOME_DIR", os.path.join(os.path.expanduser("~"), "set-me-up"))
-module_path = os.path.join(smu_home_dir, ".dotfiles/modules")
+module_path = os.path.join(smu_home_dir, "dotfiles/modules")
 
 # 'set-me-up' installer scripts
 installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
 installer_scripts_path = os.path.join(installer_path, "scripts")
 
 # rcm configuration file path
-rcrc = os.path.join(smu_home_dir, ".dotfiles/rcrc")
+rcrc = os.path.join(smu_home_dir, "dotfiles/rcrc")
 
 # Determine if OS is MacOS
 macOS = sys.platform == "darwin"
@@ -51,17 +51,17 @@ def die(message, exit_code=1):
 def list_symlinks():
     os.environ["RCRC"] = rcrc
 
-    subprocess.run(f"lsrc -v -d {os.path.join(smu_home_dir, '.dotfiles')}", shell=True)
+    subprocess.run(f"lsrc -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
 
 def symlink():
     os.environ["RCRC"] = rcrc
 
-    subprocess.run(f"rcup -v -f -d {os.path.join(smu_home_dir, '.dotfiles')}", shell=True)
+    subprocess.run(f"rcup -v -f -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
 
 def remove_symlinks():
     os.environ["RCRC"] = rcrc
 
-    subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, '.dotfiles')}", shell=True)
+    subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
 
 def create_boot_disk():
     # Execute create boot disk script
@@ -130,7 +130,7 @@ def get_module_path(module_name):
 
     # If we are trying to get the 'base' module, then return the path to the 'base' directory
     if module_name == "base":
-        return os.path.join(smu_home_dir, ".dotfiles/base", f"{module_name}.sh")
+        return os.path.join(smu_home_dir, "dotfiles/base", f"{module_name}.sh")
 
     # Determine the OS of the module by checking if the module is part of an OS-specific directory
     # e.g., modules/macos/fonts/fonts.sh
