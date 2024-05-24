@@ -28,7 +28,6 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
 readonly smu_download="https://github.com/dotbrains/set-me-up/tarball/${SMU_VERSION}"
-readonly smu_blueprint_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMU_BLUEPRINT_BRANCH}"
 
 # Get the absolute path of the 'utilities' directory.
 readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
@@ -170,7 +169,7 @@ function can_install_rosetta() {
 	# Save current IFS state
 	OLDIFS=$IFS
 
-	IFS='.' read osvers_major osvers_minor osvers_dot_version <<<"$(/usr/bin/sw_vers -productVersion)"
+	IFS='.' read osvers_major <<<"$(/usr/bin/sw_vers -productVersion)"
 
 	# restore IFS to previous state
 	IFS=$OLDIFS
