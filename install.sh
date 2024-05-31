@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # shellcheck disable=SC2001
+# shellcheck disable=SC2154
+# shellcheck disable=SC1091
 
 source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/utilities/master/utilities.sh")"
 
@@ -35,49 +37,46 @@ readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Determine if we're on MacOS or Debian
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	readonly SMU_OS="MacOS"
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	readonly SMU_OS="debian"
-fi
+
+function detect_os() {
+	case "$(uname | tr '[:upper:]' '[:lower:]')" in
+	darwin*) readonly SMU_OS="MacOS" ;;
+	linux-gnu*) readonly SMU_OS="debian" ;;
+	*) readonly SMU_OS="unsupported" ;;
+	esac
+}
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Handle CLI arguments
+function parse_arguments() {
+	# Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
+	# By default, the header will be shown.
+	show_header=true
 
-# Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
-# By default, the header will be shown.
-show_header=true
+	# Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
+	# By default, the confirmation prompt will be shown.
+	skip_confirmation=false
 
-# Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
-# By default, the confirmation prompt will be shown.
-skip_confirmation=false
-
-# Iterate over all arguments
-for arg in "$@"; do
-	if [[ "$arg" == "--skip-confirm" ]]; then
+	for arg in "$@"; do
+		case "$arg" in
 		# If '--skip-confirm' is found, set the flag to "true"
-		skip_confirmation=true
-	elif [[ "$arg" == "--no-header" ]]; then
-		# If '--no-header' is found, set the flag to "false"
-		show_header=false
-	fi
-done
+		--skip-confirm) skip_confirmation=true ;;
+			# If '--no-header' is found, set the flag to "false"
+		--no-header) show_header=false ;;
+		esac
+	done
+}
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function mkcd() {
-	local -r dir="${1}"
-
-	if [[ ! -d "${dir}" ]]; then
-		mkdir "${dir}"
-	fi
-
+	local dir="${1}"
+	[[ ! -d "${dir}" ]] && mkdir "${dir}"
 	cd "${dir}" || return
 }
 
 function is_git_repo() {
-	[[ -d "${SMU_HOME_DIR}/.git" ]] || [[ $(git -C "${SMU_HOME_DIR}" rev-parse --is-inside-work-tree 2>/dev/null) ]]
+	[[ -d "${SMU_HOME_DIR}/.git" ]] || git -C "${SMU_HOME_DIR}" rev-parse --is-inside-work-tree &>/dev/null
 }
 
 function has_remote_origin() {
@@ -112,33 +111,33 @@ function is_git_repo_out_of_date() {
 }
 
 function is_dir_empty() {
-	ls -A "${SMU_HOME_DIR:?}/$1" &>/dev/null
+	[ -z "$(ls -A "$1")" ]
 }
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 function install_submodules() {
+	# Read the '.gitmodules' file and install the submodules
 	git -C "${SMU_HOME_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
 		while read -r KEY MODULE_PATH; do
 			if [[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && ! is_dir_empty "${MODULE_PATH}" && does_repo_contain "${MODULE_PATH}"; then
 				continue
-			else
-				[[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && is_dir_empty "${MODULE_PATH}" && {
-					rm -rf "${SMU_HOME_DIR:?}/${MODULE_PATH}"
-				}
-
-				NAME="$(echo "$KEY" | sed -e 's/submodule.//g' | sed -e 's/.path//g')"
-
-				URL_KEY="$(echo "${KEY}" | sed 's/\.path$/.url/')"
-				URL="$(git -C "${SMU_HOME_DIR}" config -f .gitmodules --get "${URL_KEY}")"
-
-				# Attempt to get the branch from the submodule URL
-				BRANCH=$(git ls-remote --symref "${URL}" HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
-
-				git -C "${SMU_HOME_DIR}" submodule add --force -b "${BRANCH}" --name "${NAME}" "${URL}" "${MODULE_PATH}" || continue
 			fi
+
+			[[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && is_dir_empty "${MODULE_PATH}" && rm -rf "${SMU_HOME_DIR:?}/${MODULE_PATH}"
+
+			local NAME="$(echo "$KEY" | sed -e 's/submodule.//g' -e 's/.path//g')"
+			local URL_KEY="$(echo "${KEY}" | sed 's/\.path$/.url/')"
+			local URL="$(git -C "${SMU_HOME_DIR}" config -f .gitmodules --get "${URL_KEY}")"
+			local BRANCH=$(git ls-remote --symref "${URL}" HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+
+			git -C "${SMU_HOME_DIR}" submodule add --force -b "${BRANCH}" --name "${NAME}" "${URL}" "${MODULE_PATH}" || continue
 		done
 
 	git -C "${SMU_HOME_DIR}" submodule update --init --recursive
 }
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function are_xcode_command_line_tools_installed() {
 	xcode-select --print-path &>/dev/null
@@ -169,7 +168,7 @@ function can_install_rosetta() {
 	# Save current IFS state
 	OLDIFS=$IFS
 
-	IFS='.' read osvers_major <<<"$(/usr/bin/sw_vers -productVersion)"
+	IFS='.' read -r osvers_major <<<"$(/usr/bin/sw_vers -productVersion)"
 
 	# restore IFS to previous state
 	IFS=$OLDIFS
@@ -210,6 +209,8 @@ function install_rosetta() {
 		success "'${bold}Rosetta${normal}' was successfully installed\n"
 }
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 function confirm() {
 	printf "\n"
 	read -r -p "Would you like '${bold}set-me-up${normal}' to continue? (y/n) " -n 1
@@ -217,6 +218,8 @@ function confirm() {
 
 	[[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
 }
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function obtain() {
 	local -r DOWNLOAD_URL="${1}"
@@ -228,21 +231,35 @@ function obtain() {
 			--exclude={README.md,LICENSE,.gitignore}
 }
 
-function setup() {
-	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
-		warn "This script will download '${bold}$SMU_BLUEPRINT${normal}' on branch '${bold}$SMU_BLUEPRINT_BRANCH${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
-	else
-		warn "This script will download '${bold}set-me-up${normal}' for '${bold}${SMU_OS}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+function setup_blueprint() {
+	if is_git_repo && git -C "${SMU_HOME_DIR}" config --get remote.origin.url; then
+		if git -C "${SMU_HOME_DIR}" diff-index --quiet HEAD --; then
+			if git -C "${SMU_HOME_DIR}" fetch --all; then
+				git -C "${SMU_HOME_DIR}" reset --hard "origin/${SMU_BLUEPRINT_BRANCH}"
+				git -C "${SMU_HOME_DIR}" submodule update --init --recursive
+			fi
+
+			return 0
+		fi
+
+		echo "Local changes detected. Please commit or stash them before proceeding."
+		exit 1
 	fi
 
-	# Check if 'confirmation' is set to 'false'
-	# If it is, then show the confirmation prompt.
-	if [[ "$skip_confirmation" = false ]]; then
-		confirm
-	fi
+	git -C "${SMU_HOME_DIR}" init
+	git -C "${SMU_HOME_DIR}" remote add origin "https://github.com/${SMU_BLUEPRINT}.git"
+	git -C "${SMU_HOME_DIR}" fetch
+	git -C "${SMU_HOME_DIR}" checkout -b "${SMU_BLUEPRINT_BRANCH}" "origin/${SMU_BLUEPRINT_BRANCH}"
+	git -C "${SMU_HOME_DIR}" submodule update --init --recursive
+
+	echo "Blueprint setup complete."
+}
+
+function setup() {
+	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+	[[ "$skip_confirmation" = false ]] && confirm
 
 	mkcd "${SMU_HOME_DIR}"
-
 	printf "\n"
 	action "Obtaining '${bold}set-me-up${normal}'."
 	obtain "${smu_download}"
@@ -250,146 +267,29 @@ function setup() {
 
 	if ! is_git_repo; then
 		git -C "${SMU_HOME_DIR}" init &>/dev/null
-
-		# If (dotbrains/set-me-up) has submodules
-		# make sure to install them prior to installing
-		# set-me-up-blueprint submodules.
-
-		if has_submodules; then
-			# Store contents of (dotbrains/set-me-up) '.gitmodules' in variable
-			# to later append to 'set-me-up-blueprint .gitmodules' if it exists.
-
-			submodules="$(cat "${SMU_HOME_DIR}/.gitmodules")"
-
-			# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-			action "Installing '${bold}set-me-up${normal}' submodules."
-
-			install_submodules
-
-			printf "\n"
-		fi
+		[[ $(has_submodules) ]] && action "Installing '${bold}set-me-up${normal}' submodules." && install_submodules && printf "\n"
 	fi
 
-	# Handle (dotbrains/set-me-up-blueprint) installation
-	if [[ "${SMU_BLUEPRINT}" != "" ]]; then
-		if is_git_repo && has_remote_origin; then
-			if has_untracked_changes; then
-				# Make sure '$SMU_IGNORED_PATHS' is set prior to
-				# obtaining list of modified files
-
-				if [[ -n "$SMU_IGNORED_PATHS" ]]; then
-					IGNORED_PATHS=".gitmodules|dotfiles/modules/install.sh|${SMU_IGNORED_PATHS}"
-				else
-					IGNORED_PATHS=".gitmodules|dotfiles/modules/install.sh"
-				fi
-
-				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-				# Obtain list of modified files
-
-				files="$(git -C "${SMU_HOME_DIR}" status -s |
-					grep -v '?' |
-					sed 's/[AMCDRTUX]//g' |
-					xargs printf -- "${SMU_HOME_DIR}/%s\n" |
-					grep -vE "${IGNORED_PATHS}" |
-					xargs)"
-
-				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-				# Make sure that '$files' is not empty.
-				# If it is not empty then, commit changes
-				# to the (dotbrains/set-me-up-blueprint) repo.
-
-				if [[ -n "$files" ]]; then
-					git -C "${SMU_HOME_DIR}" \
-						add -f "$files" &>/dev/null
-
-					git -C "${SMU_HOME_DIR}" \
-						-c user.name="set-me-up" \
-						-c user.email="set-me-up@gmail.com" \
-						commit -m "✅ UPDATED: '$files'" &>/dev/null
-
-					if [[ "$?" -eq 0 ]]; then
-						success "UPDATED: '$files'\n"
-					fi
-				fi
-
-				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-				git -C "${SMU_HOME_DIR}" reset --hard HEAD &>/dev/null
-			fi
-
-			if is_git_repo_out_of_date "$SMU_BLUEPRINT_BRANCH"; then
-				action "Updating your '${bold}set-me-up${normal}' blueprint."
-
-				git -C "${SMU_HOME_DIR}" pull --ff
-			else
-				success "Already up-to-date"
-			fi
-
-			if has_submodules; then
-				printf "\n"
-				action "Updating your '${bold}set-me-up${normal}' blueprint submodules."
-
-				install_submodules
-
-				git -C "${SMU_HOME_DIR}" submodule foreach git pull
-			fi
-		else
-			action "Cloning your '${bold}set-me-up${normal}' blueprint."
-
-			git -C "${SMU_HOME_DIR}" remote add origin "https://github.com/${SMU_BLUEPRINT}.git"
-			git -C "${SMU_HOME_DIR}" fetch
-			git -C "${SMU_HOME_DIR}" checkout -f "${SMU_BLUEPRINT_BRANCH}"
-
-			# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-			if has_submodules; then
-				printf "\n"
-				action "Installing your '${bold}set-me-up${normal}' blueprint submodules."
-
-				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-				# If '$submodules' is not empty, meaning,
-				# (dotbrains/set-me-up) has submodules
-				# append its contents to the set-me-up-blueprint
-				#'.gitmodules' file.
-
-				if [[ -n "$submodules" ]]; then
-					if ! grep -q "$(tr <<<"$submodules" '\n' '\01')" < <(less "${SMU_HOME_DIR}/.gitmodules" | tr '\n' '\01'); then
-						echo "$submodules" >>"${SMU_HOME_DIR}"/.gitmodules
-						git -C "${SMU_HOME_DIR}" \
-							-c user.name="set-me-up" \
-							-c user.email="set-me-up@gmail.com" \
-							commit -a -m "✅ UPDATED: '.gitmodules'" &>/dev/null
-					fi
-				fi
-
-				# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-				install_submodules
-			fi
-		fi
+	if [[ -n "$SMU_BLUEPRINT" ]]; then
+		setup_blueprint
 	fi
 
 	printf "\n"
-
 	success "'${bold}set-me-up${normal}' has been successfully installed on your system."
-
-	if [[ -n "$SMU_BLUEPRINT" ]] && [[ -n "$SMU_BLUEPRINT_BRANCH" ]]; then
-		echo -e "\nFor more information concerning how to install various modules, please see: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
-	else
-		echo -e "\nFor more information concerning how to install various modules, please see: [https://github.com/dotbrains/set-me-up/tree/$SMU_VERSION]\n"
-	fi
+	[[ -n "$SMU_BLUEPRINT" ]] && echo -e "\nFor more information, visit: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
 }
 
 function install_rosetta_if_needed() {
 	# Installing Rosetta 2 on Apple Silicon Macs
 	# See https://derflounder.wordpress.com/2020/11/17/installing-rosetta-2-on-apple-silicon-macs/
+
 	if can_install_rosetta && ! is_rosetta_installed; then
 		install_rosetta
-	elif is_rosetta_installed; then
+
+		return 0
+	fi
+
+	if is_rosetta_installed; then
 		success "'${bold}Rosetta${normal}' is already installed\n"
 	fi
 }
@@ -397,9 +297,11 @@ function install_rosetta_if_needed() {
 function install_xcode_command_line_tools_if_needed() {
 	if ! are_xcode_command_line_tools_installed; then
 		install_xcode_command_line_tools
-	else
-		success "'${bold}Xcode Command Line Tools${normal}' are already installed\n"
+
+		return 0
 	fi
+
+	success "'${bold}Xcode Command Line Tools${normal}' are already installed\n"
 }
 
 function invoked_via_smu_blueprint() {
@@ -428,18 +330,22 @@ function check_os_support() {
 	fi
 }
 
-function main() {
-	if [[ "$show_header" = true ]]; then
-		# Check if 'header.sh' exists
-		# If it does, source it.
-		# Otherwise, source it from 'https://github.com/dotbrains/set-me-up-installer/raw/main/utilities/header.sh'
+function source_header() {
+	if [[ -f "${installer_utilities_path}/header.sh" ]]; then
+		source "${installer_utilities_path}/header.sh"
 
-		if [[ -f "${installer_utilities_path}/header.sh" ]]; then
-			source "${installer_utilities_path}/header.sh"
-		else
-			source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/utilities/header.sh")"
-		fi
+		return 0
 	fi
+
+	source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/utilities/header.sh")"
+}
+
+main() {
+
+	detect_os
+	parse_arguments "$@"
+
+	[[ "$show_header" = true ]] && source_header
 
 	# Determine if the operating system is supported
 	# by the base 'set-me-up' configuration.
@@ -449,7 +355,6 @@ function main() {
 	# 'Xcode Command Line Tools' and 'Rosetta' if needed.
 	if [[ "$SMU_OS" = "MacOS" ]]; then
 		install_xcode_command_line_tools_if_needed
-
 		install_rosetta_if_needed
 	fi
 
@@ -465,6 +370,7 @@ function main() {
 	# Then the installer was invoked via SMU Blueprint.
 
 	setup
+
 }
 
 main "$@"
