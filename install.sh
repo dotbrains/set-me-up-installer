@@ -30,7 +30,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
-readonly smu_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMUE_BLUEPRINT_BRANCH}"
+readonly smu_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMU_BLUEPRINT_BRANCH}"
 
 # Get the absolute path of the 'utilities' directory.
 readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
@@ -238,7 +238,7 @@ function setup() {
 
 	mkcd "${SMU_HOME_DIR}"
 	printf "\n"
-	action "Obtaining '${bold}set-me-up${normal}'."
+	action "Obtaining '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}'."
 	obtain "${smu_download}"
 	printf "\n"
 
