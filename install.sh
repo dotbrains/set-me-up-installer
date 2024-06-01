@@ -118,19 +118,30 @@ function is_dir_empty() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function install_submodules() {
+	# Ensures SMU_HOME_DIR is set
+	: "${SMU_HOME_DIR:?SMU_HOME_DIR is not set}"
+
 	# Read the '.gitmodules' file and install the submodules
-	git -C "${SMU_HOME_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
-		while read -r KEY MODULE_PATH; do
-			[[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && is_dir_empty "${MODULE_PATH}" && rm -rf "${SMU_HOME_DIR:?}/${MODULE_PATH}"
+	git -C "${SMU_HOME_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' | while read -r key path; do
+		# Check if the directory exists and is empty, then remove it
+		[[ -d "${SMU_HOME_DIR}/${path}" && $(is_dir_empty "${path}") ]] && rm -rf "${SMU_HOME_DIR}/${path}"
 
-			local NAME="$(echo "$KEY" | sed -e 's/submodule.//g' -e 's/.path//g')"
-			local URL_KEY="$(echo "${KEY}" | sed 's/\.path$/.url/')"
-			local URL="$(git -C "${SMU_HOME_DIR}" config -f .gitmodules --get "${URL_KEY}")"
-			local BRANCH=$(git ls-remote --symref "${URL}" HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+		# Extract submodule name and URL
 
-			git -C "${SMU_HOME_DIR}" submodule add --force -b "${BRANCH}" --name "${NAME}" "${URL}" "${MODULE_PATH}" || continue
-		done
+		name="${key#submodule.}"
+		name="${name%.path}"
 
+		url_key="${key/.path/.url}"
+		url="$(git -C "${SMU_HOME_DIR}" config -f .gitmodules --get "${url_key}")"
+
+		# Find the default branch
+		branch=$(git ls-remote --symref "${url}" HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+
+		# Add the submodule
+		git -C "${SMU_HOME_DIR}" submodule add --force -b "${branch}" --name "${name}" "${url}" "${path}" || continue
+	done
+
+	# Update all submodules
 	git -C "${SMU_HOME_DIR}" submodule update --init --recursive
 }
 
