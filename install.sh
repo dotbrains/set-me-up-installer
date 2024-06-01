@@ -16,6 +16,12 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 [[ -z "$SMU_BLUEPRINT" ]] && error "SMU_BLUEPRINT must be set."
 [[ -z "$SMU_BLUEPRINT_BRANCH" ]] && error "SMU_BLUEPRINT_BRANCH must be set."
 
+# Verify that SMU_BLUEPRINT is a valid GitHub repository
+# It must follow the format: 'username/repo'
+if ! [[ "$SMU_BLUEPRINT" =~ ^[a-z0-9]+/[a-z0-9]+$ ]]; then
+	error "SMU_BLUEPRINT must be in the format 'username/repo'."
+fi
+
 # A set of ignored paths that 'git' will ignore
 # syntax: '<path>|<path>'
 # Note: <path> is relative to '$HOME/set-me-up'
@@ -24,7 +30,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
-readonly smu_download="https://github.com/dotbrains/${SMU_BLUEPRINT}/tarball/${SMUE_BLUEPRINT_BRANCH}"
+readonly smu_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMUE_BLUEPRINT_BRANCH}"
 
 # Get the absolute path of the 'utilities' directory.
 readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
