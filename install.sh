@@ -13,13 +13,8 @@ source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/uti
 readonly SMU_BLUEPRINT=${SMU_BLUEPRINT:-""}
 readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 
-# The set-me-up version to download
-# Available versions:
-# 1. 'master' (Universal (MacOS & Debian))
-# By default the installer will derive the OS and download the appropriate version.
-# If neither of these versions are available, the installer
-# will determine if it was invoked via SMU Blueprint.
-SMU_VERSION=${SMU_VERSION:-"master"}
+[[ -z "$SMU_BLUEPRINT" ]] && error "SMU_BLUEPRINT must be set."
+[[ -z "$SMU_BLUEPRINT_BRANCH" ]] && error "SMU_BLUEPRINT_BRANCH must be set."
 
 # A set of ignored paths that 'git' will ignore
 # syntax: '<path>|<path>'
@@ -29,7 +24,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
-readonly smu_download="https://github.com/dotbrains/set-me-up/tarball/${SMU_VERSION}"
+readonly smu_download="https://github.com/dotbrains/${SMU_BLUEPRINT}/tarball/${SMUE_BLUEPRINT_BRANCH}"
 
 # Get the absolute path of the 'utilities' directory.
 readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
@@ -231,30 +226,6 @@ function obtain() {
 			--exclude={README.md,LICENSE,.gitignore}
 }
 
-function setup_blueprint() {
-	if is_git_repo && git -C "${SMU_HOME_DIR}" config --get remote.origin.url; then
-		if git -C "${SMU_HOME_DIR}" diff-index --quiet HEAD --; then
-			if git -C "${SMU_HOME_DIR}" fetch --all; then
-				git -C "${SMU_HOME_DIR}" reset --hard "origin/${SMU_BLUEPRINT_BRANCH}"
-				git -C "${SMU_HOME_DIR}" submodule update --init --recursive
-			fi
-
-			return 0
-		fi
-
-		echo "Local changes detected. Please commit or stash them before proceeding."
-		exit 1
-	fi
-
-	git -C "${SMU_HOME_DIR}" init
-	git -C "${SMU_HOME_DIR}" remote add origin "https://github.com/${SMU_BLUEPRINT}.git"
-	git -C "${SMU_HOME_DIR}" fetch
-	git -C "${SMU_HOME_DIR}" checkout -b "${SMU_BLUEPRINT_BRANCH}" "origin/${SMU_BLUEPRINT_BRANCH}"
-	git -C "${SMU_HOME_DIR}" submodule update --init --recursive
-
-	echo "Blueprint setup complete."
-}
-
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	[[ "$skip_confirmation" = false ]] && confirm
@@ -268,10 +239,6 @@ function setup() {
 	if ! is_git_repo; then
 		git -C "${SMU_HOME_DIR}" init &>/dev/null
 		[[ $(has_submodules) ]] && action "Installing '${bold}set-me-up${normal}' submodules." && install_submodules && printf "\n"
-	fi
-
-	if [[ -n "$SMU_BLUEPRINT" ]]; then
-		setup_blueprint
 	fi
 
 	printf "\n"
