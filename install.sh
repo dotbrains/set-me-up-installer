@@ -37,6 +37,16 @@ readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
+# By default, the header will be shown.
+show_header=true
+
+# Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
+# By default, the confirmation prompt will be shown.
+skip_confirmation=false
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 # Determine if we're on MacOS or Debian
 
 function detect_os() {
@@ -50,14 +60,6 @@ function detect_os() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function parse_arguments() {
-	# Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
-	# By default, the header will be shown.
-	show_header=true
-
-	# Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
-	# By default, the confirmation prompt will be shown.
-	skip_confirmation=false
-
 	for arg in "$@"; do
 		case "$arg" in
 		# If '--skip-confirm' is found, set the flag to "true"
