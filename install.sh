@@ -30,7 +30,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
-readonly smu_download="https://github.com/${SMU_BLUEPRINT}/tarball/${SMU_BLUEPRINT_BRANCH}"
+readonly smu_download="https://github.com/${SMU_BLUEPRINT}"
 
 # Get the absolute path of the 'utilities' directory.
 readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
@@ -113,36 +113,6 @@ function is_git_repo_out_of_date() {
 
 function is_dir_empty() {
 	[ -z "$(ls -A "$1")" ]
-}
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-function install_submodules() {
-	# Ensures SMU_HOME_DIR is set
-	: "${SMU_HOME_DIR:?SMU_HOME_DIR is not set}"
-
-	# Read the '.gitmodules' file and install the submodules
-	git -C "${SMU_HOME_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' | while read -r key path; do
-		# Check if the directory exists and is empty, then remove it
-		[[ -d "${SMU_HOME_DIR}/${path}" && $(is_dir_empty "${path}") ]] && rm -rf "${SMU_HOME_DIR}/${path}"
-
-		# Extract submodule name and URL
-
-		name="${key#submodule.}"
-		name="${name%.path}"
-
-		url_key="${key/.path/.url}"
-		url="$(git -C "${SMU_HOME_DIR}" config -f .gitmodules --get "${url_key}")"
-
-		# Find the default branch
-		branch=$(git ls-remote --symref "${url}" HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
-
-		# Add the submodule
-		git -C "${SMU_HOME_DIR}" submodule add --force -b "${branch}" --name "${name}" "${url}" "${path}" || continue
-	done
-
-	# Update all submodules
-	git -C "${SMU_HOME_DIR}" submodule update --init --recursive
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -234,9 +204,7 @@ function obtain() {
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-	curl --progress-bar -L "${DOWNLOAD_URL}" |
-		tar -xmz --strip-components 1 \
-			--exclude={README.md,LICENSE,.gitignore}
+	git clone --quiet --depth 1 --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
 }
 
 function setup() {
@@ -248,12 +216,6 @@ function setup() {
 	action "Obtaining '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}'."
 	obtain "${smu_download}"
 	printf "\n"
-
-	if ! is_git_repo; then
-		git -C "${SMU_HOME_DIR}" init &>/dev/null
-		# TODO - install_submodules is not working as expected
-		[[ $(has_submodules) ]] && action "Installing '${bold}set-me-up${normal}' submodules." && install_submodules && printf "\n"
-	fi
 
 	printf "\n"
 	success "'${bold}set-me-up${normal}' has been successfully installed on your system."
