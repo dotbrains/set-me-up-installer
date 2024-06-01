@@ -217,7 +217,6 @@ function setup() {
 	obtain "${smu_download}"
 	printf "\n"
 
-	printf "\n"
 	success "'${bold}set-me-up${normal}' has been successfully installed on your system."
 	[[ -n "$SMU_BLUEPRINT" ]] && echo -e "\nFor more information, visit: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
 }
