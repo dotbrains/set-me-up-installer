@@ -204,6 +204,18 @@ function obtain() {
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+	if [[ -d "${SMU_HOME_DIR}/.git" ]]; then
+		# If the directory exists and is a Git repository, pull the latest changes and update submodules
+		git -C "${SMU_HOME_DIR}" fetch --quiet
+		git -C "${SMU_HOME_DIR}" reset --hard "origin/${SMU_BLUEPRINT_BRANCH}"
+		git -C "${SMU_HOME_DIR}" submodule update --init --recursive
+
+		return 0
+	fi
+
+	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+	# Otherwise, clone the repository and update submodules
 	git clone --quiet --depth 1 --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
 }
 
