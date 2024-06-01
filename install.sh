@@ -216,7 +216,7 @@ function obtain() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Otherwise, clone the repository and update submodules
-	git clone --quiet --recursive --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
+	git clone --recursive --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
 }
 
 function setup() {
