@@ -121,10 +121,6 @@ function install_submodules() {
 	# Read the '.gitmodules' file and install the submodules
 	git -C "${SMU_HOME_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
 		while read -r KEY MODULE_PATH; do
-			if [[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && ! is_dir_empty "${MODULE_PATH}" && does_repo_contain "${MODULE_PATH}"; then
-				continue
-			fi
-
 			[[ -d "${SMU_HOME_DIR:?}/${MODULE_PATH}" ]] && is_dir_empty "${MODULE_PATH}" && rm -rf "${SMU_HOME_DIR:?}/${MODULE_PATH}"
 
 			local NAME="$(echo "$KEY" | sed -e 's/submodule.//g' -e 's/.path//g')"
@@ -244,6 +240,7 @@ function setup() {
 
 	if ! is_git_repo; then
 		git -C "${SMU_HOME_DIR}" init &>/dev/null
+		# TODO - install_submodules is not working as expected
 		[[ $(has_submodules) ]] && action "Installing '${bold}set-me-up${normal}' submodules." && install_submodules && printf "\n"
 	fi
 
