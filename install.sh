@@ -192,6 +192,11 @@ function install_rosetta() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function confirm() {
+	# Check if skip_confirmation is true, if so, return without prompting
+	if [[ "$skip_confirmation" = true ]]; then
+		return
+	fi
+
 	printf "\n"
 	read -r -p "Would you like '${bold}set-me-up${normal}' to continue? (y/n) " -n 1
 	echo ""
@@ -223,7 +228,7 @@ function obtain() {
 
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
-	[[ "$skip_confirmation" = false ]] && confirm
+	confirm
 
 	mkcd "${SMU_HOME_DIR}"
 	printf "\n"
