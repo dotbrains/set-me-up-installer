@@ -2,18 +2,18 @@
 
 # shellcheck source=/dev/null
 
-declare current_dir && \
-    current_dir="$(dirname "${BASH_SOURCE[0]}")" && \
-    cd "${current_dir}" && \
+declare current_dir &&
+    current_dir="$(dirname "${BASH_SOURCE[0]}")" &&
+    cd "${current_dir}" &&
     source "$HOME/set-me-up/dotfiles/utilities/utilities.sh"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 install_homebrew() {
 
-	printf "\n" | \
-		/bin/bash -c \
-			"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    printf "\n" |
+        /bin/bash -c \
+            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 }
 
@@ -23,7 +23,7 @@ get_homebrew_git_config_file_path() {
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    if path="$(brew --repository 2> /dev/null)/.git/config"; then
+    if path="$(brew --repository 2>/dev/null)/.git/config"; then
         printf "%s" "$path"
         return 0
     else
@@ -40,8 +40,8 @@ opt_out_of_analytics() {
 
     # Try to get the path of the `Homebrew` git config file.
 
-    path="$(get_homebrew_git_config_file_path)" \
-        || return 1
+    path="$(get_homebrew_git_config_file_path)" ||
+        return 1
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -49,7 +49,7 @@ opt_out_of_analytics() {
     # https://github.com/Homebrew/brew/blob/0c95c60511cc4d85d28f66b58d51d85f8186d941/share/doc/homebrew/Analytics.md#opting-out
 
     if [[ "$(git config --file="$path" --get homebrew.analyticsdisabled)" != "true" ]]; then
-        git config --file="$path" --replace-all homebrew.analyticsdisabled true &> /dev/null
+        git config --file="$path" --replace-all homebrew.analyticsdisabled true &>/dev/null
     fi
 
 }
@@ -60,15 +60,19 @@ main() {
 
     ask_for_sudo
 
-	if command -v brew &> /dev/null; then
-		if [[ -d "$(brew --prefix)/bin" ]]; then
-			export PATH="$(brew --prefix)/bin:$PATH"
-		fi
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		if [[ -d "$(brew --prefix)/sbin" ]]; then
-			export PATH="$(brew --prefix)/sbin:$PATH"
-		fi
-	fi
+    if cmd_exists "brew"; then
+        if [[ -d "$(brew --prefix)/bin" ]]; then
+            export PATH="$(brew --prefix)/bin:$PATH"
+        fi
+
+        if [[ -d "$(brew --prefix)/sbin" ]]; then
+            export PATH="$(brew --prefix)/sbin:$PATH"
+        fi
+    fi
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     if ! cmd_exists "brew"; then
         install_homebrew

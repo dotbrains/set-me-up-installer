@@ -42,6 +42,8 @@ install_brew() {
 
 	bash "${installer_scripts_path}"/brew/brew.sh
 
+	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 	if command -v brew &>/dev/null; then
 		if [[ -d "$(brew --prefix)/bin" ]]; then
 			export PATH="$(brew --prefix)/bin:$PATH"
@@ -79,46 +81,26 @@ main() {
 
 	# Check if ~/.bash.local exists
 	if [ ! -f "${HOME}/.bash.local" ]; then
-		error "'~/.bash.local' does not exist."
+		warning "'~/.bash.local' does not exist."
 
 		# We must first create the $HOME/.bash.local configuration file
 		# in order for the brew module to properly install Homebrew.
 		create_bash_local
 	fi
 
-	# Manually initialize Homebrew if it is not already initialized
-
-	# Check if the OS is macOS
-	if [ "$(uname)" = "Darwin" ]; then
-		# Check for Homebrew in the common macOS installation paths
-		if [ -f /opt/homebrew/bin/brew ]; then
-			eval "$(/opt/homebrew/bin/brew shellenv)"
-		elif [ -f /usr/local/bin/brew ]; then
-			eval "$(/usr/local/bin/brew shellenv)"
-		fi
-	fi
-
-	# Check if the OS is Linux
-	if [ "$(uname)" = "Linux" ]; then
-		# Check for Homebrew in the default Linux installation path
-		if [ -d /home/linuxbrew/.linuxbrew ]; then
-			eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-		fi
-	fi
-
-	# At this point, Homebrew should be initialized.
-	# If the following check fails, then Homebrew is not installed.
-
 	# Check if 'brew' is installed
-	if ! cmd_exists "brew"; then
-		error "'brew' is not installed."
+	# This step will manually initialize the Homebrew installation
+	# into the current shell context if it is already installed.
+	# Otherwise, if 'brew' is not installed, we will install it.
 
-		# Install 'brew'
+	if is_brew_installed; then
+		warning "'brew' is not installed."
+
 		install_brew
 	fi
 
 	if ! cmd_exists "python3"; then
-		error "Python 3 is not installed."
+		warning "Python 3 is not installed."
 
 		# Install 'python3' via 'brew' and 'pyenv'
 		# 'pyenv' is a Python version management tool
@@ -138,7 +120,7 @@ main() {
 	)
 
 	if ! cmd_exists "${commands[@]}"; then
-		error "'rcm' is not installed."
+		warning "'rcm' is not installed."
 
 		# Install 'rcm' via 'brew'
 		bash "${installer_scripts_path}"/rcm/rcm.sh
@@ -146,7 +128,7 @@ main() {
 
 	# Determine if 'git' is installed
 	if ! cmd_exists "git"; then
-		error "'git' is not installed."
+		warning "'git' is not installed."
 
 		# Install 'git' via 'brew'
 		brew_install "git"
