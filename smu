@@ -85,15 +85,19 @@ main() {
 		warn "'brew' is not installed."
 
 		install_brew
+	else
+		success "'brew' is installed."
 	fi
 
 	if ! cmd_exists "python3"; then
-		warn "Python 3 is not installed."
+		warn "'python3' is not installed."
 
 		# Install 'python3' via 'brew' and 'pyenv'
 		# 'pyenv' is a Python version management tool
 		# see: https://github.com/pyenv/pyenv
 		bash "${installer_scripts_path}"/python/pyenv.sh
+	else
+		success "'python3' is installed."
 	fi
 
 	# Check if 'rcm' is installed, because it is required for this script to work.
@@ -112,6 +116,8 @@ main() {
 
 		# Install 'rcm' via 'brew'
 		bash "${installer_scripts_path}"/rcm/rcm.sh
+	else
+		success "'rcm' is installed."
 	fi
 
 	# Determine if 'git' is installed
@@ -120,6 +126,8 @@ main() {
 
 		# Install 'git' via 'brew'
 		brew_install "git"
+	else
+		success "'git' is installed."
 	fi
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
