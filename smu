@@ -81,7 +81,7 @@ main() {
 	# into the current shell context if it is already installed.
 	# Otherwise, if 'brew' is not installed, we will install it.
 
-	if is_brew_installed; then
+	if ! is_brew_installed; then
 		warn "'brew' is not installed."
 
 		install_brew
