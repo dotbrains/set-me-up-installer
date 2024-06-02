@@ -146,6 +146,7 @@ main() {
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+	printf "\n"
 	python3 "${smu_home_dir}"/set-me-up-installer/smu.py "$@"
 
 }
