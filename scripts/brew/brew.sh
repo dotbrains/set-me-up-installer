@@ -62,20 +62,17 @@ main() {
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    if cmd_exists "brew"; then
-        if [[ -d "$(brew --prefix)/bin" ]]; then
-            export PATH="$(brew --prefix)/bin:$PATH"
-        fi
+    # If `brew` is already installed, it may be necessary to
+    # intialize the current shell context with brew's environment.
+    # Otherwise, the brew commands will not be available.
 
-        if [[ -d "$(brew --prefix)/sbin" ]]; then
-            export PATH="$(brew --prefix)/sbin:$PATH"
-        fi
-    fi
+    initialize_brew
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     if ! cmd_exists "brew"; then
         install_homebrew
+        initialize_brew
         opt_out_of_analytics
     else
         brew_upgrade

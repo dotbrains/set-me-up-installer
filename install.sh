@@ -322,7 +322,7 @@ main() {
 	# Check if 'git' is installed
 	# 'git' is required to install 'set-me-up'
 	# given that 'set-me-up' is a git repository and requires submodules.
-	if ! command -v git &>/dev/null; then
+	if ! cmd_exists git; then
 		error "'${bold}git${normal}' is not installed.\n"
 		exit 1
 	fi
