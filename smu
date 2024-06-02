@@ -81,7 +81,7 @@ main() {
 
 	# Check if ~/.bash.local exists
 	if [ ! -f "${HOME}/.bash.local" ]; then
-		warning "'~/.bash.local' does not exist."
+		warn "'~/.bash.local' does not exist."
 
 		# We must first create the $HOME/.bash.local configuration file
 		# in order for the brew module to properly install Homebrew.
@@ -94,13 +94,13 @@ main() {
 	# Otherwise, if 'brew' is not installed, we will install it.
 
 	if is_brew_installed; then
-		warning "'brew' is not installed."
+		warn "'brew' is not installed."
 
 		install_brew
 	fi
 
 	if ! cmd_exists "python3"; then
-		warning "Python 3 is not installed."
+		warn "Python 3 is not installed."
 
 		# Install 'python3' via 'brew' and 'pyenv'
 		# 'pyenv' is a Python version management tool
@@ -120,7 +120,7 @@ main() {
 	)
 
 	if ! cmd_exists "${commands[@]}"; then
-		warning "'rcm' is not installed."
+		warn "'rcm' is not installed."
 
 		# Install 'rcm' via 'brew'
 		bash "${installer_scripts_path}"/rcm/rcm.sh
@@ -128,7 +128,7 @@ main() {
 
 	# Determine if 'git' is installed
 	if ! cmd_exists "git"; then
-		warning "'git' is not installed."
+		warn "'git' is not installed."
 
 		# Install 'git' via 'brew'
 		brew_install "git"
