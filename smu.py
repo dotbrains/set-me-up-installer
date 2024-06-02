@@ -330,6 +330,8 @@ def main():
         self_update()
     elif args.update_submodules:
         update_submodules()
+    elif args.base:
+        provision_module("base")
     elif args.provision:
         def set_modules(args):
             """
