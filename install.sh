@@ -145,19 +145,13 @@ function install_xcode_command_line_tools() {
 
 function can_install_rosetta() {
 	# Determine OS version
-	# Save current IFS state
-	OLDIFS=$IFS
+	os_version=$(/usr/bin/sw_vers -productVersion)
+	osvers_major=${os_version%%.*}
 
-	IFS='.' read -r osvers_major <<<"$(/usr/bin/sw_vers -productVersion)"
-
-	# restore IFS to previous state
-	IFS=$OLDIFS
-
-	# Check to see if the Mac is reporting itself as running macOS 11
-	if [[ ${osvers_major} -ge 11 ]]; then
+	# Check the major OS version and determine if Rosetta needs to be installed
+	if [[ "$osvers_major" -ge 11 ]]; then
 		# Check to see if the Mac needs Rosetta installed by testing the processor
 		processor=$(/usr/sbin/sysctl -n machdep.cpu.brand_string | grep -o "Apple")
-
 		if [[ -n $processor ]]; then
 			return 0
 		else
