@@ -17,6 +17,26 @@ readonly installer_utilities_path="${smu_home_dir}/set-me-up-installer/utilities
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# Dynamically build SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH
+# from the 'set-me-up' directory
+
+if [[ -e "${smu_home_dir}" ]]; then
+	# Get the current branch of the 'set-me-up' repository
+	# e.g., 'master' or 'main'
+	readonly SMU_BLUEPRINT_BRANCH=$(git -C "${smu_home_dir}" rev-parse --abbrev-ref HEAD)
+
+	# Get the remote URL of the 'set-me-up' repository
+	# e.g., 'org/repo' or 'user/repo'
+	remote_url=$(git -C "${smu_home_dir}" config --get remote.origin.url)
+	readonly SMU_BLUEPRINT=$(echo "${remote_url}" | sed 's|https://github.com/||' | sed 's/\.git$//')
+
+	# Export variables to make them available to the Python script
+	export SMU_BLUEPRINT_BRANCH
+	export SMU_BLUEPRINT
+fi
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 # Determine if we're on MacOS or Debian
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	readonly SMU_OS="MacOS"

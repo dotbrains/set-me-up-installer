@@ -203,6 +203,16 @@ def self_update():
     try:
         # Update the 'set-me-up' repository
 
+        # Access SMU_BLUEPRINT_BRANCH and SMU_BLUEPRINT from environment variables
+        smu_blueprint_branch = os.getenv("SMU_BLUEPRINT_BRANCH")
+        smu_blueprint = os.getenv("SMU_BLUEPRINT")
+
+        if not smu_blueprint_branch or not smu_blueprint:
+            die("Please set the SMU_BLUEPRINT_BRANCH and SMU_BLUEPRINT environment variables.")
+
+        print(f"Updating from branch: {smu_blueprint_branch}")
+        print(f"Repository: {smu_blueprint}")
+
         def run_install_script():
             """
             Run the install.sh script from the 'set-me-up-installer' repository.
@@ -211,7 +221,8 @@ def self_update():
             command = "bash <(curl -s -L https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/install.sh) --no-header --skip-confirm"
 
             subprocess.run(
-                ['bash', '-c', command]
+                ['bash', '-c', command],
+                env=os.environ,
             )
 
         # Clean the 'set-me-up' directory
