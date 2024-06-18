@@ -210,8 +210,7 @@ def self_update():
         if not smu_blueprint_branch or not smu_blueprint:
             die("Please set the SMU_BLUEPRINT_BRANCH and SMU_BLUEPRINT environment variables.")
 
-        print(f"Updating from branch: {smu_blueprint_branch}")
-        print(f"Repository: {smu_blueprint}")
+        action(f"Updating from branch: {smu_blueprint_branch} on repository: {smu_blueprint}")
 
         def run_install_script():
             """
