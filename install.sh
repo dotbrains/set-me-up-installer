@@ -53,6 +53,7 @@ function detect_os() {
 	case "$(uname | tr '[:upper:]' '[:lower:]')" in
 	darwin*) readonly SMU_OS="MacOS" ;;
 	linux-gnu*) readonly SMU_OS="debian" ;;
+	mingw64*) readonly SMU_OS="windows"
 	*) readonly SMU_OS="unsupported" ;;
 	esac
 }
@@ -278,8 +279,8 @@ function check_os_support() {
 		return 0
 	fi
 
-	# Check if OS is supported (MacOS or Debian)
-	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]]; then
+	# Check if OS is supported (MacOS, Debian, or Windows)
+	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]] && [[ "$SMU_OS" != "windows" ]]; then
 		error -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
 		exit 1
 	fi

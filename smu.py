@@ -32,6 +32,9 @@ macOS = sys.platform == "darwin"
 # Determine if OS is Linux
 linux = sys.platform.startswith("linux")
 
+# Determine if OS is Windows
+windows = sys.platform.startswith("win32") or sys.platform.startswith("cygwin")
+
 # Determine if OS is debian-based
 debian = linux and os.path.exists("/etc/debian_version")
 
@@ -77,6 +80,9 @@ def update():
         script_path = os.path.join(installer_scripts_path, "update/debian.sh")
     elif macOS:
         script_path = os.path.join(installer_scripts_path, "update/macos.sh")
+    elif windows:
+        warn("'update' action is not supported on 'Windows' environments")
+        return
 
     subprocess.run(f"bash {script_path}", shell=True)
 
