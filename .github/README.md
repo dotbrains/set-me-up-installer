@@ -38,4 +38,4 @@ Yes please! This is a GitHub repo. I encourage anyone to contribute. 😃
 
 ## License
 
-The code is available under the [MIT license](LICENSE).
+The code is available under the [MIT license](/LICENSE).
