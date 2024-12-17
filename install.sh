@@ -53,7 +53,7 @@ function detect_os() {
 	case "$(uname | tr '[:upper:]' '[:lower:]')" in
 	darwin*) readonly SMU_OS="MacOS" ;;
 	linux-gnu*) readonly SMU_OS="debian" ;;
-	mingw64*) readonly SMU_OS="windows"
+	mingw64*) readonly SMU_OS="windows" ;;
 	*) readonly SMU_OS="unsupported" ;;
 	esac
 }
