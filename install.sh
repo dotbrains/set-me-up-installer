@@ -18,7 +18,7 @@ readonly SMU_BLUEPRINT_BRANCH=${SMU_BLUEPRINT_BRANCH:-""}
 
 # Verify that SMU_BLUEPRINT is a valid GitHub repository
 # It must follow the format: 'username/repo'
-if ! [[ "$SMU_BLUEPRINT" =~ ^[a-z0-9]+/[a-z0-9]+$ ]]; then
+if ! [[ "$SMU_BLUEPRINT" =~ ^[a-z0-9]+/[a-z0-9-]+$ ]]; then
 	error "SMU_BLUEPRINT must be in the format 'username/repo'."
 fi
 
