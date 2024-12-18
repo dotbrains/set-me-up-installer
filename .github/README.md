@@ -2,7 +2,7 @@
 
 ![preview](preview.png)
 
-This is the universal installer script used to install 'set-me-up' (smu) on a Mac, *debian*, Windows based machine.
+This is the universal installer script used to install 'set-me-up' (smu) on a Mac or *debian* based machine.
 
 ## Obtaining `set-me-up` installer
 

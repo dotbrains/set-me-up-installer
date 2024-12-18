@@ -32,9 +32,6 @@ macOS = sys.platform == "darwin"
 # Determine if OS is Linux
 linux = sys.platform.startswith("linux")
 
-# Determine if OS is Windows
-windows = sys.platform.startswith("win32") or sys.platform.startswith("cygwin")
-
 # Determine if OS is debian-based
 debian = linux and os.path.exists("/etc/debian_version")
 
@@ -80,9 +77,6 @@ def update():
         script_path = os.path.join(installer_scripts_path, "update/debian.sh")
     elif macOS:
         script_path = os.path.join(installer_scripts_path, "update/macos.sh")
-    elif windows:
-        warn("'update' action is not supported on 'Windows' environments")
-        return
 
     subprocess.run(f"bash {script_path}", shell=True)
 
@@ -141,7 +135,7 @@ def get_module_path(module_name):
     # Determine the OS of the module by checking if the module is part of an OS-specific directory
     # e.g., modules/macos/fonts/fonts.sh
     #       modules/debian/fonts/fonts.sh
-    # If the module is not part of an OS-specific directory, then the module is universal, so 
+    # If the module is not part of an OS-specific directory, then the module is universal, so
     # check the 'universal' directory for the module
     # e.g., modules/universal/python/pip/pip.sh
 
@@ -166,7 +160,7 @@ def get_module_path(module_name):
     # Check if the module exists for the current OS
     # e.g., modules/macos/app_store/app_store.sh
     return script_path
-    
+
 
 def provision_module(module_name):
     # Get the path to the module
@@ -275,7 +269,7 @@ def update_submodules():
         )'
         """
         subprocess.check_call(update_submodules_cmd, shell=True)
-    
+
         print()
         success("Successfully updated 'set-me-up' submodules.")
     except subprocess.CalledProcessError as e:
@@ -393,8 +387,8 @@ def main():
                 print(f"Failed to provision '{module}': {e}", file=sys.stderr)
 
         # Check if we completed all modules without any errors
-        if provisioned:   
-            print("Modules that were successfully provisioned:") 
+        if provisioned:
+            print("Modules that were successfully provisioned:")
 
             for module in provisioned:
                 success(f"  - '{BOLD}{module}{NORMAL}'\n")
