@@ -62,6 +62,10 @@ def remove_symlinks():
     os.environ["RCRC"] = rcrc
 
     subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
+    
+    # Clean up empty directories left behind by rcdn
+    home_dir = os.path.expanduser("~")
+    subprocess.run(f"find {home_dir} -type d -empty -delete 2>/dev/null || true", shell=True)
 
 def create_boot_disk():
     # Execute create boot disk script
