@@ -79,14 +79,23 @@ def remove_symlinks():
         
         if result.returncode == 0 and result.stdout.strip():
             dir_names = set(result.stdout.strip().split('\n'))
+            dir_names = {name for name in dir_names if name}  # Filter out empty strings
             
-            # For each directory name, find and remove empty directories in home
-            for dir_name in dir_names:
-                if dir_name:  # Skip empty strings
-                    subprocess.run(
-                        f"find {home_dir} -type d -empty -name '{dir_name}' -delete 2>/dev/null || true",
-                        shell=True
-                    )
+            if dir_names:
+                # Build a single find command with -o (OR) conditions for all directory names
+                name_conditions = []
+                for dir_name in dir_names:
+                    # Escape single quotes in directory names
+                    escaped_name = dir_name.replace("'", "'\\''")
+                    name_conditions.append(f"-name '{escaped_name}'")
+                
+                find_expr = " -o ".join(name_conditions)
+                
+                # Run a single find command to remove all empty directories matching any name
+                subprocess.run(
+                    f"find {home_dir}/.config {home_dir}/.local -type d -empty \\( {find_expr} \\) -delete 2>/dev/null || true",
+                    shell=True
+                )
 
 def create_boot_disk():
     # Execute create boot disk script
