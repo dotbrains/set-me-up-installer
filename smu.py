@@ -64,8 +64,29 @@ def remove_symlinks():
     subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
     
     # Clean up empty directories left behind by rcdn
+    # Only consider directories that correspond to the structure in tag-* directories
+    dotfiles_dir = os.path.join(smu_home_dir, "dotfiles")
     home_dir = os.path.expanduser("~")
-    subprocess.run(f"find {home_dir} -type d -empty -delete 2>/dev/null || true", shell=True)
+    
+    if os.path.exists(dotfiles_dir):
+        # Get all directory basenames from all tag-* directories (depth 1-2)
+        result = subprocess.run(
+            f"find {dotfiles_dir}/tag-* -mindepth 1 -maxdepth 2 -type d -exec basename {{}} \\; 2>/dev/null",
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            dir_names = set(result.stdout.strip().split('\n'))
+            
+            # For each directory name, find and remove empty directories in home
+            for dir_name in dir_names:
+                if dir_name:  # Skip empty strings
+                    subprocess.run(
+                        f"find {home_dir} -type d -empty -name '{dir_name}' -delete 2>/dev/null || true",
+                        shell=True
+                    )
 
 def create_boot_disk():
     # Execute create boot disk script
