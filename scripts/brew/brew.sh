@@ -9,7 +9,26 @@ declare current_dir &&
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+install_arch_dependencies() {
+    # Install required dependencies for Homebrew on Arch Linux
+    # See: https://github.com/orgs/Homebrew/discussions/4503
+
+    action "Installing Arch Linux dependencies for Homebrew"
+
+    # libxcrypt-compat is required for Homebrew to work properly on Arch
+    if ! pacman -Q libxcrypt-compat &>/dev/null; then
+        sudo pacman -S --noconfirm libxcrypt-compat
+    fi
+
+    success "Arch Linux dependencies installed"
+}
+
 install_homebrew() {
+
+    # Install Arch-specific dependencies if on Arch-based system
+    if is_arch_linux; then
+        install_arch_dependencies
+    fi
 
     printf "\n" |
         /bin/bash -c \
@@ -62,8 +81,17 @@ main() {
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    if is_arch_linux; then
+        # Set environment variable to force Homebrew to use its vendored Ruby
+        # This avoids conflicts with Arch's system Ruby
+        # See: https://github.com/orgs/Homebrew/discussions/6333
+        export HOMEBREW_FORCE_VENDOR_RUBY=1
+    fi
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     # If `brew` is already installed, it may be necessary to
-    # intialize the current shell context with brew's environment.
+    # initialize the current shell context with brew's environment.
     # Otherwise, the brew commands will not be available.
 
     initialize_brew

@@ -32,8 +32,35 @@ macOS = sys.platform == "darwin"
 # Determine if OS is Linux
 linux = sys.platform.startswith("linux")
 
-# Determine if OS is debian-based
-debian = linux and os.path.exists("/etc/debian_version")
+# Generic function to check Linux distribution
+def _is_linux_distro(distro_ids):
+    """Check if the system matches any of the given distribution IDs.
+
+    Args:
+        distro_ids: List of distribution identifiers to check for (e.g., ['debian', 'ubuntu'])
+
+    Returns:
+        bool: True if the system matches any of the given distro IDs
+    """
+    if not linux or not os.path.exists("/etc/os-release"):
+        return False
+
+    try:
+        with open("/etc/os-release") as f:
+            content = f.read().lower()
+            # Check for ID=<distro> or ID_LIKE=<distro>
+            return any(
+                f"id={distro}" in content or f"id_like={distro}" in content
+                for distro in distro_ids
+            )
+    except (IOError, OSError):
+        return False
+
+# Determine if OS is debian-based (Debian, Ubuntu)
+debian = _is_linux_distro(['debian', 'ubuntu'])
+
+# Determine if OS is arch-based (Arch)
+arch = _is_linux_distro(['arch'])
 
 def warn(message):
     print(f"{COL_YELLOW}[warning]{COL_RESET} {message}")
@@ -62,12 +89,12 @@ def remove_symlinks():
     os.environ["RCRC"] = rcrc
 
     subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
-    
+
     # Clean up empty directories left behind by rcdn
     # Only consider directories that correspond to the structure in tag-* directories
     dotfiles_dir = os.path.join(smu_home_dir, "dotfiles")
     home_dir = os.path.expanduser("~")
-    
+
     if os.path.exists(dotfiles_dir):
         # Get all directory basenames from all tag-* directories (depth 1-2)
         result = subprocess.run(
@@ -76,11 +103,11 @@ def remove_symlinks():
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode == 0 and result.stdout.strip():
             dir_names = set(result.stdout.strip().split('\n'))
             dir_names = {name for name in dir_names if name}  # Filter out empty strings
-            
+
             if dir_names:
                 # Build a single find command with -o (OR) conditions for all directory names
                 name_conditions = []
@@ -88,9 +115,9 @@ def remove_symlinks():
                     # Escape single quotes in directory names
                     escaped_name = dir_name.replace("'", "'\\''")
                     name_conditions.append(f"-name '{escaped_name}'")
-                
+
                 find_expr = " -o ".join(name_conditions)
-                
+
                 # Run a single find command to remove all empty directories matching any name
                 subprocess.run(
                     f"find {home_dir}/.config {home_dir}/.local -type d -empty \\( {find_expr} \\) -delete 2>/dev/null || true",
@@ -111,6 +138,8 @@ def update():
         script_path = os.path.join(installer_scripts_path, "update/debian.sh")
     elif macOS:
         script_path = os.path.join(installer_scripts_path, "update/macos.sh")
+    elif arch:
+        script_path = os.path.join(installer_scripts_path, "update/arch.sh")
 
     subprocess.run(f"bash {script_path}", shell=True)
 
@@ -169,11 +198,12 @@ def get_module_path(module_name):
     # Determine the OS of the module by checking if the module is part of an OS-specific directory
     # e.g., modules/macos/fonts/fonts.sh
     #       modules/debian/fonts/fonts.sh
+    #       modules/arch/fonts/fonts.sh
     # If the module is not part of an OS-specific directory, then the module is universal, so
     # check the 'universal' directory for the module
     # e.g., modules/universal/python/pip/pip.sh
 
-    if not macOS or not debian:
+    if not macOS or not debian or not arch:
         return obtain_universal_module_path(module_name)
 
     smu_os = ""
@@ -182,6 +212,8 @@ def get_module_path(module_name):
         smu_os = "macos"
     elif debian:
         smu_os = "debian"
+    elif arch:
+        smu_os = "arch"
 
     # Module path
     # e.g., modules/macos/fonts/fonts.sh
@@ -314,6 +346,7 @@ def main():
     parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
     parser.add_argument("-du", "--debian-update", action="store_true", help="Update Debian-based system")
     parser.add_argument("-mu", "--macos-update", action="store_true", help="Update MacOS system")
+    parser.add_argument("-au", "--arch-update", action="store_true", help="Update Arch-based system")
     parser.add_argument("-b", "--base", action="store_true", help="Run base module")
     parser.add_argument("-nb", "--no-base", action="store_true", help="Do not run base module")
     parser.add_argument("-su", "--self-update", action="store_true", help="Update set-me-up")
@@ -363,6 +396,11 @@ def main():
     elif args.macos_update:
         if not macOS:
             die("This module is only supported on MacOS.")
+
+        update()
+    elif args.arch_update:
+        if not arch:
+            die("This module is only supported on Arch-based systems.")
 
         update()
     elif args.create_boot_disk:

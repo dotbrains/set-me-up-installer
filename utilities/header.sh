@@ -21,6 +21,6 @@ echo -e "For more information, please see [https://github.com/dotbrains/set-me-u
 echo -e "Please follow the on-screen instructions.\n"
 
 warn "${bold}This script sets up new machines, *use with caution*${normal}."
-warn "${bold}Ensure your Mac or *Debian* Linux system is fully up-to-date${normal}."
+warn "${bold}Ensure your Mac, *Debian*, or *Arch* Linux system is fully up-to-date${normal}."
 
 header

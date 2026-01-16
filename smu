@@ -37,12 +37,18 @@ fi
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Determine if we're on MacOS or Debian
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	readonly SMU_OS="MacOS"
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	readonly SMU_OS="debian"
-fi
+# Determine if we're on MacOS, Debian, or Arch Linux
+case "$(get_os)" in
+	macos)
+		readonly SMU_OS="MacOS"
+		;;
+	arch)
+		readonly SMU_OS="arch"
+		;;
+	ubuntu|*)
+		readonly SMU_OS="debian"
+		;;
+esac
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -76,7 +82,7 @@ main() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Check if detected OS is supported
-	if [[ "${SMU_OS}" != "MacOS" ]] && [[ "${SMU_OS}" != "debian" ]]; then
+	if [[ "${SMU_OS}" != "MacOS" ]] && [[ "${SMU_OS}" != "debian" ]] && [[ "${SMU_OS}" != "arch" ]]; then
 		error "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
 		exit 1
 	fi
@@ -134,7 +140,7 @@ main() {
 	if ! cmd_exists "${commands[@]}"; then
 		warn "'rcm' is not installed."
 
-		# Install 'rcm' via 'brew'
+		# Install 'rcm' via 'brew' or 'aur' if on arch
 		bash "${installer_scripts_path}"/rcm/rcm.sh
 	else
 		success "'rcm' is installed."

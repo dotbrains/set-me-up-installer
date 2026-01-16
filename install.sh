@@ -47,13 +47,23 @@ skip_confirmation=false
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Determine if we're on MacOS or Debian
+# Determine if we're on MacOS, Debian, or Arch Linux
 
 function detect_os() {
-	case "$(uname | tr '[:upper:]' '[:lower:]')" in
-	darwin*) readonly SMU_OS="MacOS" ;;
-	linux-gnu*) readonly SMU_OS="debian" ;;
-	*) readonly SMU_OS="unsupported" ;;
+	# Use get_os() from utilities/system.sh
+	case "$(get_os)" in
+	macos)
+		readonly SMU_OS="MacOS"
+		;;
+	arch)
+		readonly SMU_OS="arch"
+		;;
+	ubuntu|debian)
+		readonly SMU_OS="debian"
+		;;
+	*)
+		readonly SMU_OS="unsupported"
+		;;
 	esac
 }
 
@@ -274,12 +284,12 @@ function check_os_support() {
 	if invoked_via_smu_blueprint; then
 		# If invoked via SMU Blueprint, then we can assume that the OS is supported.
 		# This is because the SMU Blueprint is responsible for determining if the OS is supported.
-		# By default, 'dotbrains/set-me-up' (non-blueprint) supports MacOS and Debian.
+		# By default, 'dotbrains/set-me-up' (non-blueprint) supports MacOS, Debian, and Arch Linux.
 		return 0
 	fi
 
-	# Check if OS is supported (MacOS or Debian)
-	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]]; then
+	# Check if OS is supported (MacOS, Debian, or Arch Linux)
+	if [[ "$SMU_OS" != "MacOS" ]] && [[ "$SMU_OS" != "debian" ]] && [[ "$SMU_OS" != "arch" ]]; then
 		error -e "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
 		exit 1
 	fi
