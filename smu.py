@@ -203,7 +203,7 @@ def get_module_path(module_name):
     # check the 'universal' directory for the module
     # e.g., modules/universal/python/pip/pip.sh
 
-    if not macOS or not debian or not arch:
+    if not macOS and not debian and not arch:
         return obtain_universal_module_path(module_name)
 
     smu_os = ""
