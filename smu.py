@@ -26,6 +26,10 @@ installer_scripts_path = os.path.join(installer_path, "scripts")
 # rcm configuration file path
 rcrc = os.path.join(smu_home_dir, "dotfiles/rcrc")
 
+# GitHub blueprint for finding removed files (optimizes broken symlink cleanup)
+smu_blueprint = os.getenv("SMU_BLUEPRINT")
+smu_blueprint_branch = os.getenv("SMU_BLUEPRINT_BRANCH")
+
 # Determine if OS is MacOS
 macOS = sys.platform == "darwin"
 
@@ -90,39 +94,124 @@ def remove_symlinks():
 
     subprocess.run(f"rcdn -v -d {os.path.join(smu_home_dir, 'dotfiles')}", shell=True)
 
-    # Clean up empty directories left behind by rcdn
-    # Only consider directories that correspond to the structure in tag-* directories
+    # Clean up broken symlinks and empty directories left behind by rcdn
+    # Use lsrc to get the list of symlinks managed by rcm - this is more efficient
+    # than scanning tag-* directories, as lsrc already knows what's managed
     dotfiles_dir = os.path.join(smu_home_dir, "dotfiles")
     home_dir = os.path.expanduser("~")
 
     if os.path.exists(dotfiles_dir):
-        # Get all directory basenames from all tag-* directories (depth 1-2)
+        # Get all symlink targets from lsrc (files and directories managed by rcm)
         result = subprocess.run(
-            f"find {dotfiles_dir}/tag-* -mindepth 1 -maxdepth 2 -type d -exec basename {{}} \\; 2>/dev/null",
+            f"lsrc -v {os.path.join(smu_home_dir, 'dotfiles')}",
             shell=True,
             capture_output=True,
             text=True
         )
 
         if result.returncode == 0 and result.stdout.strip():
-            dir_names = set(result.stdout.strip().split('\n'))
-            dir_names = {name for name in dir_names if name}  # Filter out empty strings
+            # Extract basenames from lsrc output (format: target -> source)
+            lines = result.stdout.strip().split('\n')
+            basenames = set()
+            
+            for line in lines:
+                # lsrc output format: "/home/user/.zshrc -> /path/to/dotfiles/..."
+                # Extract the target path (left side of ->)
+                if '->' in line:
+                    target = line.split('->')[0].strip()
+                    if target:
+                        basename = os.path.basename(target)
+                        if basename:
+                            basenames.add(basename)
 
-            if dir_names:
-                # Build a single find command with -o (OR) conditions for all directory names
+            if basenames:
+                # Build a single find command with -o (OR) conditions for all names
                 name_conditions = []
-                for dir_name in dir_names:
-                    # Escape single quotes in directory names
-                    escaped_name = dir_name.replace("'", "'\\''")
+                for name in basenames:
+                    # Escape single quotes in names
+                    escaped_name = name.replace("'", "'\\''")
                     name_conditions.append(f"-name '{escaped_name}'")
 
                 find_expr = " -o ".join(name_conditions)
 
-                # Run a single find command to remove all empty directories matching any name
+                # Remove empty directories matching any name in ~/.config and ~/.local
                 subprocess.run(
                     f"find {home_dir}/.config {home_dir}/.local -type d -empty \\( {find_expr} \\) -delete 2>/dev/null || true",
                     shell=True
                 )
+
+                # Remove symlinks (not regular files) matching any name in ~/.config, ~/.local, and ~
+                # This only removes symlinks that rcm created, not regular files the user might have
+                subprocess.run(
+                    f"find {home_dir}/.config {home_dir}/.local {home_dir} -type l \\( {find_expr} \\) -delete 2>/dev/null || true",
+                    shell=True
+                )
+
+        # Clean up broken symlinks from files that were removed from the blueprint repo
+        # This is more efficient than scanning all of ~ by using GitHub API to get the list
+        # of files that currently exist in the blueprint, then finding what's missing locally
+        
+        # Get the list of basenames from the blueprint repo (what should exist)
+        blueprint_basenames = _get_blueprint_basenames()
+        
+        if blueprint_basenames:
+            # Build find expression for only the basenames that exist in blueprint
+            name_conditions = []
+            for name in blueprint_basenames:
+                escaped_name = name.replace("'", "'\\''")
+                name_conditions.append(f"-name '{escaped_name}'")
+
+            find_expr = " -o ".join(name_conditions)
+
+            # Only check for broken symlinks matching blueprint files (not all symlinks)
+            subprocess.run(
+                f"find {home_dir}/.config {home_dir}/.local {home_dir} -type l \\( {find_expr} \\) ! -exec test -e {{}} \\; -delete 2>/dev/null || true",
+                shell=True
+            )
+
+
+def _get_blueprint_basenames():
+    """Get the set of file basenames from the blueprint repo's tag-* directories.
+    
+    Uses GitHub API to efficiently get the list of files without scanning local directories.
+    Returns a set of basenames (e.g., {'zshrc', 'gitconfig', 'alacritty.toml'})
+    """
+    # Validate required environment variables
+    if not smu_blueprint:
+        die("SMU_BLUEPRINT environment variable is not set. Please set it to your blueprint repo (e.g., 'owner/repo').")
+    
+    if not smu_blueprint_branch:
+        die("SMU_BLUEPRINT_BRANCH environment variable is not set. Please set it to your blueprint branch (e.g., 'main').")
+    
+    try:
+        # Use GitHub API to get tree of tag-* directories from the blueprint repo
+        # This is much faster than scanning ~ recursively
+        result = subprocess.run(
+            f"gh api repos/{smu_blueprint}/git/trees/{smu_blueprint_branch}?recursive=1 --jq '.tree[].path' 2>/dev/null",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return set()
+
+        # Filter to only tag-* directories under dotfiles/ and extract basenames
+        basenames = set()
+        for path in result.stdout.strip().split('\n'):
+            # Only match dotfiles/tag-* paths
+            if path.startswith('dotfiles/tag-') and '/' in path:
+                # Get the basename (last component of the path)
+                basename = os.path.basename(path)
+                if basename:
+                    basenames.add(basename)
+
+        return basenames
+    except subprocess.TimeoutExpired:
+        return set()
+    except Exception:
+        return set()
 
 def create_boot_disk():
     # Execute create boot disk script
