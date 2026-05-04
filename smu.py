@@ -268,17 +268,28 @@ def get_module_path(module_name):
         # If the module name contains a '/', then the module is in a subdirectory of the 'universal' directory
         # e.g., modules/universal/python/pip/pip.sh
         if '/' in module_name:
-            dir_name, module_name = extract_dir_and_module_name(module_name)
+            dir_name, extracted_module_name = extract_dir_and_module_name(module_name)
+            module_dir = os.path.join(module_path, "universal", dir_name)
+            script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
+            brewfile_path = os.path.join(module_dir, "brewfile")
 
-            script_path = os.path.join(module_path, "universal", dir_name, f"{module_name}.sh")
-
-            return script_path if os.path.exists(script_path) else None
+            if os.path.exists(script_path):
+                return script_path
+            if os.path.exists(brewfile_path):
+                return brewfile_path
+            return None
 
         # Universal module path
         # e.g., modules/universal/fonts/fonts.sh
-        script_path = os.path.join(module_path, "universal", module_name, f"{module_name}.sh")
+        module_dir = os.path.join(module_path, "universal", module_name)
+        script_path = os.path.join(module_dir, f"{module_name}.sh")
+        brewfile_path = os.path.join(module_dir, "brewfile")
 
-        return script_path if os.path.exists(script_path) else None
+        if os.path.exists(script_path):
+            return script_path
+        if os.path.exists(brewfile_path):
+            return brewfile_path
+        return None
 
     # If we are trying to get the 'base' module, then return the path to the 'base' directory
     if module_name == "base":
@@ -306,15 +317,23 @@ def get_module_path(module_name):
 
     # Module path
     # e.g., modules/macos/fonts/fonts.sh
+    #       modules/macos/productivity/rectangle-pro/rectangle-pro.sh
     #       modules/debian/fonts/fonts.sh
-    script_path = os.path.join(module_path, smu_os, module_name, f"{module_name}.sh")
+    if '/' in module_name:
+        dir_name, extracted_module_name = extract_dir_and_module_name(module_name)
+        module_dir = os.path.join(module_path, smu_os, dir_name)
+        script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
+        brewfile_path = os.path.join(module_dir, "brewfile")
+    else:
+        module_dir = os.path.join(module_path, smu_os, module_name)
+        script_path = os.path.join(module_dir, f"{module_name}.sh")
+        brewfile_path = os.path.join(module_dir, "brewfile")
 
-    if not os.path.exists(script_path):
-        return obtain_universal_module_path(module_name)
-
-    # Check if the module exists for the current OS
-    # e.g., modules/macos/app_store/app_store.sh
-    return script_path
+    if os.path.exists(script_path):
+        return script_path
+    if os.path.exists(brewfile_path):
+        return brewfile_path
+    return obtain_universal_module_path(module_name)
 
 
 def provision_module(module_name):
@@ -324,17 +343,21 @@ def provision_module(module_name):
     # Check if the script exists
     if not script_path:
         warn(f"'{script_path}' does not seem to exist, skipping.")
-        return
+        return False
 
     # Check that bash is installed
     if subprocess.call("command -v bash &> /dev/null", shell=True) != 0:
         warn("'bash' is not installed, skipping.")
-        return
+        return False
 
     action(f"Running {script_path} module\n")
 
     script_dir = os.path.dirname(script_path)
     os.chdir(script_dir)
+
+    if os.path.basename(script_path) == "brewfile":
+        subprocess.run("brew bundle install --file brewfile", shell=True)
+        return True
 
     # Execute before.sh if exists
     before_script = os.path.join(script_dir, "before.sh")
@@ -348,6 +371,8 @@ def provision_module(module_name):
     after_script = os.path.join(script_dir, "after.sh")
     if os.path.exists(after_script):
         subprocess.run(f"bash -c 'source {after_script}'", shell=True)
+
+    return True
 
 def self_update():
     """
@@ -532,14 +557,18 @@ def main():
 
         provisioned = set()
         errored = set()
+        skipped = set()
 
         # Execute each module
         for module in modules:
             try:
-                provision_module(module)
+                was_provisioned = provision_module(module)
 
-                # Add the module to the 'provisioned' set
-                provisioned.add(module)
+                if was_provisioned:
+                    # Add the module to the 'provisioned' set
+                    provisioned.add(module)
+                else:
+                    skipped.add(module)
             except subprocess.CalledProcessError as e:
                 # Add the module to the 'errored' set
                 errored.add(module)
@@ -558,6 +587,11 @@ def main():
             print("Modules that failed to provision:")
 
             for module in errored:
+                warn(f"  - '{BOLD}{module}{NORMAL}'\n")
+        if skipped:
+            print("Modules that were skipped:")
+
+            for module in skipped:
                 warn(f"  - '{BOLD}{module}{NORMAL}'\n")
 
 
