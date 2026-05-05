@@ -374,6 +374,167 @@ def provision_module(module_name):
 
     return True
 
+def _current_os_bucket():
+    """Return the modules/<bucket> name matching the current OS, or None."""
+    if macOS:
+        return "macos"
+    if debian:
+        return "debian"
+    if arch:
+        return "arch"
+    return None
+
+
+def discover_modules():
+    """Walk the modules directory and return {bucket: [(name, kind), ...]}.
+
+    A module is any directory containing either '<basename>.sh' or 'brewfile'.
+    `name` is the path relative to the bucket (e.g. 'productivity-tools/hyperkey'),
+    which is the exact form accepted by `-m`. `kind` is 'script' or 'brewfile'.
+    """
+    if not os.path.isdir(module_path):
+        return {}
+
+    buckets = {}
+    for bucket in sorted(os.listdir(module_path)):
+        bucket_dir = os.path.join(module_path, bucket)
+        if not os.path.isdir(bucket_dir):
+            continue
+
+        modules = []
+        for dirpath, _dirnames, filenames in os.walk(bucket_dir):
+            if dirpath == bucket_dir:
+                continue
+            basename = os.path.basename(dirpath)
+            has_script = f"{basename}.sh" in filenames
+            has_brewfile = "brewfile" in filenames
+            if has_script or has_brewfile:
+                rel = os.path.relpath(dirpath, bucket_dir)
+                kind = "script" if has_script else "brewfile"
+                modules.append((rel, kind))
+
+        if modules:
+            buckets[bucket] = sorted(modules)
+
+    return buckets
+
+
+def list_modules(search=None, show_all=False):
+    """Print a human-readable list of available modules."""
+    buckets = discover_modules()
+    if not buckets:
+        warn(f"No modules found in '{module_path}'.")
+        return
+
+    current = _current_os_bucket()
+
+    visible = {}
+    for bucket, mods in buckets.items():
+        if not show_all and current and bucket not in (current, "universal"):
+            continue
+        if search:
+            needle = search.lower()
+            mods = [(name, kind) for name, kind in mods if needle in name.lower()]
+        if mods:
+            visible[bucket] = mods
+
+    if not visible:
+        if search:
+            warn(f"No modules match '{BOLD}{search}{NORMAL}'.")
+        else:
+            warn("No modules to display.")
+        return
+
+    total = 0
+    for bucket in sorted(visible.keys()):
+        mods = visible[bucket]
+        total += len(mods)
+        print(f"{BOLD}{bucket}/{NORMAL}")
+        max_name = max(len(name) for name, _ in mods)
+        for name, kind in mods:
+            tag_color = COL_GREEN if kind == "script" else COL_YELLOW
+            print(f"  {name.ljust(max_name)}  {tag_color}[{kind}]{COL_RESET}")
+        print()
+
+    scope = ""
+    if not show_all and current:
+        scope = f" (showing '{current}' + 'universal'; use --all to include other OS buckets)"
+    print(f"Found {BOLD}{total}{NORMAL} module(s){scope}.")
+    print(f"Run a module with: {BOLD}smu -p --no-base -m <module>{NORMAL}")
+
+
+def _format_fzf_lines(entries):
+    """Format (bucket, name, kind) tuples into aligned fzf input lines."""
+    if not entries:
+        return []
+    max_bucket = max(len(b) for b, _, _ in entries)
+    max_name = max(len(n) for _, n, _ in entries)
+    return [
+        f"{bucket.ljust(max_bucket)}  {name.ljust(max_name)}  [{kind}]"
+        for bucket, name, kind in entries
+    ]
+
+
+def _parse_fzf_selection(line):
+    """Pull the module name (column 2) out of an fzf output line."""
+    parts = line.split()
+    if len(parts) >= 2:
+        return parts[1]
+    return None
+
+
+def interactive_select_modules(search=None, show_all=False):
+    """Launch fzf as a multi-select picker. Returns the chosen module names."""
+    if subprocess.call("command -v fzf >/dev/null 2>&1", shell=True) != 0:
+        die("'fzf' is not installed. Install it via your package manager (e.g. 'brew install fzf', 'apt install fzf', 'pacman -S fzf').")
+
+    buckets = discover_modules()
+    if not buckets:
+        warn(f"No modules found in '{module_path}'.")
+        return []
+
+    current = _current_os_bucket()
+    entries = []
+    for bucket, mods in buckets.items():
+        if not show_all and current and bucket not in (current, "universal"):
+            continue
+        for name, kind in mods:
+            entries.append((bucket, name, kind))
+
+    if not entries:
+        warn("No modules to choose from.")
+        return []
+
+    fzf_input = "\n".join(_format_fzf_lines(entries))
+
+    fzf_cmd = [
+        "fzf",
+        "--multi",
+        "--prompt=modules> ",
+        "--header=SPACE/TAB: toggle  ENTER: run  ESC: cancel",
+        "--bind=space:toggle+down",
+        "--height=60%",
+        "--reverse",
+        "--border",
+    ]
+    if search:
+        fzf_cmd.extend(["--query", search])
+
+    result = subprocess.run(fzf_cmd, input=fzf_input, capture_output=True, text=True)
+
+    if result.returncode != 0 or not result.stdout.strip():
+        warn("No modules selected.")
+        return []
+
+    selected = []
+    for line in result.stdout.strip().split("\n"):
+        name = _parse_fzf_selection(line)
+        if name and name not in selected:
+            selected.append(name)
+
+    return selected
+
+
 def self_update():
     """
     Update the 'set-me-up' scripts from the remote Git repository.
@@ -455,6 +616,51 @@ def update_submodules():
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up' submodules: {e}", file=sys.stderr)
 
+def provision_modules_batch(modules):
+    """Provision a list of modules and print a per-module summary."""
+    if not modules:
+        return
+
+    warn("This script will execute the following modules:")
+    for module in modules:
+        print(f"  - '{BOLD}{module}{NORMAL}'\n")
+
+    warn(f"'{BOLD}set-me-up{NORMAL}' may overwrite existing files in your home directory.")
+
+    provisioned = set()
+    errored = set()
+    skipped = set()
+
+    for module in modules:
+        try:
+            was_provisioned = provision_module(module)
+            if was_provisioned:
+                provisioned.add(module)
+            else:
+                skipped.add(module)
+        except subprocess.CalledProcessError as e:
+            errored.add(module)
+            print(f"Failed to provision '{module}': {e}", file=sys.stderr)
+
+    if provisioned:
+        print("Modules that were successfully provisioned:")
+        for module in provisioned:
+            success(f"  - '{BOLD}{module}{NORMAL}'\n")
+
+    if errored:
+        print("Modules that failed to provision:")
+        for module in errored:
+            warn(f"  - '{BOLD}{module}{NORMAL}'\n")
+
+    if skipped:
+        print("Modules that were skipped:")
+        for module in skipped:
+            warn(f"  - '{BOLD}{module}{NORMAL}'\n")
+
+    warn("It is recommended to restart your computer to ensure all updates take effect.")
+    success(f"Completed running '{BOLD}set-me-up{NORMAL}'.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="set-me-up installer")
     parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
@@ -471,6 +677,10 @@ def main():
     parser.add_argument("--rcup", action="store_true", help="Symlink files via 'rcm' into your home directory")
     parser.add_argument("--rcdn", action="store_true", help="Remove files that were symlinked via 'rcup")
     parser.add_argument("-cbd", "--create-boot-disk", action="store_true", help="Creates a MacOS boot disk")
+    parser.add_argument("-l", "--list-modules", action="store_true", help="List available modules grouped by OS bucket")
+    parser.add_argument("-i", "--interactive", action="store_true", help="Interactively pick modules with fzf (SPACE to toggle, ENTER to run)")
+    parser.add_argument("--search", metavar="QUERY", help="Filter --list-modules / --interactive by substring (case-insensitive)")
+    parser.add_argument("--all", action="store_true", help="With --list-modules / --interactive, include modules for other OS buckets")
 
     args = parser.parse_args()
 
@@ -495,6 +705,10 @@ def main():
         die(f"'rcm' is not installed. Please run the '{BOLD}base{NORMAL}' module prior to executing '{command}'.")
 
     # --------------------------------------------------------------------------------------
+
+    if args.list_modules:
+        list_modules(search=args.search, show_all=args.all)
+        return
 
     if args.lsrc:
         list_symlinks()
@@ -529,15 +743,7 @@ def main():
     elif args.base:
         provision_module("base")
     elif args.provision:
-        def set_modules(args):
-            """
-            Set the modules based on the command line arguments.
-            """
-            modules = args.modules
-
-            return modules
-
-        modules = set_modules(args)
+        modules = list(args.modules)
 
         # If the 'base' module is not in the module list, add it to the beginning.
         if args.base and "base" not in modules:
@@ -547,56 +753,18 @@ def main():
         if args.no_base and "base" in modules:
             modules.remove("base")
 
-        warn("This script will execute the following modules:")
-        for module in modules:
-            print(f"  - '{BOLD}{module}{NORMAL}'\n")
+        provision_modules_batch(modules)
+    elif args.interactive:
+        modules = interactive_select_modules(search=args.search, show_all=args.all)
+        if not modules:
+            return
 
-        warn(f"'{BOLD}set-me-up{NORMAL}' may overwrite existing files in your home directory.")
+        if args.base and "base" not in modules:
+            modules.insert(0, "base")
+        if args.no_base and "base" in modules:
+            modules.remove("base")
 
-        # Showcase a summary of the modules that were provisioned
-
-        provisioned = set()
-        errored = set()
-        skipped = set()
-
-        # Execute each module
-        for module in modules:
-            try:
-                was_provisioned = provision_module(module)
-
-                if was_provisioned:
-                    # Add the module to the 'provisioned' set
-                    provisioned.add(module)
-                else:
-                    skipped.add(module)
-            except subprocess.CalledProcessError as e:
-                # Add the module to the 'errored' set
-                errored.add(module)
-
-                # Print the error message
-                print(f"Failed to provision '{module}': {e}", file=sys.stderr)
-
-        # Check if we completed all modules without any errors
-        if provisioned:
-            print("Modules that were successfully provisioned:")
-
-            for module in provisioned:
-                success(f"  - '{BOLD}{module}{NORMAL}'\n")
-
-        if errored:
-            print("Modules that failed to provision:")
-
-            for module in errored:
-                warn(f"  - '{BOLD}{module}{NORMAL}'\n")
-        if skipped:
-            print("Modules that were skipped:")
-
-            for module in skipped:
-                warn(f"  - '{BOLD}{module}{NORMAL}'\n")
-
-
-        warn("It is recommended to restart your computer to ensure all updates take effect.")
-        success(f"Completed running '{BOLD}set-me-up{NORMAL}'.")
+        provision_modules_batch(modules)
     elif args.modules:
         # Handle the case where modules are specified without --provision
         print("Modules specified, but --provision flag is not set.", file=sys.stderr)
