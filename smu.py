@@ -776,6 +776,69 @@ def module_status(module_name):
     return ("installed", None) if result.returncode == 0 else ("missing", None)
 
 
+def _uninstall_steps(script_path):
+    """Return the ordered list of inverse steps for a module path.
+
+    Each step is a (label, runnable) tuple. `label` is a human-readable
+    description used in dry-run output and the batch plan; `runnable` is a
+    zero-arg callable that performs the step. Order matters: for *.sh modules
+    that share a directory with a `packages` (Debian) or `brewfile` (macOS)
+    file, the per-module uninstall script runs FIRST (it cleans up the apt
+    repo / signing keys / vendor dirs the install script added beyond the
+    declarative file), and the declarative cleanup follows to remove the
+    shared dependencies the install script asked for via the packages /
+    brewfile entries.
+    """
+    basename = os.path.basename(script_path)
+    script_dir = os.path.dirname(script_path)
+    steps = []
+
+    def _brewfile_step(path):
+        return ("brew bundle cleanup --force",
+                lambda: subprocess.run("brew bundle cleanup --file brewfile --force", shell=True))
+
+    def _packages_step(path):
+        utilities = os.path.join(smu_home_dir, "dotfiles/utilities/utilities.sh")
+        return ("apt_remove_from_file packages",
+                lambda: subprocess.run(
+                    f"bash -c 'source {utilities} && apt_remove_from_file packages'",
+                    shell=True,
+                ))
+
+    if basename == "brewfile":
+        if not macOS:
+            return None  # signals "off-OS, skip"
+        steps.append(_brewfile_step(script_path))
+        return steps
+
+    if basename == "packages":
+        if not debian:
+            return None
+        steps.append(_packages_step(script_path))
+        return steps
+
+    # *.sh module: require an explicit sibling uninstaller, then chain the
+    # declarative inverse for any sibling packages/brewfile in the same dir.
+    name = _module_basename(script_path)
+    uninstaller = os.path.join(script_dir, f"{name}.uninstall.sh")
+    if not os.path.exists(uninstaller):
+        return []  # signals "no automatic inverse available"
+
+    steps.append((
+        f"{name}.uninstall.sh",
+        lambda: subprocess.run(f"bash -c 'source {uninstaller}'", shell=True),
+    ))
+
+    sibling_packages = os.path.join(script_dir, "packages")
+    sibling_brewfile = os.path.join(script_dir, "brewfile")
+    if debian and os.path.exists(sibling_packages):
+        steps.append(_packages_step(sibling_packages))
+    if macOS and os.path.exists(sibling_brewfile):
+        steps.append(_brewfile_step(sibling_brewfile))
+
+    return steps
+
+
 def uninstall_module(module_name, dry_run=False):
     """Inverse of provision_module.
 
@@ -791,53 +854,24 @@ def uninstall_module(module_name, dry_run=False):
         warn("'bash' is not installed, skipping.")
         return False
 
-    basename = os.path.basename(script_path)
-    script_dir = os.path.dirname(script_path)
-    os.chdir(script_dir)
-
-    if basename == "brewfile":
-        if not macOS:
-            warn(f"'{script_path}' is only supported on macOS, skipping.")
-            return False
-        cmd = "brew bundle cleanup --file brewfile --force"
-        if dry_run:
-            cmd = "brew bundle cleanup --file brewfile"
-            action(f"[dry-run] {cmd}\n")
-        else:
-            action(f"Uninstalling brewfile: {script_path}\n")
-        subprocess.run(cmd, shell=True)
-        return True
-
-    if basename == "packages":
-        if not debian:
-            warn(f"'{script_path}' is only supported on Debian-based systems, skipping.")
-            return False
-        if dry_run:
-            action(f"[dry-run] would run apt_remove_from_file on {script_path}\n")
-            for kind, groups in _packages_entries(script_path):
-                print(f"    {kind} {groups}")
-            return True
-        utilities = os.path.join(smu_home_dir, "dotfiles/utilities/utilities.sh")
-        action(f"Uninstalling packages: {script_path}\n")
-        subprocess.run(
-            f"bash -c 'source {utilities} && apt_remove_from_file packages'",
-            shell=True,
-        )
-        return True
-
-    # *.sh module: require an explicit sibling uninstaller
-    name = _module_basename(script_path)
-    uninstaller = os.path.join(script_dir, f"{name}.uninstall.sh")
-    if not os.path.exists(uninstaller):
+    steps = _uninstall_steps(script_path)
+    if steps is None:
+        warn(f"'{script_path}' is not supported on this OS, skipping.")
+        return False
+    if not steps:
+        name = _module_basename(script_path)
         warn(f"'{module_name}' has no {name}.uninstall.sh — skipping. Manual cleanup required.")
         return False
 
-    if dry_run:
-        action(f"[dry-run] would run {uninstaller}\n")
-        return True
+    os.chdir(os.path.dirname(script_path))
 
-    action(f"Running {uninstaller}\n")
-    subprocess.run(f"bash -c 'source {uninstaller}'", shell=True)
+    for label, runnable in steps:
+        if dry_run:
+            action(f"[dry-run] {label}\n")
+            continue
+        action(f"Running: {label}\n")
+        runnable()
+
     return True
 
 
@@ -915,24 +949,23 @@ def uninstall_modules_batch(modules, dry_run=False, no_confirm=False):
         if not script_path:
             unsupported.append((module, "module not found"))
             continue
-        basename = os.path.basename(script_path)
-        if basename == "brewfile":
-            plan.append((module, "brewfile", "brew bundle cleanup --force"))
-        elif basename == "packages":
-            plan.append((module, "packages", "apt_remove_from_file"))
-        else:
+        steps = _uninstall_steps(script_path)
+        if steps is None:
+            unsupported.append((module, "not supported on this OS"))
+            continue
+        if not steps:
             name = _module_basename(script_path)
-            uninstaller = os.path.join(os.path.dirname(script_path), f"{name}.uninstall.sh")
-            if os.path.exists(uninstaller):
-                plan.append((module, "script", f"{name}.uninstall.sh"))
-            else:
-                unsupported.append((module, f"no {name}.uninstall.sh"))
+            unsupported.append((module, f"no {name}.uninstall.sh"))
+            continue
+        labels = [label for label, _ in steps]
+        plan.append((module, labels))
 
     print()
     if plan:
         print("The following will be uninstalled:")
-        for module, kind, how in plan:
-            print(f"  {COL_GREEN}-{COL_RESET} {BOLD}{module}{NORMAL}  [{kind}]  ({how})")
+        for module, labels in plan:
+            chain = " ; ".join(labels)
+            print(f"  {COL_GREEN}-{COL_RESET} {BOLD}{module}{NORMAL}  ({chain})")
         print()
     if unsupported:
         print(f"{COL_YELLOW}Cannot auto-uninstall:{COL_RESET}")
@@ -959,7 +992,7 @@ def uninstall_modules_batch(modules, dry_run=False, no_confirm=False):
     errored = set()
     skipped = set()
 
-    for module, _kind, _how in plan:
+    for module, _labels in plan:
         try:
             ok = uninstall_module(module, dry_run=dry_run)
             if ok:
