@@ -272,11 +272,14 @@ def get_module_path(module_name):
             module_dir = os.path.join(module_path, "universal", dir_name)
             script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
             brewfile_path = os.path.join(module_dir, "brewfile")
+            packages_path = os.path.join(module_dir, "packages")
 
             if os.path.exists(script_path):
                 return script_path
             if os.path.exists(brewfile_path):
                 return brewfile_path
+            if os.path.exists(packages_path):
+                return packages_path
             return None
 
         # Universal module path
@@ -284,11 +287,14 @@ def get_module_path(module_name):
         module_dir = os.path.join(module_path, "universal", module_name)
         script_path = os.path.join(module_dir, f"{module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
+        packages_path = os.path.join(module_dir, "packages")
 
         if os.path.exists(script_path):
             return script_path
         if os.path.exists(brewfile_path):
             return brewfile_path
+        if os.path.exists(packages_path):
+            return packages_path
         return None
 
     # If we are trying to get the 'base' module, then return the path to the 'base' directory
@@ -324,15 +330,19 @@ def get_module_path(module_name):
         module_dir = os.path.join(module_path, smu_os, dir_name)
         script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
+        packages_path = os.path.join(module_dir, "packages")
     else:
         module_dir = os.path.join(module_path, smu_os, module_name)
         script_path = os.path.join(module_dir, f"{module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
+        packages_path = os.path.join(module_dir, "packages")
 
     if os.path.exists(script_path):
         return script_path
     if os.path.exists(brewfile_path):
         return brewfile_path
+    if os.path.exists(packages_path):
+        return packages_path
     return obtain_universal_module_path(module_name)
 
 
@@ -357,6 +367,17 @@ def provision_module(module_name):
 
     if os.path.basename(script_path) == "brewfile":
         subprocess.run("brew bundle install --file brewfile", shell=True)
+        return True
+
+    if os.path.basename(script_path) == "packages":
+        if not debian:
+            warn(f"'{script_path}' is only supported on Debian-based systems, skipping.")
+            return False
+        utilities = os.path.join(smu_home_dir, "dotfiles/utilities/utilities.sh")
+        subprocess.run(
+            f"bash -c 'source {utilities} && apt_install_from_file packages'",
+            shell=True,
+        )
         return True
 
     # Execute before.sh if exists
@@ -388,9 +409,9 @@ def _current_os_bucket():
 def discover_modules():
     """Walk the modules directory and return {bucket: [(name, kind), ...]}.
 
-    A module is any directory containing either '<basename>.sh' or 'brewfile'.
+    A module is any directory containing '<basename>.sh', 'brewfile', or 'packages'.
     `name` is the path relative to the bucket (e.g. 'productivity-tools/hyperkey'),
-    which is the exact form accepted by `-m`. `kind` is 'script' or 'brewfile'.
+    which is the exact form accepted by `-m`. `kind` is 'script', 'brewfile', or 'packages'.
     """
     if not os.path.isdir(module_path):
         return {}
@@ -408,9 +429,15 @@ def discover_modules():
             basename = os.path.basename(dirpath)
             has_script = f"{basename}.sh" in filenames
             has_brewfile = "brewfile" in filenames
-            if has_script or has_brewfile:
+            has_packages = "packages" in filenames
+            if has_script or has_brewfile or has_packages:
                 rel = os.path.relpath(dirpath, bucket_dir)
-                kind = "script" if has_script else "brewfile"
+                if has_script:
+                    kind = "script"
+                elif has_brewfile:
+                    kind = "brewfile"
+                else:
+                    kind = "packages"
                 modules.append((rel, kind))
 
         if modules:
@@ -452,7 +479,12 @@ def list_modules(search=None, show_all=False):
         print(f"{BOLD}{bucket}/{NORMAL}")
         max_name = max(len(name) for name, _ in mods)
         for name, kind in mods:
-            tag_color = COL_GREEN if kind == "script" else COL_YELLOW
+            if kind == "script":
+                tag_color = COL_GREEN
+            elif kind == "brewfile":
+                tag_color = COL_YELLOW
+            else:
+                tag_color = COL_RED
             print(f"  {name.ljust(max_name)}  {tag_color}[{kind}]{COL_RESET}")
         print()
 

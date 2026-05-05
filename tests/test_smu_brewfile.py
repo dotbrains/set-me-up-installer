@@ -64,5 +64,51 @@ class TestBrewfileModuleProvisioning(unittest.TestCase):
         self.assertIs(was_provisioned, False)
 
 
+class TestPackagesModuleResolution(unittest.TestCase):
+    def test_get_module_path_returns_os_specific_packages_when_shell_script_missing(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            modules_dir = os.path.join(tempdir, "modules")
+            module_dir = os.path.join(modules_dir, "debian", "browsers", "chrome")
+            os.makedirs(module_dir, exist_ok=True)
+            packages_path = os.path.join(module_dir, "packages")
+
+            with open(packages_path, "w"):
+                pass
+
+            with patch.object(smu, "module_path", modules_dir), \
+                    patch.object(smu, "macOS", False), \
+                    patch.object(smu, "debian", True), \
+                    patch.object(smu, "arch", False):
+                resolved_path = smu.get_module_path("browsers/chrome")
+
+            self.assertEqual(resolved_path, packages_path)
+
+
+class TestPackagesModuleProvisioning(unittest.TestCase):
+    def test_provision_module_runs_apt_install_from_file_for_packages_on_debian(self):
+        with patch("smu.get_module_path", return_value="/tmp/module/packages"), \
+                patch.object(smu, "debian", True), \
+                patch("smu.subprocess.call", return_value=0), \
+                patch("smu.subprocess.run") as mock_run, \
+                patch("smu.os.chdir"):
+            was_provisioned = smu.provision_module("browsers/chrome")
+
+        self.assertTrue(was_provisioned)
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("apt_install_from_file packages", cmd)
+
+    def test_provision_module_skips_packages_on_non_debian(self):
+        with patch("smu.get_module_path", return_value="/tmp/module/packages"), \
+                patch.object(smu, "debian", False), \
+                patch("smu.subprocess.call", return_value=0), \
+                patch("smu.subprocess.run") as mock_run, \
+                patch("smu.os.chdir"):
+            was_provisioned = smu.provision_module("browsers/chrome")
+
+        self.assertFalse(was_provisioned)
+        mock_run.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -22,8 +22,9 @@ def _build_fixture(modules_dir):
     _touch(os.path.join(modules_dir, "macos", "productivity-tools", "hyperkey", "hyperkey.sh"))
     _touch(os.path.join(modules_dir, "macos", "fonts", "brewfile"))
 
-    # debian: simple script module
+    # debian: simple script module + packages-only module
     _touch(os.path.join(modules_dir, "debian", "fonts", "fonts.sh"))
+    _touch(os.path.join(modules_dir, "debian", "browsers", "chrome", "packages"))
 
     # arch: simple script module
     _touch(os.path.join(modules_dir, "arch", "fonts", "fonts.sh"))
@@ -48,6 +49,7 @@ class TestDiscoverModules(unittest.TestCase):
             self.assertEqual(set(buckets.keys()), {"macos", "debian", "arch", "universal"})
             self.assertIn(("productivity-tools/hyperkey", "script"), buckets["macos"])
             self.assertIn(("fonts", "brewfile"), buckets["macos"])
+            self.assertIn(("browsers/chrome", "packages"), buckets["debian"])
             self.assertIn(("python/pip", "script"), buckets["universal"])
             self.assertIn(("shell", "brewfile"), buckets["universal"])
 
