@@ -23,12 +23,12 @@ jobs:
         SMU_BLUEPRINT: owner/repo
         SMU_BLUEPRINT_BRANCH: main
       run: |
-        python -m unittest discover -s . -v
-    
+        python -m unittest discover -s tests -t . -v
+
     - name: Run tests with pytest (if available)
       env:
         SMU_BLUEPRINT: owner/repo
         SMU_BLUEPRINT_BRANCH: main
       run: |
         pip install pytest 2>/dev/null || true
-        pytest test_smu.py -v 2>/dev/null || python -m unittest test_smu -v
+        pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v

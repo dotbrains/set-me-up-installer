@@ -32,8 +32,8 @@ readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 
 readonly smu_download="https://github.com/${SMU_BLUEPRINT}"
 
-# Get the absolute path of the 'utilities' directory.
-readonly installer_utilities_path="${SMU_HOME_DIR}/set-me-up-installer/utilities"
+# Get the absolute path of the installer 'scripts' directory.
+readonly installer_scripts_path="${SMU_HOME_DIR}/set-me-up-installer/scripts"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -296,13 +296,13 @@ function check_os_support() {
 }
 
 function source_header() {
-	if [[ -f "${installer_utilities_path}/header.sh" ]]; then
-		source "${installer_utilities_path}/header.sh"
+	if [[ -f "${installer_scripts_path}/header.sh" ]]; then
+		source "${installer_scripts_path}/header.sh"
 
 		return 0
 	fi
 
-	source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/utilities/header.sh")"
+	source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/scripts/header.sh")"
 }
 
 main() {

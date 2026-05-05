@@ -12,9 +12,6 @@ readonly smu_home_dir=${smu_home_dir:-"${HOME}/set-me-up"}
 # <path-to-smu>/scripts/somedotfile vs <path-to-smu>/scripts/brew/../somedotfile
 readonly installer_scripts_path="${smu_home_dir}/set-me-up-installer/scripts"
 
-# Get the absolute path of the 'utilities' directory.
-readonly installer_utilities_path="${smu_home_dir}/set-me-up-installer/utilities"
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Dynamically build SMU_BLUEPRINT and SMU_BLUEPRINT_BRANCH
@@ -77,7 +74,7 @@ main() {
 	# It is used to check if the (minimal) required dependencies are installed.
 	# If they are not installed, then this script will attempt to install them.
 
-	bash "${installer_utilities_path}"/header.sh
+	bash "${installer_scripts_path}"/header.sh
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
