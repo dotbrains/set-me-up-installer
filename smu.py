@@ -495,6 +495,7 @@ def self_update():
             die("Please set the SMU_BLUEPRINT_BRANCH and SMU_BLUEPRINT environment variables.")
 
         action(f"Updating from branch: {smu_blueprint_branch} on repository: {smu_blueprint}")
+        print()
 
         def run_install_script():
             """
@@ -510,6 +511,7 @@ def self_update():
 
         # Clean up old symlinks while the current source tree still exists.
         remove_symlinks()
+        print()
 
         # Clean the 'set-me-up' directory
         shutil.rmtree(smu_home_dir, ignore_errors=True)
