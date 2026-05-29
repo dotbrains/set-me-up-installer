@@ -32,3 +32,29 @@ jobs:
       run: |
         pip install pytest 2>/dev/null || true
         pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v
+
+  flox-smoke-test:
+    name: Flox manifest smoke test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Flox
+      uses: flox/install-flox-action@main
+
+    - name: Verify pinned toolchain activates
+      env:
+        SMU_BLUEPRINT: owner/repo
+        SMU_BLUEPRINT_BRANCH: main
+      run: |
+        flox activate -- bash -c '
+          set -euo pipefail
+          echo "Toolchain versions inside flox activate:"
+          python3 --version
+          pytest --version
+          shellcheck --version
+          shfmt --version
+          node --version
+          git --version
+        '
