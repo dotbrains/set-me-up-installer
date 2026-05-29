@@ -18,7 +18,6 @@ REQUIRED_PACKAGES = {
     "bash",
     "python3",
     "shellcheck",
-    "shfmt",
     "nodejs",
     "git",
 }
@@ -80,10 +79,12 @@ class TestFloxManifest(unittest.TestCase):
         self.assertIn("pytest", hook)
         self.assertIn("FLOX_ENV_CACHE", hook)
 
-    def test_profile_puts_venv_on_path(self):
-        profile = self.manifest.get("profile", {}).get("common", "")
-        self.assertIn("FLOX_ENV_CACHE/venv/bin", profile)
-        self.assertIn("PATH", profile)
+    def test_on_activate_exports_venv_path(self):
+        # PATH export must live in on-activate (not [profile]) so that
+        # `flox activate -- <cmd>` in CI sees the venv's pytest.
+        hook = self.manifest.get("hook", {}).get("on-activate", "")
+        self.assertIn("FLOX_ENV_CACHE/venv/bin", hook)
+        self.assertIn("export PATH", hook)
 
     def test_blueprint_vars_match_ci_defaults(self):
         # CI workflow exports SMU_BLUEPRINT=owner/repo and

@@ -54,7 +54,6 @@ jobs:
           python3 --version
           pytest --version
           shellcheck --version
-          shfmt --version
           node --version
           git --version
         '

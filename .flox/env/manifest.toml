@@ -10,7 +10,6 @@ version = 1
 bash.pkg-path = "bash"
 python3.pkg-path = "python3"
 shellcheck.pkg-path = "shellcheck"
-shfmt.pkg-path = "shfmt"
 nodejs.pkg-path = "nodejs_20"
 git.pkg-path = "git"
 
@@ -22,18 +21,14 @@ SMU_BLUEPRINT = "owner/repo"
 SMU_BLUEPRINT_BRANCH = "main"
 
 [hook]
+# Both the venv bootstrap and PATH export must live here: profile.* is only
+# sourced for interactive activations, but `flox activate -- <cmd>` (used in
+# CI) runs only the on-activate hook.
 on-activate = '''
-  # Create a project-local venv on first activation so pytest is pinned
-  # alongside the system tools without polluting the user's global Python.
   if [ ! -x "$FLOX_ENV_CACHE/venv/bin/pytest" ]; then
     python3 -m venv "$FLOX_ENV_CACHE/venv"
     "$FLOX_ENV_CACHE/venv/bin/pip" install --quiet --upgrade pip pytest
   fi
-'''
-
-[profile]
-common = '''
-  # Make the venv's pytest resolve before any system one.
   export PATH="$FLOX_ENV_CACHE/venv/bin:$PATH"
 '''
 
