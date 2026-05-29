@@ -1,0 +1,46 @@
+version = 1
+
+# Reproducible dev/CI toolchain for the set-me-up installer.
+#
+# Activate with `flox activate` from the installer/ directory to get the
+# exact bash, python, shellcheck, shfmt, nodejs, and pytest versions used
+# in CI. See README.md > "Reproducible dev environment (Flox)".
+
+[install]
+bash.pkg-path = "bash"
+python3.pkg-path = "python3"
+shellcheck.pkg-path = "shellcheck"
+shfmt.pkg-path = "shfmt"
+nodejs.pkg-path = "nodejs_20"
+git.pkg-path = "git"
+
+[vars]
+# Defaults match the CI test workflow (.github/workflows/tests.yml) so
+# `pytest` and `python -m unittest discover` work out of the box. Override
+# locally by exporting these before `flox activate`.
+SMU_BLUEPRINT = "owner/repo"
+SMU_BLUEPRINT_BRANCH = "main"
+
+[hook]
+on-activate = '''
+  # Create a project-local venv on first activation so pytest is pinned
+  # alongside the system tools without polluting the user's global Python.
+  if [ ! -x "$FLOX_ENV_CACHE/venv/bin/pytest" ]; then
+    python3 -m venv "$FLOX_ENV_CACHE/venv"
+    "$FLOX_ENV_CACHE/venv/bin/pip" install --quiet --upgrade pip pytest
+  fi
+'''
+
+[profile]
+common = '''
+  # Make the venv's pytest resolve before any system one.
+  export PATH="$FLOX_ENV_CACHE/venv/bin:$PATH"
+'''
+
+[options]
+systems = [
+  "aarch64-darwin",
+  "x86_64-darwin",
+  "aarch64-linux",
+  "x86_64-linux",
+]

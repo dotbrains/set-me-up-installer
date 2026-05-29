@@ -211,6 +211,26 @@ Two optional files alongside `<name>.sh` opt the module into the status and unin
 
 Without these sibling files a module installs as before but reports `unknown` under `--status` and is skipped by `--uninstall` — never silently broken.
 
+## Reproducible dev environment (Flox)
+
+The installer ships a [Flox](https://flox.dev) manifest at `.flox/env/manifest.toml` that pins the toolchain used by CI — `bash`, `python3`, `shellcheck`, `shfmt`, `nodejs`, `git`, and a project-local `pytest` venv. Activating it gives you the same versions GitHub Actions runs, on macOS or Linux, without touching your global Python or Homebrew state.
+
+```bash
+# One-time: install Flox (see modules/universal/flox or https://flox.dev/docs/install-flox/)
+brew install flox
+
+# From the installer/ directory:
+flox activate
+
+# Inside the activated shell you can run the same checks CI runs:
+pytest tests/ -v
+shellcheck install.sh smu scripts/*.sh
+shfmt -d install.sh smu scripts/*.sh
+npx markdownlint-cli2 "**/*.md"
+```
+
+`SMU_BLUEPRINT` and `SMU_BLUEPRINT_BRANCH` are seeded with the same placeholder values the CI workflow uses; export your own before `flox activate` to test against a real blueprint.
+
 ## Liability
 
 The creator of this repo is _not responsible_ if your machine ends up in a state you are not happy with.
