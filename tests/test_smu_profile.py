@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import pathlib
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -92,6 +93,36 @@ class TestThemeRegistry(unittest.TestCase):
 
             with patch.object(smu, "module_path", modules_dir):
                 self.assertEqual(smu.theme_doctor("tokyo-night"), 0)
+
+    def test_theme_doctor_uses_shared_registry_adapter_paths(self):
+        class FakeRegistry:
+            @staticmethod
+            def manifests(themes_dir):
+                return [{"id": "nord"}]
+
+            @staticmethod
+            def adapter_paths(colorscheme_root, theme, aggregate_root=None):
+                return [
+                    (
+                        "shared adapter",
+                        pathlib.Path(colorscheme_root) / "shared" / f"{theme['id']}.txt",
+                    ),
+                ]
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            modules_dir = os.path.join(tempdir, "modules")
+            colorschemes = os.path.join(modules_dir, "colorschemes")
+            _touch(os.path.join(colorschemes, "themes", "nord.toml"))
+            _touch(os.path.join(colorschemes, "shared", "nord.txt"))
+
+            with open(os.path.join(colorschemes, "themes", "nord.toml"), "w") as f:
+                f.write('id = "nord"\n')
+
+            with (
+                patch.object(smu, "module_path", modules_dir),
+                patch.object(smu, "_load_theme_registry", return_value=FakeRegistry),
+            ):
+                self.assertEqual(smu.theme_doctor("nord"), 0)
 
 
 class TestThemeModuleResolution(unittest.TestCase):

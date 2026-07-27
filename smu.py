@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import importlib.util
 import subprocess
 import os
 import shlex
@@ -133,6 +134,19 @@ def _read_simple_toml(path):
 
     return data
 
+def _load_theme_registry():
+    registry_path = os.path.join(colorscheme_module_dir(), "scripts", "theme_registry.py")
+    if not os.path.exists(registry_path):
+        return None
+
+    spec = importlib.util.spec_from_file_location("smu_theme_registry", registry_path)
+    if not spec or not spec.loader:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 def prompt_profiles():
     profiles = []
     if os.path.isdir(prompt_profiles_path):
@@ -167,6 +181,10 @@ def theme_manifests_dir():
     return os.path.join(colorscheme_module_dir(), "themes")
 
 def theme_manifests():
+    registry = _load_theme_registry()
+    if registry:
+        return list(registry.manifests(theme_manifests_dir()))
+
     manifests_dir = theme_manifests_dir()
     themes = []
     if os.path.isdir(manifests_dir):
@@ -313,28 +331,21 @@ def theme_doctor(theme):
     colorschemes = colorscheme_module_dir()
     set_me_up_root = os.path.abspath(os.path.join(colorschemes, "..", ".."))
     theme_entry = themes.get(theme, {"id": theme})
+    registry = _load_theme_registry()
 
-    starship_config = theme_entry.get("starship", {}).get("config", f"{theme}.toml")
-    alacritty_theme = theme_entry.get("alacritty", {}).get("theme", f"{theme}.toml")
-    tmux_theme = theme_entry.get("tmux", {}).get("theme", f"{theme}.conf")
-    nvim_name = theme_entry.get("nvim", {}).get("colorscheme", theme)
-    lazygit = theme_entry.get("lazygit", {})
-    lazygit_config = lazygit.get("config", f"{theme}.yml")
-
-    checks = [
-        ("colorscheme manifest", os.path.join(colorschemes, "themes", f"{theme}.toml")),
-        ("universal script", os.path.join(colorschemes, "universal", f"{theme}.sh")),
-        ("macos script", os.path.join(colorschemes, "macos", f"{theme}.sh")),
-        ("arch script", os.path.join(colorschemes, "arch", f"{theme}.sh")),
-        ("starship config", os.path.join(colorschemes, "_shared", "configs", "starship", starship_config)),
-        ("alacritty theme", os.path.join(set_me_up_root, "home", ".config", "alacritty", "theme", alacritty_theme)),
-        ("tmux theme", os.path.join(set_me_up_root, "home", ".config", "tmux", "themes", tmux_theme)),
-        ("zsh theme", os.path.join(set_me_up_root, "home", ".config", "zsh", "themes", theme)),
-        ("nvim plugin", os.path.join(set_me_up_root, "home", ".config", "nvim", "lua", "plugins", "ui", f"{nvim_name}.lua")),
-    ]
-
-    if lazygit.get("source", "local") == "local":
-        checks.append(("lazygit config", os.path.join(colorschemes, "_shared", "configs", "lazygit", lazygit_config)))
+    if registry:
+        checks = registry.adapter_paths(
+            colorschemes,
+            theme_entry,
+            aggregate_root=set_me_up_root,
+        )
+    else:
+        checks = [
+            ("colorscheme manifest", os.path.join(colorschemes, "themes", f"{theme}.toml")),
+            ("universal script", os.path.join(colorschemes, "universal", f"{theme}.sh")),
+            ("macos script", os.path.join(colorschemes, "macos", f"{theme}.sh")),
+            ("arch script", os.path.join(colorschemes, "arch", f"{theme}.sh")),
+        ]
 
     failed = False
     for label, path in checks:
