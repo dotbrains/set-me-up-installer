@@ -1,0 +1,3 @@
+id = "starship-minimal"
+name = "Starship Minimal"
+description = "Use a compact Starship prompt profile when available."

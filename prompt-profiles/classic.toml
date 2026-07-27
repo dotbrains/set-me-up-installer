@@ -1,0 +1,3 @@
+id = "classic"
+name = "Classic"
+description = "Use a native shell PS1/PROMPT without Starship."

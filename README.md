@@ -127,7 +127,8 @@ export SMU_THEME="gruvbox"
 export SMU_PROMPT="starship"
 ```
 
-Supported themes:
+Supported themes are discovered from the colorscheme module manifests at
+`modules/colorschemes/themes/*.toml`:
 
 - `gruvbox`
 - `nord`
@@ -139,7 +140,7 @@ Supported themes:
 - `solarized`
 - `kanagawa`
 
-Supported prompt profiles:
+Supported prompt profiles are discovered from `prompt-profiles/*.toml`:
 
 - `starship` - the default Starship prompt
 - `starship-minimal` - a minimal Starship config, when provided by the
@@ -151,6 +152,7 @@ Set preferences after install:
 ```bash
 smu theme list
 smu theme set nord --apply
+smu theme doctor nord
 smu prompt list
 smu prompt set classic
 smu profile
@@ -168,6 +170,10 @@ The `--apply` flag on `smu theme set` runs the `colorschemes` module so tool
 adapters such as Starship, lazygit, fish, and Alacritty are updated
 immediately. Shells and dotfiles also read `SMU_THEME` / `SMU_PROMPT` directly,
 so new terminals pick up the saved profile.
+
+Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
+that a theme manifest has the expected adapter files across the installer,
+colorscheme module, shell, terminal, tmux, and editor repositories.
 
 ## Auditing what's installed
 

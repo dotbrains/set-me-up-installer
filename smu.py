@@ -25,6 +25,7 @@ profile_path = os.path.join(os.path.expanduser("~"), ".config", "set-me-up", "pr
 # 'set-me-up' installer scripts
 installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
 installer_scripts_path = os.path.join(installer_path, "scripts")
+prompt_profiles_path = os.path.join(os.path.dirname(__file__), "prompt-profiles")
 
 # rcm configuration file path
 rcrc = os.path.join(smu_home_dir, "dotfiles/rcrc")
@@ -105,6 +106,84 @@ def _parse_profile_line(line):
         return None, None
     return key, value
 
+def _read_simple_toml(path):
+    data = {}
+    current_section = None
+    if not os.path.exists(path):
+        return data
+
+    with open(path) as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1].strip()
+                data.setdefault(current_section, {})
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if current_section:
+                data[current_section][key] = value
+            else:
+                data[key] = value
+
+    return data
+
+def prompt_profiles():
+    profiles = []
+    if os.path.isdir(prompt_profiles_path):
+        for filename in sorted(os.listdir(prompt_profiles_path)):
+            if not filename.endswith(".toml"):
+                continue
+            path = os.path.join(prompt_profiles_path, filename)
+            profile = _read_simple_toml(path)
+            if profile.get("id"):
+                profiles.append(profile)
+
+    if profiles:
+        return profiles
+
+    return [{"id": prompt} for prompt in SUPPORTED_PROMPTS]
+
+def supported_prompts():
+    return tuple(profile["id"] for profile in prompt_profiles())
+
+def colorscheme_module_dir():
+    direct = os.path.join(module_path, "colorschemes")
+    if os.path.isdir(direct):
+        return direct
+
+    local = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "modules", "colorschemes"))
+    if os.path.isdir(local):
+        return local
+
+    return direct
+
+def theme_manifests_dir():
+    return os.path.join(colorscheme_module_dir(), "themes")
+
+def theme_manifests():
+    manifests_dir = theme_manifests_dir()
+    themes = []
+    if os.path.isdir(manifests_dir):
+        for filename in sorted(os.listdir(manifests_dir)):
+            if not filename.endswith(".toml"):
+                continue
+            theme = _read_simple_toml(os.path.join(manifests_dir, filename))
+            if theme.get("id"):
+                themes.append(theme)
+    return themes
+
+def supported_themes():
+    manifests = theme_manifests()
+    if manifests:
+        return tuple(theme["id"] for theme in manifests)
+    return SUPPORTED_THEMES
+
 def read_profile():
     profile = {}
     if not os.path.exists(profile_path):
@@ -175,7 +254,7 @@ def handle_theme_command(argv):
 
     command = argv[0]
     if command == "list":
-        for theme in SUPPORTED_THEMES:
+        for theme in supported_themes():
             marker = "*" if theme == current_theme() else " "
             print(f"{marker} {theme}")
         return
@@ -185,10 +264,14 @@ def handle_theme_command(argv):
             die("Usage: smu theme set <theme> [--apply]")
         theme = argv[1]
         apply_after = "--apply" in argv[2:]
-        set_profile_value("SMU_THEME", theme, SUPPORTED_THEMES)
+        set_profile_value("SMU_THEME", theme, supported_themes())
         if apply_after:
             provision_module("colorschemes")
         return
+
+    if command == "doctor":
+        theme = argv[1] if len(argv) > 1 else current_theme()
+        raise SystemExit(theme_doctor(theme))
 
     if command == "apply":
         provision_module("colorschemes")
@@ -203,18 +286,65 @@ def handle_prompt_command(argv):
 
     command = argv[0]
     if command == "list":
-        for prompt in SUPPORTED_PROMPTS:
+        for profile in prompt_profiles():
+            prompt = profile["id"]
             marker = "*" if prompt == current_prompt() else " "
-            print(f"{marker} {prompt}")
+            description = profile.get("description")
+            if description:
+                print(f"{marker} {prompt} - {description}")
+            else:
+                print(f"{marker} {prompt}")
         return
 
     if command == "set":
         if len(argv) < 2:
             die("Usage: smu prompt set <prompt>")
-        set_profile_value("SMU_PROMPT", argv[1], SUPPORTED_PROMPTS)
+        set_profile_value("SMU_PROMPT", argv[1], supported_prompts())
         return
 
     die("Usage: smu prompt [list|current|set <prompt>]")
+
+def theme_doctor(theme):
+    themes = {entry["id"]: entry for entry in theme_manifests()}
+    if theme not in supported_themes():
+        warn(f"Unknown theme '{theme}'.")
+        return 1
+
+    colorschemes = colorscheme_module_dir()
+    set_me_up_root = os.path.abspath(os.path.join(colorschemes, "..", ".."))
+    theme_entry = themes.get(theme, {"id": theme})
+
+    starship_config = theme_entry.get("starship", {}).get("config", f"{theme}.toml")
+    alacritty_theme = theme_entry.get("alacritty", {}).get("theme", f"{theme}.toml")
+    tmux_theme = theme_entry.get("tmux", {}).get("theme", f"{theme}.conf")
+    nvim_name = theme_entry.get("nvim", {}).get("colorscheme", theme)
+    lazygit = theme_entry.get("lazygit", {})
+    lazygit_config = lazygit.get("config", f"{theme}.yml")
+
+    checks = [
+        ("colorscheme manifest", os.path.join(colorschemes, "themes", f"{theme}.toml")),
+        ("universal script", os.path.join(colorschemes, "universal", f"{theme}.sh")),
+        ("macos script", os.path.join(colorschemes, "macos", f"{theme}.sh")),
+        ("arch script", os.path.join(colorschemes, "arch", f"{theme}.sh")),
+        ("starship config", os.path.join(colorschemes, "_shared", "configs", "starship", starship_config)),
+        ("alacritty theme", os.path.join(set_me_up_root, "home", ".config", "alacritty", "theme", alacritty_theme)),
+        ("tmux theme", os.path.join(set_me_up_root, "home", ".config", "tmux", "themes", tmux_theme)),
+        ("zsh theme", os.path.join(set_me_up_root, "home", ".config", "zsh", "themes", theme)),
+        ("nvim plugin", os.path.join(set_me_up_root, "home", ".config", "nvim", "lua", "plugins", "ui", f"{nvim_name}.lua")),
+    ]
+
+    if lazygit.get("source", "local") == "local":
+        checks.append(("lazygit config", os.path.join(colorschemes, "_shared", "configs", "lazygit", lazygit_config)))
+
+    failed = False
+    for label, path in checks:
+        if os.path.exists(path):
+            print(f"{COL_GREEN}OK{COL_RESET}   {label}")
+        else:
+            failed = True
+            print(f"{COL_RED}MISS{COL_RESET} {label}: {path}")
+
+    return 1 if failed else 0
 
 def list_symlinks():
     os.environ["RCRC"] = rcrc
@@ -1168,15 +1298,15 @@ def main():
     parser.add_argument("-V", "--verbose", action="store_true", help="With --status: show per-entry detail")
     parser.add_argument("--search", metavar="QUERY", help="Filter --list-modules / --status / --interactive by substring (case-insensitive)")
     parser.add_argument("--all", action="store_true", help="With --list-modules / --status / --interactive, include modules for other OS buckets")
-    parser.add_argument("--theme", choices=SUPPORTED_THEMES, help="Save the selected set-me-up theme before provisioning")
-    parser.add_argument("--prompt", choices=SUPPORTED_PROMPTS, help="Save the selected set-me-up prompt profile before provisioning")
+    parser.add_argument("--theme", choices=supported_themes(), help="Save the selected set-me-up theme before provisioning")
+    parser.add_argument("--prompt", choices=supported_prompts(), help="Save the selected set-me-up prompt profile before provisioning")
 
     args = parser.parse_args()
 
     if args.theme:
-        set_profile_value("SMU_THEME", args.theme, SUPPORTED_THEMES)
+        set_profile_value("SMU_THEME", args.theme, supported_themes())
     if args.prompt:
-        set_profile_value("SMU_PROMPT", args.prompt, SUPPORTED_PROMPTS)
+        set_profile_value("SMU_PROMPT", args.prompt, supported_prompts())
 
     # --------------------------------------------------------------------------------------
 
