@@ -20,6 +20,7 @@ NORMAL = '\033[0m'
 # set-me-up paths
 smu_home_dir = os.getenv("SMU_HOME_DIR", os.path.join(os.path.expanduser("~"), "set-me-up"))
 module_path = os.path.join(smu_home_dir, "dotfiles/modules")
+profile_path = os.path.join(os.path.expanduser("~"), ".config", "set-me-up", "profile.env")
 
 # 'set-me-up' installer scripts
 installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
@@ -64,6 +65,11 @@ debian = _is_linux_distro(['debian', 'ubuntu'])
 # Determine if OS is arch-based (Arch)
 arch = _is_linux_distro(['arch'])
 
+SUPPORTED_THEMES = ("gruvbox", "nord", "catppuccin")
+SUPPORTED_PROMPTS = ("starship", "starship-minimal", "classic")
+DEFAULT_THEME = "gruvbox"
+DEFAULT_PROMPT = "starship"
+
 def warn(message):
     print(f"{COL_YELLOW}[warning]{COL_RESET} {message}")
 
@@ -76,6 +82,129 @@ def action(message):
 def die(message, exit_code=1):
     print(f"{COL_RED}[error]{COL_RESET} {message}", file=sys.stderr)
     sys.exit(exit_code)
+
+def _parse_profile_line(line):
+    if "=" not in line:
+        return None, None
+    key, value = line.strip().split("=", 1)
+    key = key.strip()
+    if key.startswith("export "):
+        key = key[len("export "):].strip()
+    value = value.strip().strip('"').strip("'")
+    if not key:
+        return None, None
+    return key, value
+
+def read_profile():
+    profile = {}
+    if not os.path.exists(profile_path):
+        return profile
+
+    try:
+        with open(profile_path) as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                key, value = _parse_profile_line(line)
+                if key:
+                    profile[key] = value
+    except (IOError, OSError) as e:
+        warn(f"Could not read profile '{profile_path}': {e}")
+
+    return profile
+
+def write_profile(profile):
+    os.makedirs(os.path.dirname(profile_path), exist_ok=True)
+    theme = profile.get("SMU_THEME", DEFAULT_THEME)
+    prompt = profile.get("SMU_PROMPT", DEFAULT_PROMPT)
+
+    with open(profile_path, "w") as f:
+        f.write("# set-me-up profile\n")
+        f.write(f"export SMU_THEME=\"{theme}\"\n")
+        f.write(f"export SMU_PROMPT=\"{prompt}\"\n")
+
+def current_theme():
+    return os.getenv("SMU_THEME") or read_profile().get("SMU_THEME", DEFAULT_THEME)
+
+def current_prompt():
+    return os.getenv("SMU_PROMPT") or read_profile().get("SMU_PROMPT", DEFAULT_PROMPT)
+
+def set_profile_value(key, value, allowed):
+    if value not in allowed:
+        die(f"Unknown {key.lower().replace('smu_', '')} '{value}'. Valid values: {', '.join(allowed)}")
+
+    profile = read_profile()
+    profile[key] = value
+    profile.setdefault("SMU_THEME", current_theme())
+    profile.setdefault("SMU_PROMPT", current_prompt())
+    write_profile(profile)
+    success(f"Saved {key}={value} to {profile_path}")
+
+def print_profile():
+    print(f"Profile: {profile_path}")
+    print(f"Theme:  {BOLD}{current_theme()}{NORMAL}")
+    print(f"Prompt: {BOLD}{current_prompt()}{NORMAL}")
+
+def handle_profile_command(argv):
+    if not argv:
+        print_profile()
+        return
+
+    command = argv[0]
+    if command in ("show", "current"):
+        print_profile()
+        return
+
+    die(f"Unknown profile command '{command}'. Use: smu profile [show]")
+
+def handle_theme_command(argv):
+    if not argv or argv[0] in ("current", "show"):
+        print(current_theme())
+        return
+
+    command = argv[0]
+    if command == "list":
+        for theme in SUPPORTED_THEMES:
+            marker = "*" if theme == current_theme() else " "
+            print(f"{marker} {theme}")
+        return
+
+    if command == "set":
+        if len(argv) < 2:
+            die("Usage: smu theme set <theme> [--apply]")
+        theme = argv[1]
+        apply_after = "--apply" in argv[2:]
+        set_profile_value("SMU_THEME", theme, SUPPORTED_THEMES)
+        if apply_after:
+            provision_module("colorschemes")
+        return
+
+    if command == "apply":
+        provision_module("colorschemes")
+        return
+
+    die("Usage: smu theme [list|current|set <theme> [--apply]|apply]")
+
+def handle_prompt_command(argv):
+    if not argv or argv[0] in ("current", "show"):
+        print(current_prompt())
+        return
+
+    command = argv[0]
+    if command == "list":
+        for prompt in SUPPORTED_PROMPTS:
+            marker = "*" if prompt == current_prompt() else " "
+            print(f"{marker} {prompt}")
+        return
+
+    if command == "set":
+        if len(argv) < 2:
+            die("Usage: smu prompt set <prompt>")
+        set_profile_value("SMU_PROMPT", argv[1], SUPPORTED_PROMPTS)
+        return
+
+    die("Usage: smu prompt [list|current|set <prompt>]")
 
 def list_symlinks():
     os.environ["RCRC"] = rcrc
@@ -211,6 +340,18 @@ def get_module_path(module_name):
     # If we are trying to get the 'base' module, then return the path to the 'base' directory
     if module_name == "base":
         return os.path.join(smu_home_dir, "dotfiles/base", f"{module_name}.sh")
+
+    direct_module_dir = os.path.join(module_path, module_name)
+    direct_script_path = os.path.join(direct_module_dir, f"{module_name}.sh")
+    direct_brewfile_path = os.path.join(direct_module_dir, "brewfile")
+    direct_packages_path = os.path.join(direct_module_dir, "packages")
+
+    if os.path.exists(direct_script_path):
+        return direct_script_path
+    if os.path.exists(direct_brewfile_path):
+        return direct_brewfile_path
+    if os.path.exists(direct_packages_path):
+        return direct_packages_path
 
     # Determine the OS of the module by checking if the module is part of an OS-specific directory
     # e.g., modules/macos/fonts/fonts.sh
@@ -979,6 +1120,19 @@ def provision_modules_batch(modules):
 
 
 def main():
+    if len(sys.argv) > 1:
+        command = sys.argv[1]
+        command_args = sys.argv[2:]
+        if command == "profile":
+            handle_profile_command(command_args)
+            return
+        if command == "theme":
+            handle_theme_command(command_args)
+            return
+        if command == "prompt":
+            handle_prompt_command(command_args)
+            return
+
     parser = argparse.ArgumentParser(description="set-me-up installer")
     parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
     parser.add_argument("-du", "--debian-update", action="store_true", help="Update Debian-based system")
@@ -1004,8 +1158,15 @@ def main():
     parser.add_argument("-V", "--verbose", action="store_true", help="With --status: show per-entry detail")
     parser.add_argument("--search", metavar="QUERY", help="Filter --list-modules / --status / --interactive by substring (case-insensitive)")
     parser.add_argument("--all", action="store_true", help="With --list-modules / --status / --interactive, include modules for other OS buckets")
+    parser.add_argument("--theme", choices=SUPPORTED_THEMES, help="Save the selected set-me-up theme before provisioning")
+    parser.add_argument("--prompt", choices=SUPPORTED_PROMPTS, help="Save the selected set-me-up prompt profile before provisioning")
 
     args = parser.parse_args()
+
+    if args.theme:
+        set_profile_value("SMU_THEME", args.theme, SUPPORTED_THEMES)
+    if args.prompt:
+        set_profile_value("SMU_PROMPT", args.prompt, SUPPORTED_PROMPTS)
 
     # --------------------------------------------------------------------------------------
 

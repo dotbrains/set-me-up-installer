@@ -112,6 +112,57 @@ smu -i --all                  # include modules from other OS buckets
 
 Selected modules are run through the same provisioning pipeline as `-p -m ...`, including the `-b` / `--no-base` flags. Requires `fzf` to be installed (`brew install fzf`, `apt install fzf`, or `pacman -S fzf`).
 
+## Theme and prompt profile
+
+`set-me-up` stores the user's visual preferences in:
+
+```text
+~/.config/set-me-up/profile.env
+```
+
+The profile is a shell-compatible environment file:
+
+```bash
+export SMU_THEME="gruvbox"
+export SMU_PROMPT="starship"
+```
+
+Supported themes:
+
+- `gruvbox`
+- `nord`
+- `catppuccin`
+
+Supported prompt profiles:
+
+- `starship` - the default Starship prompt
+- `starship-minimal` - a minimal Starship config, when provided by the
+  active colorscheme module
+- `classic` - a native shell prompt without Starship
+
+Set preferences after install:
+
+```bash
+smu theme list
+smu theme set nord --apply
+smu prompt list
+smu prompt set classic
+smu profile
+```
+
+Set preferences during bootstrap:
+
+```bash
+bash <(curl -s -L https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/install.sh) \
+  --theme nord \
+  --prompt classic
+```
+
+The `--apply` flag on `smu theme set` runs the `colorschemes` module so tool
+adapters such as Starship, lazygit, fish, and Alacritty are updated
+immediately. Shells and dotfiles also read `SMU_THEME` / `SMU_PROMPT` directly,
+so new terminals pick up the saved profile.
+
 ## Auditing what's installed
 
 Use `-st` / `--status` to see which modules are currently installed on the machine. Detection is read-only and never prompts:

@@ -35,6 +35,9 @@ readonly smu_download="https://github.com/${SMU_BLUEPRINT}"
 # Get the absolute path of the installer 'scripts' directory.
 readonly installer_scripts_path="${SMU_HOME_DIR}/set-me-up-installer/scripts"
 
+SMU_THEME="${SMU_THEME:-gruvbox}"
+SMU_PROMPT="${SMU_PROMPT:-starship}"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Initialize the flag to "true" for showing the header (if '--no-header' is not passed)
@@ -70,13 +73,24 @@ function detect_os() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 function parse_arguments() {
-	for arg in "$@"; do
-		case "$arg" in
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
 		# If '--skip-confirm' is found, set the flag to "true"
 		--skip-confirm) skip_confirmation=true ;;
 			# If '--no-header' is found, set the flag to "false"
 		--no-header) show_header=false ;;
+		--theme)
+			shift
+			SMU_THEME="${1:-$SMU_THEME}"
+			;;
+		--theme=*) SMU_THEME="${1#*=}" ;;
+		--prompt)
+			shift
+			SMU_PROMPT="${1:-$SMU_PROMPT}"
+			;;
+		--prompt=*) SMU_PROMPT="${1#*=}" ;;
 		esac
+		shift
 	done
 }
 
@@ -241,7 +255,22 @@ function setup() {
 	printf "\n"
 
 	success "'${bold}set-me-up${normal}' has been successfully installed on your system."
+	write_profile
 	echo -e "\nFor more information, visit: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
+}
+
+function write_profile() {
+	local -r profile_dir="${XDG_CONFIG_HOME:-$HOME/.config}/set-me-up"
+	local -r profile="${profile_dir}/profile.env"
+
+	mkdir -p "$profile_dir"
+	cat >"$profile" <<EOF
+# set-me-up profile
+export SMU_THEME="${SMU_THEME}"
+export SMU_PROMPT="${SMU_PROMPT}"
+EOF
+
+	success "Saved set-me-up profile to ${bold}${profile}${normal}"
 }
 
 function install_rosetta_if_needed() {
