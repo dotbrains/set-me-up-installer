@@ -1,3 +1,14 @@
 id = "classic"
 name = "Classic"
 description = "Use a native shell PS1/PROMPT without Starship."
+engine = "shell"
+theme_aware = false
+
+[shell]
+mode = "native"
+
+[adapters]
+bash = "prompts/classic.bash"
+zsh = "prompts/classic.zsh"
+fish = "prompts/classic.fish"
+nushell = "prompts/classic.nu"

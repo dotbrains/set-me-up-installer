@@ -24,6 +24,8 @@ jobs:
         SMU_BLUEPRINT_BRANCH: main
       run: |
         python -m unittest discover -s tests -t . -v
+        python scripts/prompt_contract.py --local
+        python scripts/generate-prompt-adapters.py --check-templates
 
     - name: Run tests with pytest (if available)
       env:
@@ -32,6 +34,8 @@ jobs:
       run: |
         pip install pytest 2>/dev/null || true
         pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v
+        python scripts/prompt_contract.py --local
+        python scripts/generate-prompt-adapters.py --check-templates
 
   markdown-lint:
     name: Markdown Lint

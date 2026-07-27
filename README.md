@@ -182,6 +182,7 @@ smu theme set nord --apply
 smu theme doctor nord
 smu prompt list
 smu prompt set classic
+smu prompt doctor classic
 smu profile
 ```
 
@@ -200,6 +201,26 @@ so new terminals pick up the saved profile.
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,
 colorscheme module, shell, terminal, tmux, and editor repositories.
+
+Prompt profiles are first-class manifests too. Each `prompt-profiles/*.toml`
+declares the prompt engine, whether the prompt is theme-aware, and the Bash,
+Zsh, Fish, and Nushell adapter paths required for that profile. Use
+`smu prompt doctor [prompt]` from the aggregate checkout to validate those
+adapters.
+
+Prompt authoring checks:
+
+```bash
+python3 scripts/prompt_contract.py --local
+python3 scripts/generate-prompt-adapters.py --check-templates
+python3 scripts/prompt_contract.py
+python3 scripts/generate-prompt-adapters.py --check
+python3 scripts/generate-prompt-adapters.py --write
+```
+
+The `--local` and `--check-templates` commands work in the standalone installer
+repo. The full contract and generated adapter drift checks require the aggregate
+`set-me-up` checkout because the shell adapters live in separate repositories.
 
 ## Auditing what's installed
 

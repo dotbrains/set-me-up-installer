@@ -1,3 +1,16 @@
 id = "starship-minimal"
 name = "Starship Minimal"
 description = "Use a compact Starship prompt profile when available."
+engine = "starship"
+theme_aware = true
+
+[starship]
+mode = "theme-minimal"
+config = "~/.config/starship-minimal.toml"
+fallback = "starship"
+
+[adapters]
+bash = "prompts/starship-minimal.bash"
+zsh = "prompts/starship-minimal.zsh"
+fish = "prompts/starship-minimal.fish"
+nushell = "prompts/starship-minimal.nu"

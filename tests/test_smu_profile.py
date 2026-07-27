@@ -51,6 +51,57 @@ class TestProfile(unittest.TestCase):
                 self.assertEqual(smu.supported_prompts(), ("lean",))
                 self.assertEqual(smu.prompt_profiles()[0]["description"], "Compact prompt.")
 
+    def test_prompt_doctor_checks_manifest_adapters(self):
+        class FakePromptRegistry:
+            @staticmethod
+            def manifests(profiles_dir):
+                return [{"id": "classic"}]
+
+            @staticmethod
+            def validate_profile(profile):
+                return []
+
+            @staticmethod
+            def adapter_paths(aggregate_root, profile):
+                return [
+                    ("bash adapter", pathlib.Path(aggregate_root) / "home/.config/bash/prompts/classic.bash"),
+                    ("zsh adapter", pathlib.Path(aggregate_root) / "home/.config/zsh/prompts/classic.zsh"),
+                    ("fish adapter", pathlib.Path(aggregate_root) / "home/.config/fish/prompts/classic.fish"),
+                    ("nushell adapter", pathlib.Path(aggregate_root) / "home/.config/nushell/prompts/classic.nu"),
+                ]
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            profiles_dir = os.path.join(tempdir, "installer", "prompt-profiles")
+            os.makedirs(profiles_dir)
+            with open(os.path.join(profiles_dir, "classic.toml"), "w") as f:
+                f.write('id = "classic"\n')
+                f.write('name = "Classic"\n')
+                f.write('description = "Native prompt."\n')
+                f.write('engine = "shell"\n')
+                f.write('theme_aware = false\n')
+                f.write("[shell]\n")
+                f.write('mode = "native"\n')
+                f.write("[adapters]\n")
+                f.write('bash = "prompts/classic.bash"\n')
+                f.write('zsh = "prompts/classic.zsh"\n')
+                f.write('fish = "prompts/classic.fish"\n')
+                f.write('nushell = "prompts/classic.nu"\n')
+
+            for path in (
+                "home/.config/bash/prompts/classic.bash",
+                "home/.config/zsh/prompts/classic.zsh",
+                "home/.config/fish/prompts/classic.fish",
+                "home/.config/nushell/prompts/classic.nu",
+            ):
+                _touch(os.path.join(tempdir, path))
+
+            with (
+                patch.object(smu, "prompt_profiles_path", profiles_dir),
+                patch.object(smu, "__file__", os.path.join(tempdir, "installer", "smu.py")),
+                patch.object(smu, "_load_prompt_registry", return_value=FakePromptRegistry),
+            ):
+                self.assertEqual(smu.prompt_doctor("classic"), 0)
+
 
 class TestThemeRegistry(unittest.TestCase):
     def test_supported_themes_are_read_from_manifests(self):

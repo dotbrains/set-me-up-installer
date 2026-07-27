@@ -1,3 +1,16 @@
 id = "starship"
 name = "Starship"
 description = "Use the selected theme's Starship prompt configuration."
+engine = "starship"
+theme_aware = true
+
+[starship]
+mode = "theme"
+config = "~/.config/starship.toml"
+fallback = "classic"
+
+[adapters]
+bash = "prompts/starship.bash"
+zsh = "prompts/starship.zsh"
+fish = "prompts/starship.fish"
+nushell = "prompts/starship.nu"

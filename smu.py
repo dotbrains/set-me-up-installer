@@ -147,7 +147,26 @@ def _load_theme_registry():
     spec.loader.exec_module(module)
     return module
 
+def _load_prompt_registry():
+    registry_path = os.path.join(os.path.dirname(__file__), "scripts", "prompt_registry.py")
+    if not os.path.exists(registry_path):
+        return None
+
+    spec = importlib.util.spec_from_file_location("smu_prompt_registry", registry_path)
+    if not spec or not spec.loader:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 def prompt_profiles():
+    registry = _load_prompt_registry()
+    if registry:
+        profiles = list(registry.manifests(prompt_profiles_path))
+        if profiles:
+            return profiles
+
     profiles = []
     if os.path.isdir(prompt_profiles_path):
         for filename in sorted(os.listdir(prompt_profiles_path)):
@@ -320,7 +339,38 @@ def handle_prompt_command(argv):
         set_profile_value("SMU_PROMPT", argv[1], supported_prompts())
         return
 
-    die("Usage: smu prompt [list|current|set <prompt>]")
+    if command == "doctor":
+        prompt = argv[1] if len(argv) > 1 else current_prompt()
+        raise SystemExit(prompt_doctor(prompt))
+
+    die("Usage: smu prompt [list|current|set <prompt>|doctor [prompt]]")
+
+def prompt_doctor(prompt):
+    profiles = {entry["id"]: entry for entry in prompt_profiles() if entry.get("id")}
+    if prompt not in profiles:
+        warn(f"Unknown prompt profile '{prompt}'.")
+        return 1
+
+    registry = _load_prompt_registry()
+    if not registry:
+        warn("Prompt registry is not available.")
+        return 1
+
+    profile = profiles[prompt]
+    failed = False
+    for error in registry.validate_profile(profile):
+        failed = True
+        print(f"{COL_RED}FAIL{COL_RESET} {error}")
+
+    set_me_up_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    for label, path in registry.adapter_paths(set_me_up_root, profile):
+        if os.path.exists(path):
+            print(f"{COL_GREEN}OK{COL_RESET}   {label}")
+        else:
+            failed = True
+            print(f"{COL_RED}MISS{COL_RESET} {label}: {path}")
+
+    return 1 if failed else 0
 
 def theme_doctor(theme):
     themes = {entry["id"]: entry for entry in theme_manifests()}

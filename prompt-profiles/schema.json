@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up prompt profile",
+  "type": "object",
+  "required": ["id", "name", "description", "engine", "theme_aware", "adapters"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "engine": { "enum": ["starship", "shell"] },
+    "theme_aware": { "type": "boolean" },
+    "adapters": {
+      "type": "object",
+      "required": ["bash", "zsh", "fish", "nushell"]
+    }
+  }
+}
