@@ -33,6 +33,19 @@ jobs:
         pip install pytest 2>/dev/null || true
         pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v
 
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Lint Markdown files
+      uses: DavidAnson/markdownlint-cli2-action@v14
+      with:
+        globs: |
+          **/*.md
+
   flox-smoke-test:
     name: Flox manifest smoke test
     runs-on: blacksmith-4vcpu-ubuntu-2404
