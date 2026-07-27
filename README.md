@@ -132,6 +132,12 @@ Supported themes:
 - `gruvbox`
 - `nord`
 - `catppuccin`
+- `tokyo-night`
+- `rose-pine`
+- `dracula`
+- `everforest`
+- `solarized`
+- `kanagawa`
 
 Supported prompt profiles:
 

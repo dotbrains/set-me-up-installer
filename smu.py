@@ -65,7 +65,17 @@ debian = _is_linux_distro(['debian', 'ubuntu'])
 # Determine if OS is arch-based (Arch)
 arch = _is_linux_distro(['arch'])
 
-SUPPORTED_THEMES = ("gruvbox", "nord", "catppuccin")
+SUPPORTED_THEMES = (
+    "gruvbox",
+    "nord",
+    "catppuccin",
+    "tokyo-night",
+    "rose-pine",
+    "dracula",
+    "everforest",
+    "solarized",
+    "kanagawa",
+)
 SUPPORTED_PROMPTS = ("starship", "starship-minimal", "classic")
 DEFAULT_THEME = "gruvbox"
 DEFAULT_PROMPT = "starship"
