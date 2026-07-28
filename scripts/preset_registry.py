@@ -3,44 +3,16 @@
 """Shared preset manifest contract helpers."""
 
 import pathlib
-import re
 
-
-def _parse_value(value):
-    return value.strip().strip('"').strip("'")
+import smu_contract
 
 
 def read_manifest(path):
-    data = {}
-    current_section = None
-
-    for raw_line in pathlib.Path(path).read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        section_match = re.match(r"^\[([A-Za-z0-9_-]+)\]$", line)
-        if section_match:
-            current_section = section_match.group(1)
-            data.setdefault(current_section, {})
-            continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = _parse_value(value)
-        if current_section:
-            data[current_section][key] = value
-        else:
-            data[key] = value
-
-    return data
+    return smu_contract.read_manifest(path)
 
 
 def manifests(presets_dir):
-    return [
-        read_manifest(path)
-        for path in sorted(pathlib.Path(presets_dir).glob("*.toml"))
-    ]
+    return smu_contract.manifests(presets_dir)
 
 
 def preset_by_id(presets_dir):
@@ -59,7 +31,7 @@ def validate_preset(preset, supported_themes, supported_prompts):
         if key not in preset:
             errors.append(f"{preset_id}: missing {key}")
 
-    if preset.get("id") and not re.match(r"^[a-z0-9][a-z0-9-]*$", preset["id"]):
+    if preset.get("id") and not smu_contract.valid_id(preset["id"]):
         errors.append(f"{preset_id}: id must be kebab-case")
 
     if preset.get("theme") not in supported_themes:

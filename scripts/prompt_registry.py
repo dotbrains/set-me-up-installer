@@ -3,53 +3,20 @@
 """Shared prompt profile manifest and adapter contract helpers."""
 
 import pathlib
-import re
+
+import smu_contract
 
 
 VALID_ENGINES = ("starship", "shell")
 REQUIRED_ADAPTERS = ("bash", "zsh", "fish", "nushell")
 
 
-def _parse_value(value):
-    value = value.strip().strip('"').strip("'")
-    if value == "true":
-        return True
-    if value == "false":
-        return False
-    return value
-
-
 def read_manifest(path):
-    data = {}
-    current_section = None
-
-    for raw_line in pathlib.Path(path).read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        section_match = re.match(r"^\[([A-Za-z0-9_-]+)\]$", line)
-        if section_match:
-            current_section = section_match.group(1)
-            data.setdefault(current_section, {})
-            continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = _parse_value(value)
-        if current_section:
-            data[current_section][key] = value
-        else:
-            data[key] = value
-
-    return data
+    return smu_contract.read_manifest(path)
 
 
 def manifests(profiles_dir):
-    return [
-        read_manifest(path)
-        for path in sorted(pathlib.Path(profiles_dir).glob("*.toml"))
-    ]
+    return smu_contract.manifests(profiles_dir)
 
 
 def profile_by_id(profiles_dir):
@@ -68,7 +35,7 @@ def validate_profile(profile):
         if key not in profile:
             errors.append(f"{profile_id}: missing {key}")
 
-    if profile.get("id") and not re.match(r"^[a-z0-9][a-z0-9-]*$", profile["id"]):
+    if profile.get("id") and not smu_contract.valid_id(profile["id"]):
         errors.append(f"{profile_id}: id must be kebab-case")
 
     if profile.get("engine") not in VALID_ENGINES:

@@ -5,10 +5,12 @@ import importlib.util
 import json
 import subprocess
 import os
-import re
 import shlex
 import shutil
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
+import smu_contract
 
 # ANSI escape codes for colors
 COL_YELLOW = '\033[93m'
@@ -97,8 +99,7 @@ SUPPORTED_PROMPTS = ("starship", "starship-minimal", "classic")
 DEFAULT_THEME = "gruvbox"
 DEFAULT_PROMPT = "starship"
 DEFAULT_PRESET = "default"
-ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-ADAPTER_MODES = ("copy", "symlink")
+ADAPTER_MODES = smu_contract.ADAPTER_MODES
 
 def warn(message):
     print(f"{COL_YELLOW}[warning]{COL_RESET} {message}")
@@ -126,31 +127,7 @@ def _parse_profile_line(line):
     return key, value
 
 def _read_simple_toml(path):
-    data = {}
-    current_section = None
-    if not os.path.exists(path):
-        return data
-
-    with open(path) as f:
-        for raw_line in f:
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                current_section = line[1:-1].strip()
-                data.setdefault(current_section, {})
-                continue
-            if "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if current_section:
-                data[current_section][key] = value
-            else:
-                data[key] = value
-
-    return data
+    return smu_contract.read_manifest(path)
 
 def _load_theme_registry():
     registry_path = os.path.join(colorscheme_module_dir(), "scripts", "theme_registry.py")
@@ -192,64 +169,13 @@ def _load_preset_registry():
     return module
 
 def _merge_manifest(parent, child):
-    merged = {}
-    for key, value in parent.items():
-        if isinstance(value, dict):
-            merged[key] = dict(value)
-        else:
-            merged[key] = value
-
-    for key, value in child.items():
-        if key == "extends":
-            continue
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            nested = dict(merged[key])
-            nested.update(value)
-            merged[key] = nested
-        else:
-            merged[key] = value
-
-    return merged
+    return smu_contract.merge_manifest(parent, child)
 
 def _resolve_manifest_inheritance(manifests):
-    by_id = {
-        manifest["id"]: manifest
-        for manifest in manifests
-        if manifest.get("id")
-    }
-    resolved = {}
-    resolving = set()
-
-    def resolve(manifest):
-        manifest_id = manifest.get("id")
-        parent_id = manifest.get("extends")
-        if not manifest_id or not parent_id:
-            return manifest
-        if manifest_id in resolved:
-            return resolved[manifest_id]
-        if manifest_id in resolving:
-            return manifest
-        parent = by_id.get(parent_id)
-        if not parent:
-            return manifest
-        resolving.add(manifest_id)
-        resolved_parent = resolve(parent)
-        resolving.remove(manifest_id)
-        resolved_manifest = _merge_manifest(resolved_parent, manifest)
-        resolved[manifest_id] = resolved_manifest
-        return resolved_manifest
-
-    return [resolve(manifest) for manifest in manifests]
+    return smu_contract.resolve_inheritance(manifests)
 
 def _merge_catalog_manifests(builtins, user_manifests):
-    merged = list(builtins)
-    seen = {entry.get("id") for entry in builtins if entry.get("id")}
-    for manifest in user_manifests:
-        manifest_id = manifest.get("id")
-        if manifest_id and manifest_id not in seen:
-            merged.append(manifest)
-            seen.add(manifest_id)
-    return _resolve_manifest_inheritance(merged)
+    return smu_contract.merge_catalog_manifests(builtins, user_manifests)
 
 def _read_manifest_dir(path, registry=None):
     if registry:
@@ -266,19 +192,10 @@ def _read_manifest_dir(path, registry=None):
     return manifests
 
 def _catalog_duplicate_ids(entries):
-    seen = set()
-    duplicates = []
-    for entry in entries:
-        entry_id = entry.get("id")
-        if not entry_id:
-            continue
-        if entry_id in seen and entry_id not in duplicates:
-            duplicates.append(entry_id)
-        seen.add(entry_id)
-    return duplicates
+    return smu_contract.duplicate_ids(entries)
 
 def _valid_catalog_id(manifest_id):
-    return bool(manifest_id and ID_RE.match(manifest_id))
+    return smu_contract.valid_id(manifest_id)
 
 def _display_name(manifest_id):
     return manifest_id.replace("-", " ").title()
@@ -1105,38 +1022,7 @@ def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
     return errors
 
 def _manifest_authoring_errors(label, manifests):
-    errors = []
-    for manifest in manifests:
-        manifest_id = manifest.get("id", "<unknown>")
-        if manifest.get("id") and not _valid_catalog_id(manifest["id"]):
-            errors.append(f"{label}: {manifest_id} id must be kebab-case")
-
-        sources = manifest.get("adapter_sources", {})
-        targets = manifest.get("adapter_targets", {})
-        modes = manifest.get("adapter_modes", {})
-        if sources and not isinstance(sources, dict):
-            errors.append(f"{label}: {manifest_id} [adapter_sources] must be a table")
-            sources = {}
-        if targets and not isinstance(targets, dict):
-            errors.append(f"{label}: {manifest_id} [adapter_targets] must be a table")
-            targets = {}
-        if modes and not isinstance(modes, dict):
-            errors.append(f"{label}: {manifest_id} [adapter_modes] must be a table")
-            modes = {}
-
-        for name in sorted(set(sources) - set(targets)):
-            errors.append(f"{label}: {manifest_id} adapter {name} has source without target")
-        for name in sorted(set(targets) - set(sources)):
-            errors.append(f"{label}: {manifest_id} adapter {name} has target without source")
-        for name, mode in sorted(modes.items()):
-            if name not in sources:
-                errors.append(f"{label}: {manifest_id} adapter {name} has mode without source")
-            if mode not in ADAPTER_MODES:
-                errors.append(
-                    f"{label}: {manifest_id} adapter {name} mode must be one of {', '.join(ADAPTER_MODES)}"
-                )
-
-    return errors
+    return smu_contract.adapter_authoring_errors(label, manifests)
 
 def catalog_doctor():
     errors = []

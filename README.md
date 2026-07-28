@@ -374,6 +374,11 @@ The `--local` and `--check-templates` commands work in the standalone installer
 repo. The full contract and generated adapter drift checks require the aggregate
 `set-me-up` checkout because the shell adapters live in separate repositories.
 
+Shared manifest semantics live in `scripts/smu_contract.py`. Reuse that module
+for TOML parsing, kebab-case ID validation, catalog merging, inheritance
+resolution, and adapter source/target validation instead of duplicating those
+rules in new scripts.
+
 ## Auditing what's installed
 
 Use `-st` / `--status` to see which modules are currently installed on the
