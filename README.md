@@ -244,14 +244,16 @@ smu adapter doctor
 
 ## Auditing what's installed
 
-Use `-st` / `--status` to see which modules are currently installed on the
-machine. Detection is read-only and never prompts:
+Use `smu status` or `-st` / `--status` to see which modules are currently
+installed on the machine. Detection is read-only and never prompts:
 
 ```bash
+smu status
 smu --status
-smu --status --search font
-smu --status --all      # include modules from other OS buckets
-smu --status -V         # verbose: show per-entry detail
+smu status --search font
+smu status --all      # include modules from other OS buckets
+smu status -V         # verbose: show per-entry detail
+smu status --json     # machine-readable state for agents and scripts
 ```
 
 Output lists every visible module with a state tag and a count summary at the
@@ -360,6 +362,37 @@ uninstall flows:
 
 Without these sibling files a module installs as before but reports `unknown`
 under `--status` and is skipped by `--uninstall`.
+
+## Planning and rollback
+
+`smu` keeps an append-only state ledger at:
+
+```text
+~/.config/set-me-up/state/ledger.json
+```
+
+The ledger records module provision batches, module uninstall batches, and
+adapter materialization runs. Adapter events include the previous file or
+symlink state for each target so `smu rollback` can restore overwritten adapter
+files.
+
+Preview module and adapter changes before running them:
+
+```bash
+smu diff productivity/raycast
+smu --diff -m productivity/raycast
+smu adapter materialize --dry-run
+smu -u -m productivity/raycast --dry-run
+smu rollback --dry-run
+```
+
+Rollback is intentionally conservative:
+
+- The last adapter materialization restores captured file or symlink snapshots.
+- The last module provision batch runs the existing uninstall flow for those
+  modules.
+- Uninstall events are recorded for audit, but are not automatically rolled
+  back because reinstalling removed package state can be lossy.
 
 ## Reproducible dev environment (Flox)
 

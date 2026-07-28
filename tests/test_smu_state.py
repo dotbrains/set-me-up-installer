@@ -4,6 +4,8 @@ import json
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+import io
 from unittest.mock import patch
 
 import smu
@@ -79,6 +81,26 @@ class TestSmuState(unittest.TestCase):
             self.assertEqual(report["modules"], [{"name": "base"}])
             self.assertTrue(report["adapters"][0]["exists"])
             self.assertEqual(report["ledger"]["entries"], 1)
+
+    def test_status_subcommand_supports_json(self):
+        with patch.object(smu, "print_status_json") as print_json, \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "status", "--json", "--search", "font"]
+
+            smu.main()
+
+        print_json.assert_called_once_with(search="font", show_all=False, verbose=False)
+
+    def test_diff_subcommand_prints_module_and_adapter_plan(self):
+        with patch.object(smu, "module_change_plan", return_value=[{"module": "base", "state": "missing", "change": "install"}]), \
+                patch.object(smu, "materializable_adapters", return_value=[]), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "diff", "base"]
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                smu.main()
+
+        self.assertIn("install\tmodule\tbase\tmissing", buf.getvalue())
 
 
 if __name__ == "__main__":

@@ -33,6 +33,22 @@ def main():
             return
         if command == "doctor":
             raise SystemExit(doctor())
+        if command == "status":
+            json_output = "--json" in command_args
+            verbose = "--verbose" in command_args or "-V" in command_args
+            show_all = "--all" in command_args
+            search = _option_value(command_args, "--search")
+            if json_output:
+                print_status_json(search=search, show_all=show_all, verbose=verbose)
+            else:
+                status_modules(search=search, show_all=show_all, verbose=verbose)
+            return
+        if command == "diff":
+            modules = [arg for arg in command_args if not arg.startswith("--")]
+            plan = module_change_plan(modules) if modules else []
+            plan.extend(adapter_change_plan(materializable_adapters()))
+            print_diff_plan(plan)
+            return
         if command == "rollback":
             dry_run = "--dry-run" in command_args
             raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
