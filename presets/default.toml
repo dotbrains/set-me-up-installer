@@ -1,0 +1,5 @@
+id = "default"
+name = "Default"
+description = "Gruvbox colors with the full Starship prompt."
+theme = "gruvbox"
+prompt = "starship"

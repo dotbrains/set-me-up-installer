@@ -28,7 +28,7 @@ class TestProfile(unittest.TestCase):
 
                 self.assertEqual(
                     smu.read_profile(),
-                    {"SMU_THEME": "nord", "SMU_PROMPT": "classic"},
+                    {"SMU_PRESET": "default", "SMU_THEME": "nord", "SMU_PROMPT": "classic"},
                 )
 
     def test_set_profile_value_rejects_unknown_values(self):
@@ -50,6 +50,98 @@ class TestProfile(unittest.TestCase):
             with patch.object(smu, "prompt_profiles_path", prompt_dir):
                 self.assertEqual(smu.supported_prompts(), ("lean",))
                 self.assertEqual(smu.prompt_profiles()[0]["description"], "Compact prompt.")
+
+    def test_supported_presets_are_read_from_manifest_files(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            presets_dir = os.path.join(tempdir, "presets")
+            os.makedirs(presets_dir)
+            with open(os.path.join(presets_dir, "lean.toml"), "w") as f:
+                f.write('id = "lean"\n')
+                f.write('description = "Lean preset."\n')
+                f.write('theme = "nord"\n')
+                f.write('prompt = "classic"\n')
+
+            with patch.object(smu, "preset_profiles_path", presets_dir):
+                self.assertEqual(smu.supported_presets(), ("lean",))
+                self.assertEqual(smu.preset_profiles()[0]["description"], "Lean preset.")
+
+    def test_set_preset_writes_theme_and_prompt(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            profile = os.path.join(tempdir, "profile.env")
+            presets_dir = os.path.join(tempdir, "presets")
+            os.makedirs(presets_dir)
+            with open(os.path.join(presets_dir, "nord-minimal.toml"), "w") as f:
+                f.write('id = "nord-minimal"\n')
+                f.write('name = "Nord Minimal"\n')
+                f.write('description = "Nord and minimal Starship."\n')
+                f.write('theme = "nord"\n')
+                f.write('prompt = "starship-minimal"\n')
+
+            with (
+                patch.object(smu, "profile_path", profile),
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "supported_themes", return_value=("nord",)),
+                patch.object(smu, "supported_prompts", return_value=("starship-minimal",)),
+            ):
+                smu.set_preset("nord-minimal")
+                self.assertEqual(
+                    smu.read_profile(),
+                    {
+                        "SMU_PRESET": "nord-minimal",
+                        "SMU_THEME": "nord",
+                        "SMU_PROMPT": "starship-minimal",
+                    },
+                )
+
+    def test_current_values_honor_override_files_before_profile(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            profile = os.path.join(tempdir, "profile.env")
+            theme_override = os.path.join(tempdir, "theme.toml")
+            prompt_override = os.path.join(tempdir, "prompt.toml")
+            preset_override = os.path.join(tempdir, "preset.toml")
+
+            with open(profile, "w") as f:
+                f.write('export SMU_PRESET="default"\n')
+                f.write('export SMU_THEME="gruvbox"\n')
+                f.write('export SMU_PROMPT="starship"\n')
+            with open(theme_override, "w") as f:
+                f.write('theme = "nord"\n')
+            with open(prompt_override, "w") as f:
+                f.write('id = "classic"\n')
+            with open(preset_override, "w") as f:
+                f.write('preset = "classic-gruvbox"\n')
+
+            with (
+                patch.object(smu, "profile_path", profile),
+                patch.object(smu, "theme_override_path", theme_override),
+                patch.object(smu, "prompt_override_path", prompt_override),
+                patch.object(smu, "preset_override_path", preset_override),
+                patch.dict(os.environ, {"SMU_THEME": "", "SMU_PROMPT": "", "SMU_PRESET": ""}, clear=False),
+            ):
+                os.environ.pop("SMU_THEME", None)
+                os.environ.pop("SMU_PROMPT", None)
+                os.environ.pop("SMU_PRESET", None)
+                self.assertEqual(smu.current_theme(), "nord")
+                self.assertEqual(smu.current_prompt(), "classic")
+                self.assertEqual(smu.current_preset(), "classic-gruvbox")
+
+    def test_preset_doctor_validates_theme_and_prompt(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            presets_dir = os.path.join(tempdir, "presets")
+            os.makedirs(presets_dir)
+            with open(os.path.join(presets_dir, "default.toml"), "w") as f:
+                f.write('id = "default"\n')
+                f.write('name = "Default"\n')
+                f.write('description = "Default preset."\n')
+                f.write('theme = "gruvbox"\n')
+                f.write('prompt = "starship"\n')
+
+            with (
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "supported_themes", return_value=("gruvbox",)),
+                patch.object(smu, "supported_prompts", return_value=("starship",)),
+            ):
+                self.assertEqual(smu.preset_doctor("default"), 0)
 
     def test_prompt_doctor_checks_manifest_adapters(self):
         class FakePromptRegistry:

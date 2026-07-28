@@ -1,0 +1,5 @@
+id = "tokyo-night"
+name = "Tokyo Night"
+description = "Tokyo Night colors with the full Starship prompt."
+theme = "tokyo-night"
+prompt = "starship"

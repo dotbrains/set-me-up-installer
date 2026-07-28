@@ -25,6 +25,7 @@ jobs:
       run: |
         python -m unittest discover -s tests -t . -v
         python scripts/prompt_contract.py --local
+        python scripts/preset_contract.py
         python scripts/generate-prompt-adapters.py --check-templates
 
     - name: Run tests with pytest (if available)
@@ -35,6 +36,7 @@ jobs:
         pip install pytest 2>/dev/null || true
         pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v
         python scripts/prompt_contract.py --local
+        python scripts/preset_contract.py
         python scripts/generate-prompt-adapters.py --check-templates
 
   markdown-lint:

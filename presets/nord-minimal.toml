@@ -1,0 +1,5 @@
+id = "nord-minimal"
+name = "Nord Minimal"
+description = "Nord colors with the minimal Starship prompt."
+theme = "nord"
+prompt = "starship-minimal"

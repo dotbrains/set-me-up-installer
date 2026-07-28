@@ -152,6 +152,7 @@ The profile is a shell-compatible environment file:
 ```bash
 export SMU_THEME="gruvbox"
 export SMU_PROMPT="starship"
+export SMU_PRESET="default"
 ```
 
 Supported themes are discovered from the colorscheme module manifests at
@@ -174,6 +175,14 @@ Supported prompt profiles are discovered from `prompt-profiles/*.toml`:
   active colorscheme module
 - `classic` - a native shell prompt without Starship
 
+Presets are discovered from `presets/*.toml`. A preset is a named bundle that
+selects one theme and one prompt profile:
+
+- `default` - Gruvbox with the full Starship prompt
+- `nord-minimal` - Nord with the minimal Starship prompt
+- `classic-gruvbox` - Gruvbox with the native shell prompt
+- `tokyo-night` - Tokyo Night with the full Starship prompt
+
 Set preferences after install:
 
 ```bash
@@ -183,6 +192,10 @@ smu theme doctor nord
 smu prompt list
 smu prompt set classic
 smu prompt doctor classic
+smu preset list
+smu preset set nord-minimal --apply
+smu preset doctor nord-minimal
+smu doctor
 smu profile
 ```
 
@@ -191,12 +204,31 @@ Set preferences during bootstrap:
 ```bash
 INSTALL_URL="https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/install.sh"
 bash <(curl -s -L "$INSTALL_URL") --theme nord --prompt classic
+bash <(curl -s -L "$INSTALL_URL") --preset nord-minimal
 ```
 
 The `--apply` flag on `smu theme set` runs the `colorschemes` module so tool
 adapters such as Starship, lazygit, fish, and Alacritty are updated
 immediately. Shells and dotfiles also read `SMU_THEME` / `SMU_PROMPT` directly,
 so new terminals pick up the saved profile.
+
+Users can keep machine-local choices outside the managed repo by creating
+override files in `~/.config/set-me-up/`:
+
+```toml
+# theme.toml
+theme = "nord"
+
+# prompt.toml
+prompt = "classic"
+
+# preset.toml
+preset = "nord-minimal"
+```
+
+Resolution order is environment variable, local override file, saved profile,
+then defaults. For example, `SMU_THEME` wins over `theme.toml`, and
+`theme.toml` wins over `profile.env`.
 
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,
@@ -212,6 +244,7 @@ Prompt authoring checks:
 
 ```bash
 python3 scripts/prompt_contract.py --local
+python3 scripts/preset_contract.py
 python3 scripts/generate-prompt-adapters.py --check-templates
 python3 scripts/prompt_contract.py
 python3 scripts/generate-prompt-adapters.py --check
