@@ -291,6 +291,25 @@ export SMU_PROMPT_THEME_AWARE="true"
 `smu profile doctor` verifies that the selected preset, theme, and prompt exist
 and that `resolved.env` matches the current resolved state.
 
+Adapter packs are the files a selected theme or prompt exposes to the rest of
+the system. Theme manifests declare adapters through sections such as
+`[starship]`, `[alacritty]`, `[tmux]`, and `[nvim]`; prompt profiles declare
+shell adapters in `[adapters]`.
+
+Inspect and validate the resolved adapter pack:
+
+```bash
+smu adapter list
+smu adapter doctor
+smu adapter install nord classic
+```
+
+`smu adapter list [theme] [prompt]` prints every declared adapter path and
+whether it exists. `smu adapter doctor [theme] [prompt]` fails if the selected
+theme, prompt, or any declared adapter file is missing. `smu adapter install`
+saves the selected theme and prompt, runs the `colorschemes` module, and
+refreshes `resolved.env`.
+
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,
 colorscheme module, shell, terminal, tmux, and editor repositories.

@@ -674,6 +674,110 @@ def handle_catalog_command(argv):
         return
     die("Usage: smu catalog [doctor|path]")
 
+def _theme_adapter_paths(theme):
+    entry = theme_manifest_by_id(theme)
+    if not entry:
+        return []
+
+    colorschemes = colorscheme_module_dir()
+    aggregate_root = os.path.abspath(os.path.join(colorschemes, "..", ".."))
+    registry = _load_theme_registry()
+    if registry:
+        return [
+            ("theme", label, str(path))
+            for label, path in registry.adapter_paths(
+                colorschemes,
+                entry,
+                aggregate_root=aggregate_root,
+            )
+        ]
+
+    checks = [
+        ("colorscheme manifest", os.path.join(colorschemes, "themes", f"{theme}.toml")),
+        ("universal script", os.path.join(colorschemes, "universal", f"{theme}.sh")),
+        ("macos script", os.path.join(colorschemes, "macos", f"{theme}.sh")),
+        ("arch script", os.path.join(colorschemes, "arch", f"{theme}.sh")),
+    ]
+    return [("theme", label, path) for label, path in checks]
+
+def _prompt_adapter_paths(prompt):
+    profile = prompt_profile_by_id(prompt)
+    registry = _load_prompt_registry()
+    if not profile or not registry:
+        return []
+
+    aggregate_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    return [
+        ("prompt", label, str(path))
+        for label, path in registry.adapter_paths(aggregate_root, profile)
+    ]
+
+def adapter_paths(theme=None, prompt=None):
+    theme = theme or current_theme()
+    prompt = prompt or current_prompt()
+    return _theme_adapter_paths(theme) + _prompt_adapter_paths(prompt)
+
+def handle_adapter_command(argv):
+    command = argv[0] if argv else "list"
+    if command == "list":
+        theme = current_theme()
+        prompt = current_prompt()
+        if len(argv) > 1:
+            theme = argv[1]
+        if len(argv) > 2:
+            prompt = argv[2]
+        for kind, label, path in adapter_paths(theme, prompt):
+            status = "present" if os.path.exists(path) else "missing"
+            print(f"{kind}\t{label}\t{status}\t{path}")
+        return
+
+    if command == "doctor":
+        theme = argv[1] if len(argv) > 1 else current_theme()
+        prompt = argv[2] if len(argv) > 2 else current_prompt()
+        raise SystemExit(adapter_doctor(theme, prompt))
+
+    if command == "install":
+        theme = argv[1] if len(argv) > 1 else current_theme()
+        prompt = argv[2] if len(argv) > 2 else current_prompt()
+        if theme not in supported_themes():
+            die(f"Unknown theme '{theme}'. Valid values: {', '.join(supported_themes())}")
+        if prompt not in supported_prompts():
+            die(f"Unknown prompt '{prompt}'. Valid values: {', '.join(supported_prompts())}")
+        set_profile_value("SMU_THEME", theme, supported_themes())
+        set_profile_value("SMU_PROMPT", prompt, supported_prompts())
+        provision_module("colorschemes")
+        write_resolved_profile()
+        success(f"Installed adapters for theme={theme}, prompt={prompt}")
+        return
+
+    die("Usage: smu adapter [list [theme] [prompt]|doctor [theme] [prompt]|install [theme] [prompt]]")
+
+def adapter_doctor(theme=None, prompt=None):
+    theme = theme or current_theme()
+    prompt = prompt or current_prompt()
+    failed = False
+
+    if theme not in supported_themes():
+        failed = True
+        print(f"{COL_RED}FAIL{COL_RESET} unknown theme {theme}")
+    if prompt not in supported_prompts():
+        failed = True
+        print(f"{COL_RED}FAIL{COL_RESET} unknown prompt {prompt}")
+
+    paths = adapter_paths(theme, prompt)
+    if not paths:
+        failed = True
+        print(f"{COL_RED}FAIL{COL_RESET} no adapters resolved")
+
+    for kind, label, path in paths:
+        if os.path.exists(path):
+            print(f"{COL_GREEN}OK{COL_RESET}   {kind} {label}")
+        else:
+            failed = True
+            print(f"{COL_RED}MISS{COL_RESET} {kind} {label}: {path}")
+
+    return 1 if failed else 0
+
 def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
     errors = []
     builtin = _read_manifest_dir(builtin_dir, registry)
@@ -792,6 +896,8 @@ def doctor():
     failed = catalog_doctor() != 0 or failed
     print(f"\n{BOLD}Resolved Profile:{NORMAL} {resolved_profile_path}")
     failed = resolved_profile_doctor() != 0 or failed
+    print(f"\n{BOLD}Adapters:{NORMAL} {theme} + {prompt}")
+    failed = adapter_doctor(theme, prompt) != 0 or failed
     print(f"\n{BOLD}Theme:{NORMAL} {theme}")
     failed = theme_doctor(theme) != 0 or failed
     print(f"\n{BOLD}Prompt:{NORMAL} {prompt}")
@@ -1792,6 +1898,9 @@ def main():
             return
         if command == "catalog":
             handle_catalog_command(command_args)
+            return
+        if command == "adapter":
+            handle_adapter_command(command_args)
             return
         if command == "doctor":
             raise SystemExit(doctor())

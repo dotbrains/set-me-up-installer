@@ -312,6 +312,102 @@ class TestProfile(unittest.TestCase):
             ):
                 self.assertEqual(smu.catalog_doctor(), 1)
 
+    def test_adapter_paths_include_theme_and_prompt_adapters(self):
+        class FakeThemeRegistry:
+            @staticmethod
+            def manifests(themes_dir):
+                return [{"id": "gruvbox"}]
+
+            @staticmethod
+            def adapter_paths(colorscheme_root, theme, aggregate_root=None):
+                return [("starship config", pathlib.Path(colorscheme_root) / "starship.toml")]
+
+        class FakePromptRegistry:
+            @staticmethod
+            def manifests(profiles_dir):
+                return [{"id": "work"}]
+
+            @staticmethod
+            def adapter_paths(aggregate_root, profile):
+                return [("bash adapter", pathlib.Path(aggregate_root) / "home/.config/bash/prompts/work.bash")]
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            modules_dir = os.path.join(tempdir, "modules")
+            colorschemes = os.path.join(modules_dir, "colorschemes")
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            themes_dir = os.path.join(colorschemes, "themes")
+            os.makedirs(prompts_dir)
+            os.makedirs(themes_dir)
+            with open(os.path.join(themes_dir, "gruvbox.toml"), "w") as f:
+                f.write('id = "gruvbox"\n')
+            with open(os.path.join(prompts_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+
+            with (
+                patch.object(smu, "module_path", modules_dir),
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "_load_theme_registry", return_value=FakeThemeRegistry),
+                patch.object(smu, "_load_prompt_registry", return_value=FakePromptRegistry),
+            ):
+                paths = smu.adapter_paths("gruvbox", "work")
+                self.assertEqual(paths[0][0:2], ("theme", "starship config"))
+                self.assertEqual(paths[1][0:2], ("prompt", "bash adapter"))
+
+    def test_adapter_doctor_checks_declared_paths(self):
+        class FakeThemeRegistry:
+            @staticmethod
+            def manifests(themes_dir):
+                return [{"id": "gruvbox"}]
+
+            @staticmethod
+            def adapter_paths(colorscheme_root, theme, aggregate_root=None):
+                return [("theme adapter", pathlib.Path(colorscheme_root) / "themes/gruvbox.toml")]
+
+        class FakePromptRegistry:
+            @staticmethod
+            def manifests(profiles_dir):
+                return [{"id": "work"}]
+
+            @staticmethod
+            def adapter_paths(aggregate_root, profile):
+                return [("prompt adapter", pathlib.Path(aggregate_root) / "home/.config/bash/prompts/work.bash")]
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            modules_dir = os.path.join(tempdir, "modules")
+            colorschemes = os.path.join(modules_dir, "colorschemes")
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            _touch(os.path.join(colorschemes, "themes", "gruvbox.toml"))
+            _touch(os.path.join(tempdir, "home/.config/bash/prompts/work.bash"))
+            os.makedirs(prompts_dir)
+            with open(os.path.join(prompts_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+
+            with (
+                patch.object(smu, "module_path", modules_dir),
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "__file__", os.path.join(tempdir, "installer", "smu.py")),
+                patch.object(smu, "_load_theme_registry", return_value=FakeThemeRegistry),
+                patch.object(smu, "_load_prompt_registry", return_value=FakePromptRegistry),
+            ):
+                self.assertEqual(smu.adapter_doctor("gruvbox", "work"), 0)
+
+    def test_adapter_install_saves_profile_applies_theme_and_resolves_profile(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            profile = os.path.join(tempdir, "profile.env")
+
+            with (
+                patch.object(smu, "profile_path", profile),
+                patch.object(smu, "supported_themes", return_value=("nord",)),
+                patch.object(smu, "supported_prompts", return_value=("classic",)),
+                patch.object(smu, "provision_module", return_value=True) as provision,
+                patch.object(smu, "write_resolved_profile", return_value={}) as resolve,
+            ):
+                smu.handle_adapter_command(["install", "nord", "classic"])
+                self.assertEqual(smu.read_profile()["SMU_THEME"], "nord")
+                self.assertEqual(smu.read_profile()["SMU_PROMPT"], "classic")
+                provision.assert_called_once_with("colorschemes")
+                resolve.assert_called_once()
+
     def test_prompt_doctor_checks_manifest_adapters(self):
         class FakePromptRegistry:
             @staticmethod

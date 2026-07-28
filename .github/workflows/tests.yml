@@ -29,6 +29,7 @@ jobs:
         python scripts/generate-prompt-adapters.py --check-templates
         python smu.py profile resolve
         python smu.py profile doctor
+        python smu.py adapter list
 
     - name: Run tests with pytest (if available)
       env:
@@ -42,6 +43,7 @@ jobs:
         python scripts/generate-prompt-adapters.py --check-templates
         python smu.py profile resolve
         python smu.py profile doctor
+        python smu.py adapter list
 
   markdown-lint:
     name: Markdown Lint
