@@ -32,6 +32,7 @@ jobs:
         python smu.py adapter list
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py adapter init ci-shell
+        HOME="$RUNNER_TEMP/smu-home" python smu.py catalog migrate --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py catalog doctor
 
     - name: Run tests with pytest (if available)
@@ -49,6 +50,7 @@ jobs:
         python smu.py adapter list
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py adapter init ci-shell
+        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog migrate --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog doctor
 
   markdown-lint:

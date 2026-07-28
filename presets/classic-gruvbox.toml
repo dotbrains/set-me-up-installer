@@ -1,3 +1,4 @@
+schema_version = 1
 id = "classic-gruvbox"
 name = "Classic Gruvbox"
 description = "Gruvbox colors with the native shell prompt."

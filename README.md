@@ -243,6 +243,7 @@ Catalog manifests use the same TOML shape as built-in manifests. New manifests
 can inherit from a built-in or another catalog manifest with `extends`:
 
 ```toml
+schema_version = 1
 id = "work"
 extends = "nord-minimal"
 name = "Work"
@@ -257,8 +258,15 @@ variants. Validate the merged catalog with:
 ```bash
 smu catalog path
 smu catalog doctor
+smu catalog migrate --dry-run
+smu catalog migrate
 smu doctor
 ```
+
+`schema_version = 1` is the current manifest contract. `smu catalog doctor`
+fails on unsupported future versions. Existing user catalog manifests without a
+version can be upgraded in place with `smu catalog migrate`; use `--dry-run`
+first to preview the files that would change.
 
 Scaffold new user catalog manifests with init commands:
 
@@ -376,8 +384,8 @@ repo. The full contract and generated adapter drift checks require the aggregate
 
 Shared manifest semantics live in `scripts/smu_contract.py`. Reuse that module
 for TOML parsing, kebab-case ID validation, catalog merging, inheritance
-resolution, and adapter source/target validation instead of duplicating those
-rules in new scripts.
+resolution, schema-version migration, and adapter source/target validation
+instead of duplicating those rules in new scripts.
 
 ## Auditing what's installed
 

@@ -1,3 +1,4 @@
+schema_version = 1
 id = "starship"
 name = "Starship"
 description = "Use the selected theme's Starship prompt configuration."

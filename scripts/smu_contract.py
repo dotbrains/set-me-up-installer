@@ -8,6 +8,8 @@ import re
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 ADAPTER_MODES = ("copy", "symlink")
+SCHEMA_VERSION_KEY = "schema_version"
+SUPPORTED_SCHEMA_VERSION = 1
 
 
 def parse_value(value):
@@ -16,6 +18,8 @@ def parse_value(value):
         return True
     if value == "false":
         return False
+    if re.match(r"^-?[0-9]+$", value):
+        return int(value)
     return value
 
 
@@ -48,6 +52,40 @@ def read_manifest(path):
     return data
 
 
+def format_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    escaped = str(value).replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def write_manifest(path, manifest):
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = []
+    scalar_items = [
+        (key, value)
+        for key, value in manifest.items()
+        if not isinstance(value, dict)
+    ]
+    for key, value in scalar_items:
+        lines.append(f"{key} = {format_value(value)}")
+
+    for key, values in manifest.items():
+        if not isinstance(values, dict):
+            continue
+        if lines:
+            lines.append("")
+        lines.append(f"[{key}]")
+        for nested_key, nested_value in values.items():
+            lines.append(f"{nested_key} = {format_value(nested_value)}")
+
+    path.write_text("\n".join(lines) + "\n")
+
+
 def manifests(manifests_dir):
     return [
         read_manifest(path)
@@ -65,6 +103,49 @@ def manifest_by_id(manifests_dir):
 
 def valid_id(manifest_id):
     return bool(manifest_id and ID_RE.match(manifest_id))
+
+
+def schema_version(manifest):
+    version = manifest.get(SCHEMA_VERSION_KEY)
+    if version is None:
+        return None
+    if isinstance(version, int) and not isinstance(version, bool):
+        return version
+    if isinstance(version, str) and re.match(r"^[0-9]+$", version):
+        return int(version)
+    return version
+
+
+def migrate_manifest(manifest):
+    migrated = {}
+    migrated[SCHEMA_VERSION_KEY] = SUPPORTED_SCHEMA_VERSION
+    for key, value in manifest.items():
+        if key == SCHEMA_VERSION_KEY:
+            continue
+        if isinstance(value, dict):
+            migrated[key] = dict(value)
+        else:
+            migrated[key] = value
+    return migrated
+
+
+def schema_version_errors(label, manifests, require_schema_version=False):
+    errors = []
+    for manifest in manifests:
+        manifest_id = manifest.get("id", "<unknown>")
+        version = schema_version(manifest)
+        if version is None:
+            if require_schema_version:
+                errors.append(f"{label}: {manifest_id} missing schema_version")
+            continue
+        if not isinstance(version, int):
+            errors.append(f"{label}: {manifest_id} schema_version must be an integer")
+            continue
+        if version != SUPPORTED_SCHEMA_VERSION:
+            errors.append(
+                f"{label}: {manifest_id} schema_version {version} is not supported; expected {SUPPORTED_SCHEMA_VERSION}"
+            )
+    return errors
 
 
 def merge_manifest(parent, child):
@@ -175,4 +256,11 @@ def adapter_authoring_errors(label, manifests):
                     f"{label}: {manifest_id} adapter {name} mode must be one of {', '.join(ADAPTER_MODES)}"
                 )
 
+    return errors
+
+
+def manifest_authoring_errors(label, manifests, require_schema_version=False):
+    errors = []
+    errors.extend(schema_version_errors(label, manifests, require_schema_version))
+    errors.extend(adapter_authoring_errors(label, manifests))
     return errors

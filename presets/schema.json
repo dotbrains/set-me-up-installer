@@ -2,12 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "set-me-up preset",
   "type": "object",
-  "required": ["id", "name", "description", "theme", "prompt"],
+  "required": ["schema_version", "id", "name", "description", "theme", "prompt"],
   "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "schema_version": {
+      "const": 1
     },
     "name": {
       "type": "string",

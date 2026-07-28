@@ -208,12 +208,16 @@ def _write_catalog_file(path, content, force=False):
         f.write(content)
     success(f"Wrote catalog manifest to {path}")
 
+def _schema_version_line():
+    return f"{smu_contract.SCHEMA_VERSION_KEY} = {smu_contract.SUPPORTED_SCHEMA_VERSION}\n"
+
 def _init_theme(manifest_id, parent=None, force=False):
     if not _valid_catalog_id(manifest_id):
         die(f"Theme id must be kebab-case: {manifest_id}")
     parent = parent or current_theme()
     path = os.path.join(theme_catalog_path, f"{manifest_id}.toml")
     content = (
+        _schema_version_line() +
         f'id = "{manifest_id}"\n'
         f'extends = "{parent}"\n'
         f'name = "{_display_name(manifest_id)}"\n'
@@ -226,6 +230,7 @@ def _init_prompt(manifest_id, parent=None, force=False):
     parent = parent or current_prompt()
     path = os.path.join(prompt_catalog_path, f"{manifest_id}.toml")
     content = (
+        _schema_version_line() +
         f'id = "{manifest_id}"\n'
         f'extends = "{parent}"\n'
         f'name = "{_display_name(manifest_id)}"\n'
@@ -238,6 +243,7 @@ def _init_preset(manifest_id, force=False):
         die(f"Preset id must be kebab-case: {manifest_id}")
     path = os.path.join(preset_catalog_path, f"{manifest_id}.toml")
     content = (
+        _schema_version_line() +
         f'id = "{manifest_id}"\n'
         f'name = "{_display_name(manifest_id)}"\n'
         f'description = "Custom set-me-up preset."\n'
@@ -259,6 +265,7 @@ def _init_adapter(manifest_id, force=False):
         "nushell": os.path.join(prompt_catalog_path, "files", f"{manifest_id}.nu"),
     }
     content = (
+        _schema_version_line() +
         f'id = "{manifest_id}"\n'
         f'name = "{_display_name(manifest_id)}"\n'
         f'description = "Custom materialized shell prompt."\n'
@@ -733,7 +740,10 @@ def handle_catalog_command(argv):
     if argv[0] == "path":
         print(catalogs_path)
         return
-    die("Usage: smu catalog [doctor|path]")
+    if argv[0] == "migrate":
+        dry_run = "--dry-run" in argv[1:]
+        raise SystemExit(catalog_migrate(dry_run=dry_run))
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]]")
 
 def _theme_adapter_paths(theme):
     entry = theme_manifest_by_id(theme)
@@ -1022,7 +1032,53 @@ def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
     return errors
 
 def _manifest_authoring_errors(label, manifests):
-    return smu_contract.adapter_authoring_errors(label, manifests)
+    return smu_contract.manifest_authoring_errors(label, manifests)
+
+def _catalog_manifest_paths(catalog_dir):
+    if not os.path.isdir(catalog_dir):
+        return []
+    return [
+        os.path.join(catalog_dir, filename)
+        for filename in sorted(os.listdir(catalog_dir))
+        if filename.endswith(".toml")
+    ]
+
+def catalog_migrate(dry_run=False):
+    targets = [
+        ("themes", theme_catalog_path),
+        ("prompts", prompt_catalog_path),
+        ("presets", preset_catalog_path),
+    ]
+    changed = []
+
+    for label, catalog_dir in targets:
+        for path in _catalog_manifest_paths(catalog_dir):
+            manifest = _read_simple_toml(path)
+            errors = smu_contract.schema_version_errors(label, [manifest])
+            if errors:
+                for error in errors:
+                    print(f"{COL_RED}FAIL{COL_RESET} {error}")
+                return 1
+            if smu_contract.schema_version(manifest) == smu_contract.SUPPORTED_SCHEMA_VERSION:
+                continue
+
+            changed.append(path)
+            if dry_run:
+                print(
+                    f"{COL_YELLOW}DRY{COL_RESET}  would migrate {path} "
+                    f"to schema_version {smu_contract.SUPPORTED_SCHEMA_VERSION}"
+                )
+            else:
+                smu_contract.write_manifest(path, smu_contract.migrate_manifest(manifest))
+                print(
+                    f"{COL_GREEN}OK{COL_RESET}   migrated {path} "
+                    f"to schema_version {smu_contract.SUPPORTED_SCHEMA_VERSION}"
+                )
+
+    if not changed:
+        print(f"{COL_GREEN}OK{COL_RESET}   user catalogs already use schema_version {smu_contract.SUPPORTED_SCHEMA_VERSION}")
+
+    return 0
 
 def catalog_doctor():
     errors = []

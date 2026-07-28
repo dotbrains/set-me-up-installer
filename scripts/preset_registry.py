@@ -26,6 +26,10 @@ def preset_by_id(presets_dir):
 def validate_preset(preset, supported_themes, supported_prompts):
     errors = []
     preset_id = preset.get("id", "<unknown>")
+    errors.extend(
+        error.removeprefix("presets: ")
+        for error in smu_contract.schema_version_errors("presets", [preset])
+    )
 
     for key in ("id", "name", "description", "theme", "prompt"):
         if key not in preset:

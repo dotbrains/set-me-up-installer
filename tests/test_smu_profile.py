@@ -678,6 +678,56 @@ class TestThemeRegistry(unittest.TestCase):
             ):
                 self.assertEqual(smu.theme_doctor("nord"), 0)
 
+    def test_catalog_doctor_rejects_unsupported_schema_version(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            themes_dir = os.path.join(tempdir, "themes")
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            presets_dir = os.path.join(tempdir, "presets")
+            user_prompts_dir = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            for path in (themes_dir, prompts_dir, presets_dir, user_prompts_dir):
+                os.makedirs(path)
+
+            with open(os.path.join(user_prompts_dir, "future.toml"), "w") as f:
+                f.write("schema_version = 99\n")
+                f.write('id = "future"\n')
+
+            with (
+                patch.object(smu, "theme_manifests_dir", return_value=themes_dir),
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", user_prompts_dir),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+                patch.object(smu, "_load_prompt_registry", return_value=None),
+                patch.object(smu, "_load_preset_registry", return_value=None),
+            ):
+                self.assertEqual(smu.catalog_doctor(), 1)
+
+    def test_catalog_migrate_dry_run_and_apply_user_catalogs(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            theme_catalog = os.path.join(tempdir, "catalogs", "themes")
+            prompt_catalog = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            preset_catalog = os.path.join(tempdir, "catalogs", "presets")
+            os.makedirs(prompt_catalog)
+            manifest_path = os.path.join(prompt_catalog, "work.toml")
+            with open(manifest_path, "w") as f:
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+
+            with (
+                patch.object(smu, "theme_catalog_path", theme_catalog),
+                patch.object(smu, "prompt_catalog_path", prompt_catalog),
+                patch.object(smu, "preset_catalog_path", preset_catalog),
+            ):
+                self.assertEqual(smu.catalog_migrate(dry_run=True), 0)
+                with open(manifest_path) as f:
+                    self.assertNotIn("schema_version", f.read())
+
+                self.assertEqual(smu.catalog_migrate(dry_run=False), 0)
+                with open(manifest_path) as f:
+                    self.assertIn("schema_version = 1", f.read())
+
 
 class TestThemeModuleResolution(unittest.TestCase):
     def test_resolves_top_level_colorscheme_module(self):

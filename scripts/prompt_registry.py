@@ -30,6 +30,10 @@ def profile_by_id(profiles_dir):
 def validate_profile(profile):
     errors = []
     profile_id = profile.get("id", "<unknown>")
+    errors.extend(
+        error.removeprefix("prompts: ")
+        for error in smu_contract.schema_version_errors("prompts", [profile])
+    )
 
     for key in ("id", "name", "description", "engine", "theme_aware"):
         if key not in profile:
