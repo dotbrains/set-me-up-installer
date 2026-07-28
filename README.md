@@ -301,6 +301,7 @@ Inspect and validate the resolved adapter pack:
 ```bash
 smu adapter list
 smu adapter doctor
+smu adapter materialize --dry-run
 smu adapter install nord classic
 ```
 
@@ -309,6 +310,29 @@ whether it exists. `smu adapter doctor [theme] [prompt]` fails if the selected
 theme, prompt, or any declared adapter file is missing. `smu adapter install`
 saves the selected theme and prompt, runs the `colorschemes` module, and
 refreshes `resolved.env`.
+
+Portable catalog manifests can declare files to materialize with explicit
+source, target, and mode sections:
+
+```toml
+[adapter_sources]
+bash = "files/work.bash"
+
+[adapter_targets]
+bash = "~/.config/bash/prompts/work.bash"
+
+[adapter_modes]
+bash = "copy"
+```
+
+Sources are relative to the manifest file unless they are absolute paths.
+Targets support `~`. Supported modes are `copy` and `symlink`. Running
+`smu adapter materialize [theme] [prompt]` writes generated tracking files to:
+
+```text
+~/.config/set-me-up/adapters/manifest.env
+~/.config/set-me-up/adapters/manifest.json
+```
 
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,

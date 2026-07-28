@@ -408,6 +408,78 @@ class TestProfile(unittest.TestCase):
                 provision.assert_called_once_with("colorschemes")
                 resolve.assert_called_once()
 
+    def test_materialize_adapters_copies_declared_sources_and_tracks_manifest(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            target = os.path.join(tempdir, "target", "work.bash")
+            state_dir = os.path.join(tempdir, "state")
+            os.makedirs(os.path.join(prompts_dir, "files"))
+            with open(os.path.join(prompts_dir, "files", "work.bash"), "w") as f:
+                f.write("export PS1='work'\n")
+            with open(os.path.join(prompts_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+                f.write("[adapter_sources]\n")
+                f.write('bash = "files/work.bash"\n')
+                f.write("[adapter_targets]\n")
+                f.write(f'bash = "{target}"\n')
+
+            with (
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "missing-prompts")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "missing-themes")),
+                patch.object(smu, "adapter_state_path", state_dir),
+                patch.object(smu, "adapter_manifest_json_path", os.path.join(state_dir, "manifest.json")),
+                patch.object(smu, "adapter_manifest_env_path", os.path.join(state_dir, "manifest.env")),
+                patch.object(smu, "theme_manifest_by_id", return_value={}),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+            ):
+                entries = smu.materialize_adapters("missing-theme", "work")
+                self.assertEqual(len(entries), 1)
+                with open(target) as f:
+                    self.assertEqual(f.read(), "export PS1='work'\n")
+                self.assertTrue(os.path.exists(os.path.join(state_dir, "manifest.json")))
+                self.assertTrue(os.path.exists(os.path.join(state_dir, "manifest.env")))
+
+    def test_materialize_adapters_dry_run_does_not_write_targets(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            target = os.path.join(tempdir, "target", "work.bash")
+            os.makedirs(os.path.join(prompts_dir, "files"))
+            with open(os.path.join(prompts_dir, "files", "work.bash"), "w") as f:
+                f.write("prompt\n")
+            with open(os.path.join(prompts_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+                f.write("[adapter_sources]\n")
+                f.write('bash = "files/work.bash"\n')
+                f.write("[adapter_targets]\n")
+                f.write(f'bash = "{target}"\n')
+
+            with (
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "missing-prompts")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "missing-themes")),
+                patch.object(smu, "theme_manifest_by_id", return_value={}),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+            ):
+                entries = smu.materialize_adapters("missing-theme", "work", dry_run=True)
+                self.assertEqual(len(entries), 1)
+                self.assertFalse(os.path.exists(target))
+
+    def test_adapter_doctor_checks_materialized_targets_from_manifest(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            manifest = os.path.join(tempdir, "manifest.json")
+            with open(manifest, "w") as f:
+                f.write('[{"kind": "prompt", "name": "bash", "target": "/missing"}]\n')
+
+            with (
+                patch.object(smu, "adapter_manifest_json_path", manifest),
+                patch.object(smu, "supported_themes", return_value=("gruvbox",)),
+                patch.object(smu, "supported_prompts", return_value=("work",)),
+                patch.object(smu, "adapter_paths", return_value=[("prompt", "bash adapter", __file__)]),
+                patch.object(smu, "materializable_adapters", return_value=[]),
+            ):
+                self.assertEqual(smu.adapter_doctor("gruvbox", "work"), 1)
+
     def test_prompt_doctor_checks_manifest_adapters(self):
         class FakePromptRegistry:
             @staticmethod
