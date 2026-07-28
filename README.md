@@ -301,6 +301,16 @@ Package a user catalog manifest and its declared adapter source files:
 smu catalog package work-shell --output work-shell.smu-pack
 ```
 
+Publish a pack into a registry layout:
+
+```bash
+smu catalog publish ./work-shell.smu-pack --registry ./catalog-registry
+```
+
+Publishing writes `catalog-registry/packs/work-shell.smu-pack.zip`, calculates
+its SHA-256 checksum, and creates or updates `catalog-registry/index.toml`.
+Pass `--force` to replace an existing registry entry.
+
 Install a local pack into the user catalog:
 
 ```bash

@@ -757,6 +757,15 @@ def handle_catalog_command(argv):
         output = _option_value(argv[2:], "--output")
         force = "--force" in argv[2:]
         raise SystemExit(catalog_package(argv[1], output=output, force=force))
+    if argv[0] == "publish":
+        if len(argv) < 2:
+            die("Usage: smu catalog publish <pack> --registry <path> [--id id] [--force]")
+        registry = _option_value(argv[2:], "--registry")
+        if not registry:
+            die("Usage: smu catalog publish <pack> --registry <path> [--id id] [--force]")
+        pack_id = _option_value(argv[2:], "--id")
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_publish(argv[1], registry=registry, pack_id=pack_id, force=force))
     if argv[0] == "install":
         if len(argv) < 2:
             die("Usage: smu catalog install <path> [--dry-run] [--force]")
@@ -769,7 +778,7 @@ def handle_catalog_command(argv):
     if argv[0] == "search":
         query = argv[1] if len(argv) > 1 else ""
         raise SystemExit(catalog_search(query))
-    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list|lock|status]|search [query]]")
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|publish <pack> --registry <path> [--id id] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list|lock|status]|search [query]]")
 
 def _option_value(argv, option):
     if option not in argv:
@@ -1159,7 +1168,11 @@ def _catalog_registry_entry(pack_id):
 
 def _resolve_pack_source(source, sha256=None):
     if not _is_url(source):
-        return os.path.abspath(os.path.expanduser(source))
+        resolved = os.path.abspath(os.path.expanduser(source))
+        _verify_sha256(resolved, sha256)
+        if zipfile.is_zipfile(resolved):
+            return _unpack_zip_pack(resolved, "packs")
+        return resolved
     downloaded = _download_url(source, "packs")
     _verify_sha256(downloaded, sha256)
     if zipfile.is_zipfile(downloaded):
@@ -1683,6 +1696,84 @@ def catalog_package(manifest_id, output=None, force=False):
         "name": _display_name(manifest_id),
     })
     print(f"{COL_GREEN}OK{COL_RESET}   packaged {len(copied)} file(s) into {pack_root}")
+    return 0
+
+def _write_registry_index(index_path, packs):
+    lines = [
+        f"schema_version = {smu_contract.SUPPORTED_SCHEMA_VERSION}",
+    ]
+    for pack_id, pack in sorted(packs.items()):
+        lines.append("")
+        lines.append(f"[packs.{pack_id}]")
+        for key in ("name", "description", "source", "sha256"):
+            value = pack.get(key)
+            if value:
+                lines.append(f"{key} = {smu_contract.format_value(value)}")
+    os.makedirs(os.path.dirname(index_path), exist_ok=True)
+    with open(index_path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+def _zip_pack_directory(pack_dir, archive_path, force=False):
+    if os.path.exists(archive_path) and not force:
+        die(f"Published pack already exists: {archive_path}. Use --force to overwrite.")
+    os.makedirs(os.path.dirname(archive_path), exist_ok=True)
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for root, _, filenames in os.walk(pack_dir):
+            for filename in sorted(filenames):
+                source = os.path.join(root, filename)
+                relative = os.path.relpath(source, pack_dir)
+                info = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o644 << 16
+                with open(source, "rb") as f:
+                    archive.writestr(info, f.read())
+
+def catalog_publish(pack_dir, registry, pack_id=None, force=False):
+    pack_dir = os.path.abspath(os.path.expanduser(pack_dir))
+    registry = os.path.abspath(os.path.expanduser(registry))
+    if _is_url(registry):
+        die("Catalog publish requires a local registry path")
+
+    errors = _catalog_pack_errors(pack_dir)
+    if errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+
+    pack = _catalog_pack_manifest(pack_dir)
+    pack_id = pack_id or pack.get("id")
+    if not _valid_catalog_id(pack_id):
+        die(f"Published pack id must be kebab-case: {pack_id}")
+
+    index_path = os.path.join(registry, "index.toml")
+    index = _read_simple_toml(index_path)
+    existing_packs = index.get("packs", {})
+    if existing_packs and not isinstance(existing_packs, dict):
+        print(f"{COL_RED}FAIL{COL_RESET} registry index [packs] must be a table")
+        return 1
+    packs = dict(existing_packs) if isinstance(existing_packs, dict) else {}
+    if pack_id in packs and not force:
+        die(f"Registry pack already exists: {pack_id}. Use --force to overwrite.")
+
+    archive_name = f"{pack_id}.smu-pack.zip"
+    archive_path = os.path.join(registry, "packs", archive_name)
+    _zip_pack_directory(pack_dir, archive_path, force=force)
+    packs[pack_id] = {
+        "name": pack.get("name", _display_name(pack_id)),
+        "source": f"packs/{archive_name}",
+        "sha256": _sha256_file(archive_path),
+    }
+    if pack.get("description"):
+        packs[pack_id]["description"] = pack["description"]
+    _write_registry_index(index_path, packs)
+
+    registry_errors = _registry_index_errors("published", registry, _read_simple_toml(index_path))
+    if registry_errors:
+        for error in registry_errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+
+    print(f"{COL_GREEN}OK{COL_RESET}   published {pack_id} to {registry}")
     return 0
 
 def catalog_migrate(dry_run=False):

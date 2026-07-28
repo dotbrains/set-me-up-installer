@@ -777,6 +777,89 @@ class TestThemeRegistry(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(output, "prompt-profiles", "work-shell.toml")))
             self.assertTrue(os.path.exists(os.path.join(output, "prompt-profiles", "files", "work.bash")))
 
+    def test_catalog_publish_creates_registry_zip_and_index(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            pack = os.path.join(tempdir, "work.smu-pack")
+            registry = os.path.join(tempdir, "registry")
+            os.makedirs(os.path.join(pack, "prompt-profiles"))
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+                f.write('description = "Work prompt pack."\n')
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+
+            self.assertEqual(smu.catalog_publish(pack, registry=registry), 0)
+            archive = os.path.join(registry, "packs", "work.smu-pack.zip")
+            first_checksum = smu._sha256_file(archive)
+            self.assertTrue(os.path.exists(archive))
+            self.assertTrue(zipfile.is_zipfile(archive))
+            index = smu._read_simple_toml(os.path.join(registry, "index.toml"))
+            self.assertEqual(index["packs"]["work"]["name"], "Work")
+            self.assertEqual(index["packs"]["work"]["description"], "Work prompt pack.")
+            self.assertEqual(index["packs"]["work"]["source"], "packs/work.smu-pack.zip")
+            self.assertEqual(index["packs"]["work"]["sha256"], first_checksum)
+            self.assertEqual(smu._registry_index_errors("published", registry, index), [])
+            self.assertEqual(smu.catalog_publish(pack, registry=registry, force=True), 0)
+            self.assertEqual(smu._sha256_file(archive), first_checksum)
+
+    def test_catalog_publish_updates_existing_registry_entry_with_force(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            pack = os.path.join(tempdir, "work.smu-pack")
+            registry = os.path.join(tempdir, "registry")
+            os.makedirs(os.path.join(pack, "prompt-profiles"))
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+
+            self.assertEqual(smu.catalog_publish(pack, registry=registry), 0)
+            with self.assertRaises(SystemExit):
+                smu.catalog_publish(pack, registry=registry)
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "a") as f:
+                f.write('description = "Changed."\n')
+            self.assertEqual(smu.catalog_publish(pack, registry=registry, force=True), 0)
+            index = smu._read_simple_toml(os.path.join(registry, "index.toml"))
+            archive = os.path.join(registry, "packs", "work.smu-pack.zip")
+            self.assertEqual(index["packs"]["work"]["sha256"], smu._sha256_file(archive))
+
+    def test_catalog_install_resolves_published_local_zip_registry_pack(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry_lock = os.path.join(tempdir, "registry.lock")
+            pack = os.path.join(tempdir, "work.smu-pack")
+            registry = os.path.join(tempdir, "registry")
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(os.path.join(pack, "prompt-profiles"))
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "catalog_registry_lock_path", registry_lock),
+                patch.object(smu, "catalog_cache_path", os.path.join(tempdir, "cache")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu.catalog_publish(pack, registry=registry), 0)
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu.catalog_install("work"), 0)
+                self.assertTrue(os.path.exists(os.path.join(prompt_target, "work.toml")))
+
     def test_catalog_install_dry_run_and_apply_pack(self):
         with tempfile.TemporaryDirectory() as tempdir:
             pack = os.path.join(tempdir, "work.smu-pack")

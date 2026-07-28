@@ -33,9 +33,7 @@ jobs:
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py adapter init ci-shell
         HOME="$RUNNER_TEMP/smu-home" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell.smu-pack"
-        mkdir -p "$RUNNER_TEMP/catalog-registry/packs"
-        cp -R "$RUNNER_TEMP/ci-shell.smu-pack" "$RUNNER_TEMP/catalog-registry/packs/ci-shell.smu-pack"
-        printf 'schema_version = 1\n[packs.ci-shell]\nname = "CI Shell"\nsource = "packs/ci-shell.smu-pack"\n' > "$RUNNER_TEMP/catalog-registry/index.toml"
+        python smu.py catalog publish "$RUNNER_TEMP/ci-shell.smu-pack" --registry "$RUNNER_TEMP/catalog-registry"
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry"
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog search ci
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry lock
@@ -61,9 +59,7 @@ jobs:
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py adapter init ci-shell
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell-pytest.smu-pack"
-        mkdir -p "$RUNNER_TEMP/catalog-registry-pytest/packs"
-        cp -R "$RUNNER_TEMP/ci-shell-pytest.smu-pack" "$RUNNER_TEMP/catalog-registry-pytest/packs/ci-shell.smu-pack"
-        printf 'schema_version = 1\n[packs.ci-shell]\nname = "CI Shell"\nsource = "packs/ci-shell.smu-pack"\n' > "$RUNNER_TEMP/catalog-registry-pytest/index.toml"
+        python smu.py catalog publish "$RUNNER_TEMP/ci-shell-pytest.smu-pack" --registry "$RUNNER_TEMP/catalog-registry-pytest"
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry-pytest"
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog search ci
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry lock
