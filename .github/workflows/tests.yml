@@ -23,53 +23,8 @@ jobs:
         SMU_BLUEPRINT: owner/repo
         SMU_BLUEPRINT_BRANCH: main
       run: |
-        python scripts/check_file_sizes.py
-        python scripts/check_flat_directories.py
-        python -m unittest discover -s tests -t . -v
-        python scripts/prompt_contract.py --local
-        python scripts/preset_contract.py
-        python scripts/generate-prompt-adapters.py --check-templates
-        python smu.py profile resolve
-        python smu.py profile doctor
-        python smu.py adapter list
-        python smu.py adapter materialize --dry-run
-        HOME="$RUNNER_TEMP/smu-home" python smu.py adapter init ci-shell
-        HOME="$RUNNER_TEMP/smu-home" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell.smu-pack"
-        python smu.py catalog publish "$RUNNER_TEMP/ci-shell.smu-pack" --registry "$RUNNER_TEMP/catalog-registry"
-        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry"
-        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog search ci
-        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry lock
-        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry status
-        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog install ci-shell --dry-run
-        HOME="$RUNNER_TEMP/smu-home-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell.smu-pack" --dry-run
-        HOME="$RUNNER_TEMP/smu-home" python smu.py catalog migrate --dry-run
-        HOME="$RUNNER_TEMP/smu-home" python smu.py catalog doctor
-
-    - name: Run tests with pytest (if available)
-      env:
-        SMU_BLUEPRINT: owner/repo
-        SMU_BLUEPRINT_BRANCH: main
-      run: |
         pip install pytest 2>/dev/null || true
-        pytest tests/ -v 2>/dev/null || python -m unittest discover -s tests -t . -v
-        python scripts/prompt_contract.py --local
-        python scripts/preset_contract.py
-        python scripts/generate-prompt-adapters.py --check-templates
-        python smu.py profile resolve
-        python smu.py profile doctor
-        python smu.py adapter list
-        python smu.py adapter materialize --dry-run
-        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py adapter init ci-shell
-        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell-pytest.smu-pack"
-        python smu.py catalog publish "$RUNNER_TEMP/ci-shell-pytest.smu-pack" --registry "$RUNNER_TEMP/catalog-registry-pytest"
-        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry-pytest"
-        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog search ci
-        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry lock
-        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry status
-        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog install ci-shell --dry-run
-        HOME="$RUNNER_TEMP/smu-home-pytest-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell-pytest.smu-pack" --dry-run
-        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog migrate --dry-run
-        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog doctor
+        PYTHON=python scripts/validate.sh --python
 
   markdown-lint:
     name: Markdown Lint
@@ -104,9 +59,7 @@ jobs:
           echo "Toolchain versions inside flox activate:"
           python3 --version
           pytest --version
-          shellcheck --version
-          find scripts -type f -name "*.sh" -print0 | xargs -0 shellcheck
-          shellcheck install.sh smu
+          scripts/validate.sh --shell
           node --version
           git --version
         '

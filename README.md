@@ -410,9 +410,7 @@ brew install flox
 flox activate
 
 # Inside the activated shell you can run the same checks CI runs:
-pytest tests/ -v
-shellcheck install.sh smu scripts/*.sh
-npx markdownlint-cli2 "**/*.md"
+scripts/validate.sh --all
 ```
 
 `SMU_BLUEPRINT` and `SMU_BLUEPRINT_BRANCH` are seeded with the same placeholder
