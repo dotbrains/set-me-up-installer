@@ -1,5 +1,6 @@
 from .core import *
 from .profile_commands import *
+from .state import *
 
 
 def _theme_adapter_paths(theme):
@@ -150,6 +151,7 @@ def _read_adapter_manifest():
 
 def materialize_adapters(theme=None, prompt=None, dry_run=False):
     entries = materializable_adapters(theme, prompt)
+    state_items = []
     for entry in entries:
         source = entry["source"]
         target = entry["target"]
@@ -160,6 +162,13 @@ def materialize_adapters(theme=None, prompt=None, dry_run=False):
         if not os.path.exists(source):
             die(f"Adapter source does not exist: {source}")
         os.makedirs(os.path.dirname(target), exist_ok=True)
+        state_items.append({
+            "kind": entry["kind"],
+            "manifest_id": entry["manifest_id"],
+            "name": entry["name"],
+            "target": target,
+            "before": file_snapshot(target),
+        })
         if mode == "symlink":
             if os.path.lexists(target):
                 os.unlink(target)
@@ -171,6 +180,7 @@ def materialize_adapters(theme=None, prompt=None, dry_run=False):
 
     if not dry_run:
         _write_adapter_manifest(entries)
+        record_state_event("materialize_adapters", state_items)
         success(f"Materialized {len(entries)} adapter(s)")
     return entries
 

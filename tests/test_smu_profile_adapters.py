@@ -230,6 +230,8 @@ class TestProfileAdapters(unittest.TestCase):
                 patch.object(smu, "adapter_state_path", state_dir),
                 patch.object(smu, "adapter_manifest_json_path", os.path.join(state_dir, "manifest.json")),
                 patch.object(smu, "adapter_manifest_env_path", os.path.join(state_dir, "manifest.env")),
+                patch.object(smu, "state_dir", os.path.join(tempdir, "ledger")),
+                patch.object(smu, "state_ledger_path", os.path.join(tempdir, "ledger", "ledger.json")),
                 patch.object(smu, "theme_manifest_by_id", return_value={}),
                 patch.object(smu, "_load_theme_registry", return_value=None),
             ):
@@ -330,5 +332,4 @@ class TestProfileAdapters(unittest.TestCase):
                 patch.object(smu, "_load_prompt_registry", return_value=FakePromptRegistry),
             ):
                 self.assertEqual(smu.prompt_doctor("classic"), 0)
-
 

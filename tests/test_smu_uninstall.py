@@ -168,8 +168,11 @@ class TestUninstallModulesBatch(unittest.TestCase):
         mock_run.assert_not_called()
 
     def test_yes_flag_skips_confirmation_prompt(self):
-        with patch("smu.get_module_path", return_value="/tmp/m/brewfile"), \
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch("smu.get_module_path", return_value="/tmp/m/brewfile"), \
                 patch.object(smu, "macOS", True), \
+                patch.object(smu, "state_dir", os.path.join(tempdir, "state")), \
+                patch.object(smu, "state_ledger_path", os.path.join(tempdir, "state", "ledger.json")), \
                 patch("smu.subprocess.call", return_value=0), \
                 patch("smu.subprocess.run") as mock_run, \
                 patch("smu.os.chdir"), \

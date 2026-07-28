@@ -229,31 +229,43 @@ def uninstall_module(module_name, dry_run=False):
     return True
 
 
-def status_modules(search=None, show_all=False, verbose=False):
-    """Print an installed/missing report grouped by bucket."""
+def module_status_report(search=None, show_all=False, verbose=False):
     buckets = discover_modules()
     if not buckets:
-        warn(f"No modules found in '{module_path}'.")
-        return
+        return []
 
     current = _current_os_bucket()
-
-    visible = {}
+    report = []
     for bucket, mods in buckets.items():
         if not show_all and current and bucket not in (current, "universal"):
             continue
         if search:
             needle = search.lower()
             mods = [(name, kind) for name, kind in mods if needle in name.lower()]
-        if mods:
-            visible[bucket] = mods
+        for name, kind in mods:
+            state, detail = module_status(name)
+            item = {"bucket": bucket, "name": name, "kind": kind, "state": state}
+            if verbose and detail:
+                item["detail"] = detail
+            report.append(item)
+    return report
 
-    if not visible:
-        if search:
+
+def status_modules(search=None, show_all=False, verbose=False):
+    """Print an installed/missing report grouped by bucket."""
+    rows = module_status_report(search=search, show_all=show_all, verbose=verbose)
+    if not rows:
+        if not discover_modules():
+            warn(f"No modules found in '{module_path}'.")
+        elif search:
             warn(f"No modules match '{BOLD}{search}{NORMAL}'.")
         else:
             warn("No modules to display.")
         return
+
+    visible = {}
+    for row in rows:
+        visible.setdefault(row["bucket"], []).append(row)
 
     counts = {"installed": 0, "missing": 0, "partial": 0, "unknown": 0}
     glyphs = {
@@ -266,13 +278,16 @@ def status_modules(search=None, show_all=False, verbose=False):
     for bucket in sorted(visible.keys()):
         mods = visible[bucket]
         print(f"{BOLD}{bucket}/{NORMAL}")
-        max_name = max(len(name) for name, _ in mods)
-        max_kind = max(len(kind) for _, kind in mods)
-        for name, kind in mods:
-            state, detail = module_status(name)
+        max_name = max(len(row["name"]) for row in mods)
+        max_kind = max(len(row["kind"]) for row in mods)
+        for row in mods:
+            name = row["name"]
+            kind = row["kind"]
+            state = row["state"]
             counts[state] += 1
             color, glyph = glyphs[state]
             tag = f"[{kind}]".ljust(max_kind + 2)
+            detail = row.get("detail")
             tail = f"  {COL_YELLOW}({detail}){COL_RESET}" if verbose and detail else ""
             print(f"  {name.ljust(max_name)}  {tag}  {color}{glyph} {state}{COL_RESET}{tail}")
         print()
@@ -373,6 +388,12 @@ def uninstall_modules_batch(modules, dry_run=False, no_confirm=False):
         for module in skipped:
             warn(f"  - '{BOLD}{module}{NORMAL}'")
 
+    if uninstalled and not dry_run:
+        record_state_event("uninstall_modules", [
+            {"module": module}
+            for module in sorted(uninstalled)
+        ])
+
 
 def provision_modules_batch(modules):
     """Provision a list of modules and print a per-module summary."""
@@ -417,6 +438,11 @@ def provision_modules_batch(modules):
 
     warn("It is recommended to restart your computer to ensure all updates take effect.")
     success(f"Completed running '{BOLD}set-me-up{NORMAL}'.")
+    if provisioned:
+        record_state_event("provision_modules", [
+            {"module": module}
+            for module in sorted(provisioned)
+        ])
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

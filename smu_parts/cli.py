@@ -6,6 +6,7 @@ from .doctors_and_system import *
 from .module_discovery import *
 from .module_lifecycle import *
 from .profile_commands import *
+from .state import *
 
 
 def main():
@@ -32,6 +33,9 @@ def main():
             return
         if command == "doctor":
             raise SystemExit(doctor())
+        if command == "rollback":
+            dry_run = "--dry-run" in command_args
+            raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
 
     parser = argparse.ArgumentParser(description="set-me-up installer")
     parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
@@ -51,6 +55,8 @@ def main():
     parser.add_argument("-l", "--list-modules", action="store_true", help="List available modules grouped by OS bucket")
     parser.add_argument("-i", "--interactive", action="store_true", help="Interactively pick modules with fzf (SPACE to toggle, ENTER to run)")
     parser.add_argument("-st", "--status", action="store_true", help="Show installed/missing status for visible modules")
+    parser.add_argument("--status-json", action="store_true", help="Print machine-readable status as JSON")
+    parser.add_argument("--diff", action="store_true", help="Print planned module and adapter changes")
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall the given modules")
     parser.add_argument("-iu", "--uninstall-interactive", action="store_true", help="Pick modules to uninstall via fzf")
     parser.add_argument("--dry-run", action="store_true", help="With --uninstall: print the plan, do nothing")
@@ -97,8 +103,20 @@ def main():
         list_modules(search=args.search, show_all=args.all)
         return
 
+    if args.status_json:
+        print_status_json(search=args.search, show_all=args.all, verbose=args.verbose)
+        return
+
     if args.status:
         status_modules(search=args.search, show_all=args.all, verbose=args.verbose)
+        return
+
+    if args.diff:
+        plan = []
+        if args.modules:
+            plan.extend(module_change_plan(args.modules))
+        plan.extend(adapter_change_plan(materializable_adapters()))
+        print_diff_plan(plan)
         return
 
     if args.uninstall_interactive:

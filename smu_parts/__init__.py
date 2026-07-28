@@ -8,6 +8,7 @@ from . import catalog_packs
 from . import doctors_and_system
 from . import module_discovery
 from . import module_lifecycle
+from . import state
 from . import cli
 
 
@@ -20,6 +21,7 @@ PARTS = (
     doctors_and_system,
     module_discovery,
     module_lifecycle,
+    state,
     cli,
 )
 
