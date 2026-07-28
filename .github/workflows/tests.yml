@@ -38,6 +38,8 @@ jobs:
         printf 'schema_version = 1\n[packs.ci-shell]\nname = "CI Shell"\nsource = "packs/ci-shell.smu-pack"\n' > "$RUNNER_TEMP/catalog-registry/index.toml"
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry"
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog search ci
+        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry lock
+        HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog registry status
         HOME="$RUNNER_TEMP/smu-home-registry" python smu.py catalog install ci-shell --dry-run
         HOME="$RUNNER_TEMP/smu-home-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell.smu-pack" --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py catalog migrate --dry-run
@@ -64,6 +66,8 @@ jobs:
         printf 'schema_version = 1\n[packs.ci-shell]\nname = "CI Shell"\nsource = "packs/ci-shell.smu-pack"\n' > "$RUNNER_TEMP/catalog-registry-pytest/index.toml"
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry add local "$RUNNER_TEMP/catalog-registry-pytest"
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog search ci
+        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry lock
+        HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog registry status
         HOME="$RUNNER_TEMP/smu-home-pytest-registry" python smu.py catalog install ci-shell --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell-pytest.smu-pack" --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog migrate --dry-run

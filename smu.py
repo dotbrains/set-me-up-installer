@@ -41,6 +41,7 @@ theme_catalog_path = os.path.join(catalogs_path, "themes")
 prompt_catalog_path = os.path.join(catalogs_path, "prompt-profiles")
 preset_catalog_path = os.path.join(catalogs_path, "presets")
 catalog_registries_path = os.path.join(config_dir, "registries.toml")
+catalog_registry_lock_path = os.path.join(config_dir, "registry.lock")
 catalog_cache_path = os.path.join(os.path.expanduser("~"), ".cache", "set-me-up", "catalogs")
 adapter_state_path = os.path.join(config_dir, "adapters")
 adapter_manifest_env_path = os.path.join(adapter_state_path, "manifest.env")
@@ -768,7 +769,7 @@ def handle_catalog_command(argv):
     if argv[0] == "search":
         query = argv[1] if len(argv) > 1 else ""
         raise SystemExit(catalog_search(query))
-    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list]|search [query]]")
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list|lock|status]|search [query]]")
 
 def _option_value(argv, option):
     if option not in argv:
@@ -804,16 +805,19 @@ def _download_url(source, cache_subdir):
 def _valid_sha256(value):
     return isinstance(value, str) and bool(re.fullmatch(r"[A-Fa-f0-9]{64}", value))
 
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 def _verify_sha256(path, expected):
     if not expected:
         return
     if not _valid_sha256(expected):
         raise ValueError("sha256 must be 64 hexadecimal characters")
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            digest.update(chunk)
-    actual = digest.hexdigest()
+    actual = _sha256_file(path)
     if actual.lower() != expected.lower():
         raise ValueError(f"sha256 mismatch for downloaded pack: expected {expected}, got {actual}")
 
@@ -875,6 +879,162 @@ def _catalog_registry_list():
         print(f"{name}\t{source}")
     return 0
 
+def _read_catalog_registry_lock():
+    if not os.path.exists(catalog_registry_lock_path):
+        return {}
+    with open(catalog_registry_lock_path) as f:
+        return json.load(f)
+
+def _write_catalog_registry_lock(lock):
+    os.makedirs(os.path.dirname(catalog_registry_lock_path), exist_ok=True)
+    with open(catalog_registry_lock_path, "w") as f:
+        json.dump(lock, f, indent=2, sort_keys=True)
+        f.write("\n")
+
+def _catalog_registry_lock_validation_errors(lock):
+    errors = []
+    if not isinstance(lock, dict):
+        return ["registry lock must be an object"]
+    errors.extend(
+        smu_contract.schema_version_errors(
+            "registry lock",
+            [lock],
+            require_schema_version=True,
+        )
+    )
+    registries = lock.get("registries", {})
+    if not isinstance(registries, dict):
+        return errors + ["registry lock: registries must be an object"]
+    for registry_name, registry in registries.items():
+        if not _valid_catalog_id(registry_name):
+            errors.append(f"registry lock: registry name {registry_name} must be kebab-case")
+            continue
+        if not isinstance(registry, dict):
+            errors.append(f"registry lock: registry {registry_name} must be an object")
+            continue
+        if not registry.get("source"):
+            errors.append(f"registry lock: registry {registry_name} missing source")
+        if not _valid_sha256(registry.get("index_sha256")):
+            errors.append(f"registry lock: registry {registry_name} index_sha256 must be 64 hexadecimal characters")
+        packs = registry.get("packs", {})
+        if not isinstance(packs, dict):
+            errors.append(f"registry lock: registry {registry_name} packs must be an object")
+            continue
+        for pack_id, pack in packs.items():
+            if not _valid_catalog_id(pack_id):
+                errors.append(f"registry lock: pack id {pack_id} must be kebab-case")
+                continue
+            if not isinstance(pack, dict):
+                errors.append(f"registry lock: pack {pack_id} must be an object")
+                continue
+            if not pack.get("name"):
+                errors.append(f"registry lock: pack {pack_id} missing name")
+            if not pack.get("source"):
+                errors.append(f"registry lock: pack {pack_id} missing source")
+            if pack.get("sha256") and not _valid_sha256(pack["sha256"]):
+                errors.append(f"registry lock: pack {pack_id} sha256 must be 64 hexadecimal characters")
+    return errors
+
+def _catalog_registry_lock_snapshot():
+    errors = _catalog_registry_errors()
+    if errors:
+        return None, errors
+
+    lock = {
+        "schema_version": smu_contract.SUPPORTED_SCHEMA_VERSION,
+        "registries": {},
+    }
+    for registry_name, source in sorted(_read_catalog_registries().items()):
+        index_path = _registry_index_path(source, download_remote=True)
+        index = _read_simple_toml(index_path)
+        packs = {}
+        for pack_id, pack in sorted(index.get("packs", {}).items()):
+            locked_pack = {
+                "name": pack["name"],
+                "source": _registry_pack_source(source, pack["source"]),
+            }
+            if pack.get("description"):
+                locked_pack["description"] = pack["description"]
+            if pack.get("sha256"):
+                locked_pack["sha256"] = pack["sha256"]
+            packs[pack_id] = locked_pack
+        lock["registries"][registry_name] = {
+            "source": source,
+            "index_sha256": _sha256_file(index_path),
+            "packs": packs,
+        }
+    return lock, []
+
+def _catalog_registry_lock():
+    lock, errors = _catalog_registry_lock_snapshot()
+    if errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+    _write_catalog_registry_lock(lock)
+    registry_count = len(lock["registries"])
+    pack_count = sum(len(registry["packs"]) for registry in lock["registries"].values())
+    print(f"{COL_GREEN}OK{COL_RESET}   locked {pack_count} pack(s) from {registry_count} registry(s)")
+    return 0
+
+def _catalog_registry_lock_entries():
+    try:
+        lock = _read_catalog_registry_lock()
+    except (OSError, json.JSONDecodeError) as e:
+        warn(f"Registry lock could not be loaded: {e}")
+        return []
+    if not lock:
+        return []
+    errors = _catalog_registry_lock_validation_errors(lock)
+    if errors:
+        for error in errors:
+            warn(error)
+        return []
+    entries = []
+    for registry_name, registry in sorted(lock.get("registries", {}).items()):
+        for pack_id, pack in sorted(registry.get("packs", {}).items()):
+            entry = dict(pack)
+            entry["id"] = pack_id
+            entry["registry"] = registry_name
+            entry["locked"] = True
+            entries.append(entry)
+    return entries
+
+def _catalog_locked_entry(pack_id):
+    for entry in _catalog_registry_lock_entries():
+        if entry["id"] == pack_id:
+            return entry
+    return None
+
+def _catalog_registry_lock_errors():
+    if not os.path.exists(catalog_registry_lock_path):
+        return []
+    try:
+        current_lock = _read_catalog_registry_lock()
+    except (OSError, json.JSONDecodeError) as e:
+        return [f"registry lock could not be loaded: {e}"]
+    errors = _catalog_registry_lock_validation_errors(current_lock)
+    if errors:
+        return errors
+    expected_lock, snapshot_errors = _catalog_registry_lock_snapshot()
+    if snapshot_errors:
+        return snapshot_errors
+    if current_lock != expected_lock:
+        return ["registry lock is stale; run smu catalog registry lock"]
+    return []
+
+def _catalog_registry_status():
+    if not os.path.exists(catalog_registry_lock_path):
+        print(f"{COL_YELLOW}WARN{COL_RESET}  registry lock does not exist; run smu catalog registry lock")
+        return 1
+    errors = _catalog_registry_lock_errors()
+    if errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+    print(f"{COL_GREEN}OK{COL_RESET}   registry lock is up to date")
+    return 0
+
 def handle_catalog_registry_command(argv):
     command = argv[0] if argv else "list"
     if command == "list":
@@ -883,7 +1043,11 @@ def handle_catalog_registry_command(argv):
         if len(argv) < 3:
             die("Usage: smu catalog registry add <name> <path>")
         raise SystemExit(_catalog_registry_add(argv[1], argv[2]))
-    die("Usage: smu catalog registry [add <name> <path>|list]")
+    if command == "lock":
+        raise SystemExit(_catalog_registry_lock())
+    if command == "status":
+        raise SystemExit(_catalog_registry_status())
+    die("Usage: smu catalog registry [add <name> <path>|list|lock|status]")
 
 def _registry_index_path(source, download_remote=False):
     if _is_url(source):
@@ -1426,7 +1590,7 @@ def catalog_install(pack_dir, dry_run=False, force=False):
             print(f"{COL_RED}FAIL{COL_RESET} catalog pack could not be loaded: {e}")
             return 1
     elif not os.path.exists(expanded):
-        registry_entry = _catalog_registry_entry(pack_dir)
+        registry_entry = _catalog_locked_entry(pack_dir) or _catalog_registry_entry(pack_dir)
         if not registry_entry:
             print(f"{COL_RED}FAIL{COL_RESET} catalog pack not found: {requested}")
             return 1
@@ -1561,6 +1725,7 @@ def catalog_migrate(dry_run=False):
 def catalog_doctor():
     errors = []
     errors.extend(_catalog_registry_errors())
+    errors.extend(_catalog_registry_lock_errors())
     errors.extend(_catalog_layer_errors(
         "themes",
         theme_manifests_dir(),

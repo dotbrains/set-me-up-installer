@@ -332,6 +332,8 @@ smu catalog registry add local ./catalog-registry
 smu catalog registry add team https://example.com/set-me-up/index.toml
 smu catalog registry list
 smu catalog search shell
+smu catalog registry lock
+smu catalog registry status
 smu catalog install work-shell --dry-run
 smu catalog install work-shell
 ```
@@ -348,6 +350,13 @@ are cached under:
 
 Remote pack sources should point at a ZIP archive containing `pack.toml` at the
 archive root, or inside one top-level directory.
+
+Run `smu catalog registry lock` after adding or updating registries. The lock is
+written to `~/.config/set-me-up/registry.lock` and records registry index hashes,
+resolved pack sources, names, descriptions, and optional pack SHA-256 checksums.
+When a lock exists, `smu catalog install <pack-id>` installs from the locked pack
+metadata first. Use `smu catalog registry status` or `smu catalog doctor` to
+detect registry drift and refresh the lock intentionally.
 
 Remote pack entries can pin downloaded bytes with `sha256`. Generate the value
 before publishing the registry index:

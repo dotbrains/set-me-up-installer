@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import pathlib
 import tempfile
@@ -869,6 +870,7 @@ class TestThemeRegistry(unittest.TestCase):
     def test_catalog_install_resolves_pack_id_from_registry(self):
         with tempfile.TemporaryDirectory() as tempdir:
             registry_config = os.path.join(tempdir, "registries.toml")
+            registry_lock = os.path.join(tempdir, "registry.lock")
             registry = os.path.join(tempdir, "registry")
             pack = os.path.join(registry, "packs", "work.smu-pack")
             prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
@@ -889,6 +891,7 @@ class TestThemeRegistry(unittest.TestCase):
 
             with (
                 patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "catalog_registry_lock_path", registry_lock),
                 patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
                 patch.object(smu, "prompt_catalog_path", prompt_target),
                 patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
@@ -896,6 +899,111 @@ class TestThemeRegistry(unittest.TestCase):
                 self.assertEqual(smu._catalog_registry_add("local", registry), 0)
                 self.assertEqual(smu.catalog_install("work"), 0)
                 self.assertTrue(os.path.exists(os.path.join(prompt_target, "work.toml")))
+
+    def test_catalog_registry_lock_writes_and_reports_status(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry_lock = os.path.join(tempdir, "registry.lock")
+            registry = os.path.join(tempdir, "registry")
+            pack = os.path.join(registry, "packs", "work.smu-pack")
+            os.makedirs(pack)
+            with open(os.path.join(registry, "index.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('description = "Work prompt pack."\n')
+                f.write('source = "packs/work.smu-pack"\n')
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "catalog_registry_lock_path", registry_lock),
+            ):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu._catalog_registry_lock(), 0)
+                self.assertEqual(smu._catalog_registry_status(), 0)
+                with open(registry_lock) as f:
+                    lock = json.load(f)
+                self.assertEqual(lock["schema_version"], 1)
+                self.assertEqual(lock["registries"]["local"]["packs"]["work"]["source"], pack)
+                self.assertEqual(len(lock["registries"]["local"]["index_sha256"]), 64)
+
+    def test_catalog_registry_status_detects_index_drift(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry_lock = os.path.join(tempdir, "registry.lock")
+            registry = os.path.join(tempdir, "registry")
+            pack = os.path.join(registry, "packs", "work.smu-pack")
+            os.makedirs(pack)
+            index_path = os.path.join(registry, "index.toml")
+            with open(index_path, "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('source = "packs/work.smu-pack"\n')
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "catalog_registry_lock_path", registry_lock),
+                patch.object(smu, "theme_manifests_dir", return_value=os.path.join(tempdir, "themes")),
+                patch.object(smu, "prompt_profiles_path", os.path.join(tempdir, "prompt-profiles")),
+                patch.object(smu, "preset_profiles_path", os.path.join(tempdir, "presets")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "catalogs", "prompt-profiles")),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+                patch.object(smu, "_load_prompt_registry", return_value=None),
+                patch.object(smu, "_load_preset_registry", return_value=None),
+            ):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu._catalog_registry_lock(), 0)
+                with open(index_path, "a") as f:
+                    f.write('description = "Changed."\n')
+                self.assertEqual(smu._catalog_registry_status(), 1)
+                self.assertEqual(smu.catalog_doctor(), 1)
+
+    def test_catalog_install_prefers_locked_pack_metadata(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry_lock = os.path.join(tempdir, "registry.lock")
+            registry = os.path.join(tempdir, "registry")
+            locked_pack = os.path.join(registry, "packs", "locked.smu-pack")
+            live_pack = os.path.join(registry, "packs", "live.smu-pack")
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(os.path.join(locked_pack, "prompt-profiles"))
+            os.makedirs(os.path.join(live_pack, "prompt-profiles"))
+            index_path = os.path.join(registry, "index.toml")
+            with open(index_path, "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('source = "packs/locked.smu-pack"\n')
+            for pack_dir, prompt_name in ((locked_pack, "Locked"), (live_pack, "Live")):
+                with open(os.path.join(pack_dir, "pack.toml"), "w") as f:
+                    f.write("schema_version = 1\n")
+                    f.write('id = "work"\n')
+                    f.write('name = "Work"\n')
+                with open(os.path.join(pack_dir, "prompt-profiles", "work.toml"), "w") as f:
+                    f.write("schema_version = 1\n")
+                    f.write('id = "work"\n')
+                    f.write(f'name = "{prompt_name}"\n')
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "catalog_registry_lock_path", registry_lock),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu._catalog_registry_lock(), 0)
+                with open(index_path, "w") as f:
+                    f.write("schema_version = 1\n")
+                    f.write("[packs.work]\n")
+                    f.write('name = "Work"\n')
+                    f.write('source = "packs/live.smu-pack"\n')
+                self.assertEqual(smu.catalog_install("work"), 0)
+                with open(os.path.join(prompt_target, "work.toml")) as f:
+                    self.assertIn('name = "Locked"', f.read())
 
     def test_catalog_registry_entries_skip_invalid_index(self):
         with tempfile.TemporaryDirectory() as tempdir:
