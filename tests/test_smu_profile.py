@@ -822,6 +822,96 @@ class TestThemeRegistry(unittest.TestCase):
             ):
                 self.assertEqual(smu.catalog_install(pack, dry_run=True), 1)
 
+    def test_catalog_registry_add_lists_and_searches_local_index(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry = os.path.join(tempdir, "registry")
+            pack = os.path.join(registry, "packs", "work.smu-pack")
+            os.makedirs(pack)
+            with open(os.path.join(registry, "index.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('description = "Work prompt pack."\n')
+                f.write('source = "packs/work.smu-pack"\n')
+
+            with patch.object(smu, "catalog_registries_path", registry_config):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu._catalog_registry_list(), 0)
+                self.assertEqual(smu.catalog_search("work"), 0)
+                entries = smu._catalog_registry_entries()
+                self.assertEqual(entries[0]["id"], "work")
+                self.assertEqual(entries[0]["source"], pack)
+
+    def test_catalog_install_resolves_pack_id_from_registry(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry = os.path.join(tempdir, "registry")
+            pack = os.path.join(registry, "packs", "work.smu-pack")
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(os.path.join(pack, "prompt-profiles"))
+            with open(os.path.join(registry, "index.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('source = "packs/work.smu-pack"\n')
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu.catalog_install("work"), 0)
+                self.assertTrue(os.path.exists(os.path.join(prompt_target, "work.toml")))
+
+    def test_catalog_registry_entries_skip_invalid_index(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry = os.path.join(tempdir, "registry")
+            os.makedirs(registry)
+            with open(os.path.join(registry, "index.toml"), "w") as f:
+                f.write("schema_version = 99\n")
+                f.write("[packs.future]\n")
+                f.write('name = "Future"\n')
+                f.write('source = "missing.smu-pack"\n')
+
+            with patch.object(smu, "catalog_registries_path", registry_config):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu._catalog_registry_entries(), [])
+
+    def test_catalog_doctor_rejects_invalid_registry_index(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry_config = os.path.join(tempdir, "registries.toml")
+            registry = os.path.join(tempdir, "registry")
+            os.makedirs(registry)
+            with open(os.path.join(registry, "index.toml"), "w") as f:
+                f.write("schema_version = 99\n")
+
+            with (
+                patch.object(smu, "catalog_registries_path", registry_config),
+                patch.object(smu, "theme_manifests_dir", return_value=os.path.join(tempdir, "themes")),
+                patch.object(smu, "prompt_profiles_path", os.path.join(tempdir, "prompt-profiles")),
+                patch.object(smu, "preset_profiles_path", os.path.join(tempdir, "presets")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "catalogs", "prompt-profiles")),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+                patch.object(smu, "_load_prompt_registry", return_value=None),
+                patch.object(smu, "_load_preset_registry", return_value=None),
+            ):
+                self.assertEqual(smu._catalog_registry_add("local", registry), 0)
+                self.assertEqual(smu.catalog_doctor(), 1)
+
 
 class TestThemeModuleResolution(unittest.TestCase):
     def test_resolves_top_level_colorscheme_module(self):

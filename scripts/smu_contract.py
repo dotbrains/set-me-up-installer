@@ -34,18 +34,20 @@ def read_manifest(path):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        section_match = re.match(r"^\[([A-Za-z0-9_-]+)\]$", line)
+        section_match = re.match(r"^\[([A-Za-z0-9_.-]+)\]$", line)
         if section_match:
-            current_section = section_match.group(1)
-            data.setdefault(current_section, {})
+            section_names = section_match.group(1).split(".")
+            current_section = data
+            for section_name in section_names:
+                current_section = current_section.setdefault(section_name, {})
             continue
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
         value = parse_value(value)
-        if current_section:
-            data[current_section][key] = value
+        if current_section is not None:
+            current_section[key] = value
         else:
             data[key] = value
 

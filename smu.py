@@ -35,6 +35,7 @@ catalogs_path = os.path.join(config_dir, "catalogs")
 theme_catalog_path = os.path.join(catalogs_path, "themes")
 prompt_catalog_path = os.path.join(catalogs_path, "prompt-profiles")
 preset_catalog_path = os.path.join(catalogs_path, "presets")
+catalog_registries_path = os.path.join(config_dir, "registries.toml")
 adapter_state_path = os.path.join(config_dir, "adapters")
 adapter_manifest_env_path = os.path.join(adapter_state_path, "manifest.env")
 adapter_manifest_json_path = os.path.join(adapter_state_path, "manifest.json")
@@ -755,7 +756,13 @@ def handle_catalog_command(argv):
         dry_run = "--dry-run" in argv[2:]
         force = "--force" in argv[2:]
         raise SystemExit(catalog_install(argv[1], dry_run=dry_run, force=force))
-    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path> [--dry-run] [--force]]")
+    if argv[0] == "registry":
+        handle_catalog_registry_command(argv[1:])
+        return
+    if argv[0] == "search":
+        query = argv[1] if len(argv) > 1 else ""
+        raise SystemExit(catalog_search(query))
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list]|search [query]]")
 
 def _option_value(argv, option):
     if option not in argv:
@@ -764,6 +771,149 @@ def _option_value(argv, option):
     if index + 1 >= len(argv):
         die(f"{option} requires a value")
     return argv[index + 1]
+
+def _read_catalog_registries():
+    manifest = _read_simple_toml(catalog_registries_path)
+    registries = manifest.get("registries", {})
+    if isinstance(registries, dict):
+        return registries
+    return {}
+
+def _write_catalog_registries(registries):
+    smu_contract.write_manifest(catalog_registries_path, {
+        "schema_version": smu_contract.SUPPORTED_SCHEMA_VERSION,
+        "registries": registries,
+    })
+
+def _catalog_registry_add(name, source):
+    if not _valid_catalog_id(name):
+        die(f"Registry name must be kebab-case: {name}")
+    registries = _read_catalog_registries()
+    registries[name] = source
+    _write_catalog_registries(registries)
+    print(f"{COL_GREEN}OK{COL_RESET}   added registry {name}\t{source}")
+    return 0
+
+def _catalog_registry_list():
+    registries = _read_catalog_registries()
+    if not registries:
+        print(f"{COL_YELLOW}WARN{COL_RESET}  no catalog registries configured")
+        return 0
+    for name, source in sorted(registries.items()):
+        print(f"{name}\t{source}")
+    return 0
+
+def handle_catalog_registry_command(argv):
+    command = argv[0] if argv else "list"
+    if command == "list":
+        raise SystemExit(_catalog_registry_list())
+    if command == "add":
+        if len(argv) < 3:
+            die("Usage: smu catalog registry add <name> <path>")
+        raise SystemExit(_catalog_registry_add(argv[1], argv[2]))
+    die("Usage: smu catalog registry [add <name> <path>|list]")
+
+def _registry_index_path(source):
+    source = os.path.abspath(os.path.expanduser(source))
+    if os.path.isdir(source):
+        return os.path.join(source, "index.toml")
+    return source
+
+def _registry_pack_source(index_source, pack_source):
+    expanded = os.path.expanduser(pack_source)
+    if os.path.isabs(expanded):
+        return expanded
+    index_path = _registry_index_path(index_source)
+    return os.path.abspath(os.path.join(os.path.dirname(index_path), expanded))
+
+def _registry_index_errors(registry_name, source, index):
+    errors = []
+    errors.extend(
+        smu_contract.schema_version_errors(
+            f"registry {registry_name}",
+            [index],
+            require_schema_version=True,
+        )
+    )
+    packs = index.get("packs", {})
+    if not isinstance(packs, dict):
+        errors.append(f"registry {registry_name}: [packs] must be a table")
+        return errors
+    for pack_id, pack in packs.items():
+        if not _valid_catalog_id(pack_id):
+            errors.append(f"registry {registry_name}: pack id {pack_id} must be kebab-case")
+            continue
+        if not isinstance(pack, dict):
+            errors.append(f"registry {registry_name}: pack {pack_id} must be a table")
+            continue
+        if not pack.get("name"):
+            errors.append(f"registry {registry_name}: pack {pack_id} missing name")
+        if not pack.get("source"):
+            errors.append(f"registry {registry_name}: pack {pack_id} missing source")
+        elif not os.path.exists(_registry_pack_source(source, pack["source"])):
+            errors.append(f"registry {registry_name}: pack {pack_id} source does not exist")
+    return errors
+
+def _catalog_registry_entries():
+    entries = []
+    for registry_name, source in sorted(_read_catalog_registries().items()):
+        index_path = _registry_index_path(source)
+        if not os.path.exists(index_path):
+            warn(f"Registry {registry_name} index does not exist: {index_path}")
+            continue
+        index = _read_simple_toml(index_path)
+        errors = _registry_index_errors(registry_name, source, index)
+        if errors:
+            for error in errors:
+                warn(error)
+            continue
+        for pack_id, pack in sorted(index.get("packs", {}).items()):
+            entry = dict(pack)
+            entry["id"] = pack_id
+            entry["registry"] = registry_name
+            entry["source"] = _registry_pack_source(source, pack["source"])
+            entries.append(entry)
+    return entries
+
+def _catalog_registry_errors():
+    errors = []
+    for registry_name, source in sorted(_read_catalog_registries().items()):
+        if not _valid_catalog_id(registry_name):
+            errors.append(f"registry {registry_name} name must be kebab-case")
+            continue
+        index_path = _registry_index_path(source)
+        if not os.path.exists(index_path):
+            errors.append(f"registry {registry_name} index does not exist: {index_path}")
+            continue
+        errors.extend(_registry_index_errors(registry_name, source, _read_simple_toml(index_path)))
+    return errors
+
+def _catalog_registry_entry(pack_id):
+    for entry in _catalog_registry_entries():
+        if entry["id"] == pack_id:
+            return entry
+    return None
+
+def catalog_search(query=""):
+    query = query.lower()
+    entries = [
+        entry for entry in _catalog_registry_entries()
+        if not query
+        or query in entry["id"].lower()
+        or query in str(entry.get("name", "")).lower()
+        or query in str(entry.get("description", "")).lower()
+    ]
+    if not entries:
+        print(f"{COL_YELLOW}WARN{COL_RESET}  no catalog packs found")
+        return 0
+    for entry in entries:
+        description = entry.get("description")
+        source = entry.get("source")
+        if description:
+            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{description}\t{source}")
+        else:
+            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{source}")
+    return 0
 
 def _theme_adapter_paths(theme):
     entry = theme_manifest_by_id(theme)
@@ -1157,7 +1307,18 @@ def _catalog_install_conflicts(pack_dir, force=False):
     return errors
 
 def catalog_install(pack_dir, dry_run=False, force=False):
-    pack_dir = os.path.abspath(os.path.expanduser(pack_dir))
+    registry_entry = None
+    requested = pack_dir
+    expanded = os.path.abspath(os.path.expanduser(pack_dir))
+    if not os.path.exists(expanded):
+        registry_entry = _catalog_registry_entry(pack_dir)
+        if not registry_entry:
+            print(f"{COL_RED}FAIL{COL_RESET} catalog pack not found: {requested}")
+            return 1
+        pack_dir = registry_entry["source"]
+    else:
+        pack_dir = expanded
+
     errors = _catalog_pack_errors(pack_dir)
     errors.extend(_catalog_install_conflicts(pack_dir, force=force))
     if errors:
@@ -1174,7 +1335,8 @@ def catalog_install(pack_dir, dry_run=False, force=False):
     elif dry_run:
         print(f"{COL_GREEN}OK{COL_RESET}   pack can install {len(copied)} file(s)")
     else:
-        print(f"{COL_GREEN}OK{COL_RESET}   installed pack {_catalog_pack_manifest(pack_dir).get('id')}")
+        pack_id = registry_entry["id"] if registry_entry else _catalog_pack_manifest(pack_dir).get("id")
+        print(f"{COL_GREEN}OK{COL_RESET}   installed pack {pack_id}")
 
     return 0
 
@@ -1275,6 +1437,7 @@ def catalog_migrate(dry_run=False):
 
 def catalog_doctor():
     errors = []
+    errors.extend(_catalog_registry_errors())
     errors.extend(_catalog_layer_errors(
         "themes",
         theme_manifests_dir(),

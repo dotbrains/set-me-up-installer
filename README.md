@@ -312,6 +312,32 @@ smu catalog doctor
 Pack install validates `pack.toml`, rejects unsupported schema versions, and
 refuses to overwrite existing catalog files unless `--force` is passed.
 
+Catalog registries make packs discoverable. A registry is a directory with an
+`index.toml` file:
+
+```toml
+schema_version = 1
+
+[packs.work-shell]
+name = "Work Shell"
+description = "Portable shell prompt pack."
+source = "packs/work-shell.smu-pack"
+```
+
+Add a personal or team registry, search it, and install by pack ID:
+
+```bash
+smu catalog registry add local ./catalog-registry
+smu catalog registry list
+smu catalog search shell
+smu catalog install work-shell --dry-run
+smu catalog install work-shell
+```
+
+Registry names and pack IDs must be kebab-case. Relative `source` paths resolve
+from the registry index directory. Registry indexes use the same
+`schema_version = 1` compatibility checks as catalog packs.
+
 Generate the shell-facing resolved profile after changing profile, override, or
 catalog files:
 

@@ -60,6 +60,19 @@ class TestSmuContract(unittest.TestCase):
             self.assertEqual(manifest["theme_aware"], True)
             self.assertEqual(manifest["adapters"]["bash"], "prompts/work.bash")
 
+    def test_read_manifest_parses_dotted_sections(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "index.toml")
+            with open(path, "w") as f:
+                f.write("schema_version = 1\n")
+                f.write("[packs.work]\n")
+                f.write('name = "Work"\n')
+                f.write('source = "packs/work.smu-pack"\n')
+
+            manifest = smu_contract.read_manifest(path)
+            self.assertEqual(manifest["packs"]["work"]["name"], "Work")
+            self.assertEqual(manifest["packs"]["work"]["source"], "packs/work.smu-pack")
+
     def test_merge_catalog_manifests_resolves_inheritance_without_overriding_builtins(self):
         builtins = [
             {"id": "default", "theme": "gruvbox", "prompt": "starship"},
