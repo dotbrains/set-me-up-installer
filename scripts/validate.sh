@@ -26,13 +26,14 @@ python_checks() {
 }
 
 cli_smoke() {
-    local tmp_home pack_root pack_dir registry_dir registry_home install_home
+    local tmp_home pack_root pack_dir registry_dir registry_home install_home profile_home
     tmp_home="$(mktemp -d)"
     pack_root="$(mktemp -d)"
     pack_dir="$pack_root/ci-shell.smu-pack"
     registry_dir="$(mktemp -d)/catalog-registry"
     registry_home="$(mktemp -d)"
     install_home="$(mktemp -d)"
+    profile_home="$(mktemp -d)"
 
     HOME="$tmp_home" "$python_bin" smu.py adapter init ci-shell
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
@@ -49,10 +50,10 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py status --json --search ci
     HOME="$tmp_home" "$python_bin" smu.py diff ci-shell
     HOME="$tmp_home" "$python_bin" smu.py rollback --dry-run || true
-    "$python_bin" smu.py profile resolve
-    "$python_bin" smu.py profile doctor
-    "$python_bin" smu.py adapter list
-    "$python_bin" smu.py adapter materialize --dry-run
+    HOME="$profile_home" "$python_bin" smu.py profile resolve
+    HOME="$profile_home" "$python_bin" smu.py profile doctor
+    HOME="$profile_home" "$python_bin" smu.py adapter list
+    HOME="$profile_home" "$python_bin" smu.py adapter materialize --dry-run
 }
 
 shell_checks() {
