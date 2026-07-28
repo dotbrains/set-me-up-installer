@@ -150,7 +150,7 @@ install_latest_stable_python() {
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     # Check that **env-latest is installed
-    if -d "$PYENV_DIRECTORY"/plugins/xxenv-latest; then
+    if [[ ! -d "$PYENV_DIRECTORY"/plugins/xxenv-latest ]]; then
         return 1
     fi
 

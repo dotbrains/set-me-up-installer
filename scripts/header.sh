@@ -1,3 +1,6 @@
+#!/bin/bash
+
+# shellcheck source=/dev/null
 source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/utilities/master/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -14,6 +17,7 @@ header() {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# shellcheck disable=SC2154
 echo -e "\n${bold}\$HOME sweet /~\n${normal}"
 
 echo -e "Welcome to the '${bold}set-me-up${normal}' installer."

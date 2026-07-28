@@ -49,7 +49,8 @@ main() {
                 install_package "git"
                 
                 # Build and install rcm from AUR
-                local build_dir="$(mktemp -d)"
+                local build_dir
+                build_dir="$(mktemp -d)"
                 cd "$build_dir" || return 1
                 git clone https://aur.archlinux.org/rcm.git
                 cd rcm || return 1

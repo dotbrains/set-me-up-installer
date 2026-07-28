@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# shellcheck source=/dev/null
 source /dev/stdin <<<"$(curl -s "https://raw.githubusercontent.com/dotbrains/utilities/master/utilities.sh")"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -20,12 +21,14 @@ readonly installer_scripts_path="${smu_home_dir}/set-me-up-installer/scripts"
 if [[ -e "${smu_home_dir}" ]]; then
 	# Get the current branch of the 'set-me-up' repository
 	# e.g., 'master' or 'main'
-	readonly SMU_BLUEPRINT_BRANCH=$(git -C "${smu_home_dir}" rev-parse --abbrev-ref HEAD)
+	SMU_BLUEPRINT_BRANCH=$(git -C "${smu_home_dir}" rev-parse --abbrev-ref HEAD)
+	readonly SMU_BLUEPRINT_BRANCH
 
 	# Get the remote URL of the 'set-me-up' repository
 	# e.g., 'org/repo' or 'user/repo'
 	remote_url=$(git -C "${smu_home_dir}" config --get remote.origin.url)
-	readonly SMU_BLUEPRINT=$(echo "${remote_url}" | sed 's|https://github.com/||' | sed 's/\.git$//')
+	SMU_BLUEPRINT=$(echo "${remote_url}" | sed 's|https://github.com/||' | sed 's/\.git$//')
+	readonly SMU_BLUEPRINT
 
 	# Export variables to make them available to the Python script
 	export SMU_BLUEPRINT_BRANCH
@@ -80,6 +83,7 @@ main() {
 
 	# Check if detected OS is supported
 	if [[ "${SMU_OS}" != "MacOS" ]] && [[ "${SMU_OS}" != "debian" ]] && [[ "${SMU_OS}" != "arch" ]]; then
+		# shellcheck disable=SC2154
 		error "Sorry, '${bold}set-me-up${normal}' is not supported on your OS.\n"
 		exit 1
 	fi

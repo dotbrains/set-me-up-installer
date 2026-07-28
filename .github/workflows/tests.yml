@@ -105,6 +105,8 @@ jobs:
           python3 --version
           pytest --version
           shellcheck --version
+          find scripts -type f -name "*.sh" -print0 | xargs -0 shellcheck
+          shellcheck install.sh smu
           node --version
           git --version
         '
