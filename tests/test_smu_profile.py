@@ -187,6 +187,91 @@ class TestProfile(unittest.TestCase):
                 self.assertEqual(smu.current_prompt(), "classic")
                 self.assertEqual(smu.current_preset(), "classic-gruvbox")
 
+    def test_write_resolved_profile_exports_manifest_fields(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            profile = os.path.join(tempdir, "profile.env")
+            resolved = os.path.join(tempdir, "resolved.env")
+            presets_dir = os.path.join(tempdir, "presets")
+            themes_dir = os.path.join(tempdir, "themes")
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            os.makedirs(presets_dir)
+            os.makedirs(themes_dir)
+            os.makedirs(prompts_dir)
+
+            with open(profile, "w") as f:
+                f.write('export SMU_PRESET="default"\n')
+                f.write('export SMU_THEME="gruvbox"\n')
+                f.write('export SMU_PROMPT="starship"\n')
+            with open(os.path.join(presets_dir, "default.toml"), "w") as f:
+                f.write('id = "default"\n')
+                f.write('name = "Default"\n')
+                f.write('description = "Default preset."\n')
+                f.write('theme = "gruvbox"\n')
+                f.write('prompt = "starship"\n')
+            with open(os.path.join(themes_dir, "gruvbox.toml"), "w") as f:
+                f.write('id = "gruvbox"\n')
+                f.write('name = "Gruvbox"\n')
+                f.write("[nvim]\n")
+                f.write('colorscheme = "gruvbox"\n')
+            with open(os.path.join(prompts_dir, "starship.toml"), "w") as f:
+                f.write('id = "starship"\n')
+                f.write('name = "Starship"\n')
+                f.write('description = "Full prompt."\n')
+                f.write('engine = "starship"\n')
+                f.write('theme_aware = true\n')
+
+            with (
+                patch.object(smu, "profile_path", profile),
+                patch.object(smu, "resolved_profile_path", resolved),
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "theme_manifests_dir", return_value=themes_dir),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "missing-themes")),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "missing-prompts")),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "missing-presets")),
+                patch.object(smu, "theme_override_path", os.path.join(tempdir, "missing-theme.toml")),
+                patch.object(smu, "prompt_override_path", os.path.join(tempdir, "missing-prompt.toml")),
+                patch.object(smu, "preset_override_path", os.path.join(tempdir, "missing-preset.toml")),
+                patch.dict(os.environ, {}, clear=True),
+            ):
+                smu.write_resolved_profile()
+                values = smu.read_profile_file(resolved)
+                self.assertEqual(values["SMU_PRESET"], "default")
+                self.assertEqual(values["SMU_THEME"], "gruvbox")
+                self.assertEqual(values["SMU_PROMPT"], "starship")
+                self.assertEqual(values["SMU_THEME_NAME"], "Gruvbox")
+                self.assertEqual(values["SMU_THEME_NVIM_COLORSCHEME"], "gruvbox")
+                self.assertEqual(values["SMU_PROMPT_ENGINE"], "starship")
+                self.assertEqual(values["SMU_PROMPT_THEME_AWARE"], "true")
+                self.assertEqual(smu.resolved_profile_doctor(), 0)
+
+    def test_resolved_profile_doctor_rejects_stale_file(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            profile = os.path.join(tempdir, "profile.env")
+            resolved = os.path.join(tempdir, "resolved.env")
+            with open(profile, "w") as f:
+                f.write('export SMU_PRESET="default"\n')
+                f.write('export SMU_THEME="gruvbox"\n')
+                f.write('export SMU_PROMPT="starship"\n')
+            with open(resolved, "w") as f:
+                f.write('export SMU_PRESET="default"\n')
+                f.write('export SMU_THEME="nord"\n')
+                f.write('export SMU_PROMPT="starship"\n')
+
+            with (
+                patch.object(smu, "profile_path", profile),
+                patch.object(smu, "resolved_profile_path", resolved),
+                patch.object(smu, "supported_themes", return_value=("gruvbox",)),
+                patch.object(smu, "prompt_profile_by_id", return_value={"id": "starship"}),
+                patch.object(smu, "preset_by_id", return_value={"id": "default"}),
+                patch.object(smu, "theme_manifest_by_id", return_value={"id": "gruvbox"}),
+                patch.object(smu, "theme_override_path", os.path.join(tempdir, "missing-theme.toml")),
+                patch.object(smu, "prompt_override_path", os.path.join(tempdir, "missing-prompt.toml")),
+                patch.object(smu, "preset_override_path", os.path.join(tempdir, "missing-preset.toml")),
+                patch.dict(os.environ, {}, clear=True),
+            ):
+                self.assertEqual(smu.resolved_profile_doctor(), 1)
+
     def test_preset_doctor_validates_theme_and_prompt(self):
         with tempfile.TemporaryDirectory() as tempdir:
             presets_dir = os.path.join(tempdir, "presets")

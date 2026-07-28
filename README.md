@@ -260,6 +260,37 @@ smu catalog doctor
 smu doctor
 ```
 
+Generate the shell-facing resolved profile after changing profile, override, or
+catalog files:
+
+```bash
+smu profile resolve
+smu profile doctor
+```
+
+`smu profile resolve` writes:
+
+```text
+~/.config/set-me-up/resolved.env
+```
+
+That file is generated from the selected preset, theme, prompt, override files,
+catalog manifests, and inherited manifest fields. Shell, editor, terminal, and
+module integrations can source one stable contract instead of duplicating
+resolution logic:
+
+```bash
+export SMU_PRESET="nord-minimal"
+export SMU_THEME="nord"
+export SMU_PROMPT="starship-minimal"
+export SMU_THEME_NAME="Nord"
+export SMU_PROMPT_ENGINE="starship"
+export SMU_PROMPT_THEME_AWARE="true"
+```
+
+`smu profile doctor` verifies that the selected preset, theme, and prompt exist
+and that `resolved.env` matches the current resolved state.
+
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,
 colorscheme module, shell, terminal, tmux, and editor repositories.

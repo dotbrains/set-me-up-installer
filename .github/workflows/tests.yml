@@ -27,6 +27,8 @@ jobs:
         python scripts/prompt_contract.py --local
         python scripts/preset_contract.py
         python scripts/generate-prompt-adapters.py --check-templates
+        python smu.py profile resolve
+        python smu.py profile doctor
 
     - name: Run tests with pytest (if available)
       env:
@@ -38,6 +40,8 @@ jobs:
         python scripts/prompt_contract.py --local
         python scripts/preset_contract.py
         python scripts/generate-prompt-adapters.py --check-templates
+        python smu.py profile resolve
+        python smu.py profile doctor
 
   markdown-lint:
     name: Markdown Lint
