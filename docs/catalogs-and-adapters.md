@@ -251,4 +251,3 @@ Shared manifest semantics live in `scripts/smu_contract.py`. Reuse that module
 for TOML parsing, kebab-case ID validation, catalog merging, inheritance
 resolution, schema-version migration, and adapter source/target validation
 instead of duplicating those rules in new scripts.
-
