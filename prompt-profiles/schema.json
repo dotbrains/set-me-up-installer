@@ -7,6 +7,7 @@
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "name": { "type": "string" },
     "description": { "type": "string" },
+    "extends": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "engine": { "enum": ["starship", "shell"] },
     "theme_aware": { "type": "boolean" },
     "adapters": {

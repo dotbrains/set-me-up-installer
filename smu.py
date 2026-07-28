@@ -26,6 +26,10 @@ config_dir = os.path.dirname(profile_path)
 theme_override_path = os.path.join(config_dir, "theme.toml")
 prompt_override_path = os.path.join(config_dir, "prompt.toml")
 preset_override_path = os.path.join(config_dir, "preset.toml")
+catalogs_path = os.path.join(config_dir, "catalogs")
+theme_catalog_path = os.path.join(catalogs_path, "themes")
+prompt_catalog_path = os.path.join(catalogs_path, "prompt-profiles")
+preset_catalog_path = os.path.join(catalogs_path, "presets")
 
 # 'set-me-up' installer scripts
 installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
@@ -179,22 +183,98 @@ def _load_preset_registry():
     spec.loader.exec_module(module)
     return module
 
-def prompt_profiles():
-    registry = _load_prompt_registry()
-    if registry:
-        profiles = list(registry.manifests(prompt_profiles_path))
-        if profiles:
-            return profiles
+def _merge_manifest(parent, child):
+    merged = {}
+    for key, value in parent.items():
+        if isinstance(value, dict):
+            merged[key] = dict(value)
+        else:
+            merged[key] = value
 
-    profiles = []
-    if os.path.isdir(prompt_profiles_path):
-        for filename in sorted(os.listdir(prompt_profiles_path)):
+    for key, value in child.items():
+        if key == "extends":
+            continue
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            nested = dict(merged[key])
+            nested.update(value)
+            merged[key] = nested
+        else:
+            merged[key] = value
+
+    return merged
+
+def _resolve_manifest_inheritance(manifests):
+    by_id = {
+        manifest["id"]: manifest
+        for manifest in manifests
+        if manifest.get("id")
+    }
+    resolved = {}
+    resolving = set()
+
+    def resolve(manifest):
+        manifest_id = manifest.get("id")
+        parent_id = manifest.get("extends")
+        if not manifest_id or not parent_id:
+            return manifest
+        if manifest_id in resolved:
+            return resolved[manifest_id]
+        if manifest_id in resolving:
+            return manifest
+        parent = by_id.get(parent_id)
+        if not parent:
+            return manifest
+        resolving.add(manifest_id)
+        resolved_parent = resolve(parent)
+        resolving.remove(manifest_id)
+        resolved_manifest = _merge_manifest(resolved_parent, manifest)
+        resolved[manifest_id] = resolved_manifest
+        return resolved_manifest
+
+    return [resolve(manifest) for manifest in manifests]
+
+def _merge_catalog_manifests(builtins, user_manifests):
+    merged = list(builtins)
+    seen = {entry.get("id") for entry in builtins if entry.get("id")}
+    for manifest in user_manifests:
+        manifest_id = manifest.get("id")
+        if manifest_id and manifest_id not in seen:
+            merged.append(manifest)
+            seen.add(manifest_id)
+    return _resolve_manifest_inheritance(merged)
+
+def _read_manifest_dir(path, registry=None):
+    if registry:
+        return list(registry.manifests(path))
+
+    manifests = []
+    if os.path.isdir(path):
+        for filename in sorted(os.listdir(path)):
             if not filename.endswith(".toml"):
                 continue
-            path = os.path.join(prompt_profiles_path, filename)
-            profile = _read_simple_toml(path)
-            if profile.get("id"):
-                profiles.append(profile)
+            manifest = _read_simple_toml(os.path.join(path, filename))
+            if manifest.get("id"):
+                manifests.append(manifest)
+    return manifests
+
+def _catalog_duplicate_ids(entries):
+    seen = set()
+    duplicates = []
+    for entry in entries:
+        entry_id = entry.get("id")
+        if not entry_id:
+            continue
+        if entry_id in seen and entry_id not in duplicates:
+            duplicates.append(entry_id)
+        seen.add(entry_id)
+    return duplicates
+
+def prompt_profiles():
+    registry = _load_prompt_registry()
+    profiles = _merge_catalog_manifests(
+        _read_manifest_dir(prompt_profiles_path, registry),
+        _read_manifest_dir(prompt_catalog_path, registry),
+    )
 
     if profiles:
         return profiles
@@ -206,19 +286,10 @@ def supported_prompts():
 
 def preset_profiles():
     registry = _load_preset_registry()
-    if registry:
-        presets = list(registry.manifests(preset_profiles_path))
-        if presets:
-            return presets
-
-    presets = []
-    if os.path.isdir(preset_profiles_path):
-        for filename in sorted(os.listdir(preset_profiles_path)):
-            if not filename.endswith(".toml"):
-                continue
-            preset = _read_simple_toml(os.path.join(preset_profiles_path, filename))
-            if preset.get("id"):
-                presets.append(preset)
+    presets = _merge_catalog_manifests(
+        _read_manifest_dir(preset_profiles_path, registry),
+        _read_manifest_dir(preset_catalog_path, registry),
+    )
 
     if presets:
         return presets
@@ -251,19 +322,10 @@ def theme_manifests_dir():
 
 def theme_manifests():
     registry = _load_theme_registry()
-    if registry:
-        return list(registry.manifests(theme_manifests_dir()))
-
-    manifests_dir = theme_manifests_dir()
-    themes = []
-    if os.path.isdir(manifests_dir):
-        for filename in sorted(os.listdir(manifests_dir)):
-            if not filename.endswith(".toml"):
-                continue
-            theme = _read_simple_toml(os.path.join(manifests_dir, filename))
-            if theme.get("id"):
-                themes.append(theme)
-    return themes
+    return _merge_catalog_manifests(
+        _read_manifest_dir(theme_manifests_dir(), registry),
+        _read_manifest_dir(theme_catalog_path, registry),
+    )
 
 def supported_themes():
     manifests = theme_manifests()
@@ -475,6 +537,88 @@ def handle_preset_command(argv):
 
     die("Usage: smu preset [list|current|set <preset> [--apply]|doctor [preset]]")
 
+def handle_catalog_command(argv):
+    if not argv or argv[0] == "doctor":
+        raise SystemExit(catalog_doctor())
+    if argv[0] == "path":
+        print(catalogs_path)
+        return
+    die("Usage: smu catalog [doctor|path]")
+
+def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
+    errors = []
+    builtin = _read_manifest_dir(builtin_dir, registry)
+    user = _read_manifest_dir(user_dir, registry)
+
+    for entry_id in _catalog_duplicate_ids(builtin):
+        errors.append(f"{label}: duplicate built-in id {entry_id}")
+    for entry_id in _catalog_duplicate_ids(user):
+        errors.append(f"{label}: duplicate user catalog id {entry_id}")
+
+    builtin_ids = {entry.get("id") for entry in builtin if entry.get("id")}
+    for entry in user:
+        entry_id = entry.get("id")
+        if entry_id in builtin_ids:
+            errors.append(f"{label}: user catalog id {entry_id} conflicts with built-in manifest")
+        parent = entry.get("extends")
+        all_ids = builtin_ids | {candidate.get("id") for candidate in user if candidate.get("id")}
+        if parent and parent not in all_ids:
+            errors.append(f"{label}: {entry_id} extends unknown manifest {parent}")
+
+    return errors
+
+def catalog_doctor():
+    errors = []
+    errors.extend(_catalog_layer_errors(
+        "themes",
+        theme_manifests_dir(),
+        theme_catalog_path,
+        _load_theme_registry(),
+    ))
+    errors.extend(_catalog_layer_errors(
+        "prompts",
+        prompt_profiles_path,
+        prompt_catalog_path,
+        _load_prompt_registry(),
+    ))
+    errors.extend(_catalog_layer_errors(
+        "presets",
+        preset_profiles_path,
+        preset_catalog_path,
+        _load_preset_registry(),
+    ))
+
+    prompt_registry = _load_prompt_registry()
+    if prompt_registry:
+        for profile in prompt_profiles():
+            errors.extend(
+                f"prompts: {error}"
+                for error in prompt_registry.validate_profile(profile)
+            )
+
+    preset_registry = _load_preset_registry()
+    if preset_registry:
+        for preset in preset_profiles():
+            errors.extend(
+                f"presets: {error}"
+                for error in preset_registry.validate_preset(
+                    preset,
+                    supported_themes(),
+                    supported_prompts(),
+                )
+            )
+
+    if errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+
+    print(f"{COL_GREEN}OK{COL_RESET}   catalogs {catalogs_path}")
+    print(f"{COL_GREEN}OK{COL_RESET}   {len(supported_themes())} theme(s)")
+    print(f"{COL_GREEN}OK{COL_RESET}   {len(supported_prompts())} prompt profile(s)")
+    print(f"{COL_GREEN}OK{COL_RESET}   {len(supported_presets())} preset(s)")
+    return 0
+
 def preset_doctor(preset):
     entry = preset_by_id(preset)
     if not entry:
@@ -515,6 +659,8 @@ def doctor():
 
     print(f"{BOLD}Preset:{NORMAL} {preset}")
     failed = preset_doctor(preset) != 0 or failed
+    print(f"\n{BOLD}Catalogs:{NORMAL} {catalogs_path}")
+    failed = catalog_doctor() != 0 or failed
     print(f"\n{BOLD}Theme:{NORMAL} {theme}")
     failed = theme_doctor(theme) != 0 or failed
     print(f"\n{BOLD}Prompt:{NORMAL} {prompt}")
@@ -1512,6 +1658,9 @@ def main():
             return
         if command == "preset":
             handle_preset_command(command_args)
+            return
+        if command == "catalog":
+            handle_catalog_command(command_args)
             return
         if command == "doctor":
             raise SystemExit(doctor())

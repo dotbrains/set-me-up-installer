@@ -230,6 +230,36 @@ Resolution order is environment variable, local override file, saved profile,
 then defaults. For example, `SMU_THEME` wins over `theme.toml`, and
 `theme.toml` wins over `profile.env`.
 
+Users can also add local catalog manifests without forking the managed repos:
+
+```text
+~/.config/set-me-up/catalogs/
+├── themes/
+├── prompt-profiles/
+└── presets/
+```
+
+Catalog manifests use the same TOML shape as built-in manifests. New manifests
+can inherit from a built-in or another catalog manifest with `extends`:
+
+```toml
+id = "work"
+extends = "nord-minimal"
+name = "Work"
+description = "Nord colors with the classic shell prompt."
+prompt = "classic"
+```
+
+Built-in manifests load first, then user catalog manifests. User catalog IDs
+must be unique and cannot replace built-in IDs; use `extends` with a new ID for
+variants. Validate the merged catalog with:
+
+```bash
+smu catalog path
+smu catalog doctor
+smu doctor
+```
+
 Use `smu theme doctor [theme]` from the aggregate `set-me-up` checkout to check
 that a theme manifest has the expected adapter files across the installer,
 colorscheme module, shell, terminal, tmux, and editor repositories.

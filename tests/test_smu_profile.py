@@ -51,6 +51,40 @@ class TestProfile(unittest.TestCase):
                 self.assertEqual(smu.supported_prompts(), ("lean",))
                 self.assertEqual(smu.prompt_profiles()[0]["description"], "Compact prompt.")
 
+    def test_prompt_catalog_extends_builtin_profile(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            builtins_dir = os.path.join(tempdir, "prompt-profiles")
+            catalog_dir = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(builtins_dir)
+            os.makedirs(catalog_dir)
+            with open(os.path.join(builtins_dir, "starship.toml"), "w") as f:
+                f.write('id = "starship"\n')
+                f.write('name = "Starship"\n')
+                f.write('description = "Full prompt."\n')
+                f.write('engine = "starship"\n')
+                f.write('theme_aware = true\n')
+                f.write("[starship]\n")
+                f.write('config = "starship.toml"\n')
+                f.write("[adapters]\n")
+                f.write('bash = "prompts/starship.bash"\n')
+            with open(os.path.join(catalog_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+                f.write('extends = "starship"\n')
+                f.write('name = "Work"\n')
+                f.write('description = "Work prompt."\n')
+                f.write("[adapters]\n")
+                f.write('bash = "prompts/work.bash"\n')
+
+            with (
+                patch.object(smu, "prompt_profiles_path", builtins_dir),
+                patch.object(smu, "prompt_catalog_path", catalog_dir),
+            ):
+                profiles = {entry["id"]: entry for entry in smu.prompt_profiles()}
+                self.assertEqual(smu.supported_prompts(), ("starship", "work"))
+                self.assertEqual(profiles["work"]["engine"], "starship")
+                self.assertEqual(profiles["work"]["theme_aware"], True)
+                self.assertEqual(profiles["work"]["adapters"]["bash"], "prompts/work.bash")
+
     def test_supported_presets_are_read_from_manifest_files(self):
         with tempfile.TemporaryDirectory() as tempdir:
             presets_dir = os.path.join(tempdir, "presets")
@@ -64,6 +98,34 @@ class TestProfile(unittest.TestCase):
             with patch.object(smu, "preset_profiles_path", presets_dir):
                 self.assertEqual(smu.supported_presets(), ("lean",))
                 self.assertEqual(smu.preset_profiles()[0]["description"], "Lean preset.")
+
+    def test_preset_catalog_extends_builtin_preset(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            presets_dir = os.path.join(tempdir, "presets")
+            catalog_dir = os.path.join(tempdir, "catalogs", "presets")
+            os.makedirs(presets_dir)
+            os.makedirs(catalog_dir)
+            with open(os.path.join(presets_dir, "default.toml"), "w") as f:
+                f.write('id = "default"\n')
+                f.write('name = "Default"\n')
+                f.write('description = "Default preset."\n')
+                f.write('theme = "gruvbox"\n')
+                f.write('prompt = "starship"\n')
+            with open(os.path.join(catalog_dir, "work.toml"), "w") as f:
+                f.write('id = "work"\n')
+                f.write('extends = "default"\n')
+                f.write('name = "Work"\n')
+                f.write('description = "Work preset."\n')
+                f.write('prompt = "classic"\n')
+
+            with (
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "preset_catalog_path", catalog_dir),
+            ):
+                presets = {entry["id"]: entry for entry in smu.preset_profiles()}
+                self.assertEqual(smu.supported_presets(), ("default", "work"))
+                self.assertEqual(presets["work"]["theme"], "gruvbox")
+                self.assertEqual(presets["work"]["prompt"], "classic")
 
     def test_set_preset_writes_theme_and_prompt(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -142,6 +204,28 @@ class TestProfile(unittest.TestCase):
                 patch.object(smu, "supported_prompts", return_value=("starship",)),
             ):
                 self.assertEqual(smu.preset_doctor("default"), 0)
+
+    def test_catalog_doctor_rejects_duplicate_user_ids(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            presets_dir = os.path.join(tempdir, "presets")
+            catalog_dir = os.path.join(tempdir, "catalogs", "presets")
+            os.makedirs(presets_dir)
+            os.makedirs(catalog_dir)
+            with open(os.path.join(catalog_dir, "one.toml"), "w") as f:
+                f.write('id = "work"\n')
+            with open(os.path.join(catalog_dir, "two.toml"), "w") as f:
+                f.write('id = "work"\n')
+
+            with (
+                patch.object(smu, "preset_profiles_path", presets_dir),
+                patch.object(smu, "preset_catalog_path", catalog_dir),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "missing-prompts")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "missing-themes")),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+                patch.object(smu, "_load_prompt_registry", return_value=None),
+                patch.object(smu, "_load_preset_registry", return_value=None),
+            ):
+                self.assertEqual(smu.catalog_doctor(), 1)
 
     def test_prompt_doctor_checks_manifest_adapters(self):
         class FakePromptRegistry:
