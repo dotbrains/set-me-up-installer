@@ -1,3 +1,7 @@
+from .core import *
+from .module_discovery import *
+
+
 def _module_basename(script_path):
     """Return the basename used by *.sh-style modules (e.g. 'cursor' for cursor.sh)."""
     base = os.path.basename(script_path)
@@ -415,3 +419,4 @@ def provision_modules_batch(modules):
     success(f"Completed running '{BOLD}set-me-up{NORMAL}'.")
 
 
+__all__ = [name for name in globals() if not name.startswith("__")]

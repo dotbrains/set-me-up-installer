@@ -1,3 +1,9 @@
+from .adapters import *
+from .catalog_registry import *
+from .core import *
+from .profile_commands import *
+
+
 def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
     errors = []
     builtin = _read_manifest_dir(builtin_dir, registry)
@@ -346,3 +352,5 @@ def catalog_migrate(dry_run=False):
 
     return 0
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

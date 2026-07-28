@@ -1,3 +1,13 @@
+from .adapters import *
+from .catalog_packs import *
+from .catalog_registry import *
+from .core import *
+from .doctors_and_system import *
+from .module_discovery import *
+from .module_lifecycle import *
+from .profile_commands import *
+
+
 def main():
     if len(sys.argv) > 1:
         command = sys.argv[1]
@@ -168,3 +178,4 @@ def main():
         parser.print_help()
 
 
+__all__ = [name for name in globals() if not name.startswith("__")]

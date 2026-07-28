@@ -1,3 +1,10 @@
+from .adapters import *
+from .catalog_packs import *
+from .catalog_registry import *
+from .core import *
+from .profile_commands import *
+
+
 def catalog_doctor():
     errors = []
     errors.extend(_catalog_registry_errors())
@@ -134,7 +141,7 @@ def prompt_doctor(prompt):
         failed = True
         print(f"{COL_RED}FAIL{COL_RESET} {error}")
 
-    set_me_up_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    set_me_up_root = os.path.abspath(os.path.join(installer_root, ".."))
     for label, path in registry.adapter_paths(set_me_up_root, profile):
         if os.path.exists(path):
             print(f"{COL_GREEN}OK{COL_RESET}   {label}")
@@ -420,3 +427,5 @@ def provision_module(module_name):
 
     return True
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

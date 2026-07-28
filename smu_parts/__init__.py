@@ -1,0 +1,59 @@
+"""Package exports for the set-me-up installer CLI."""
+
+from . import core
+from . import profile_commands
+from . import catalog_registry
+from . import adapters
+from . import catalog_packs
+from . import doctors_and_system
+from . import module_discovery
+from . import module_lifecycle
+from . import cli
+
+
+PARTS = (
+    core,
+    profile_commands,
+    catalog_registry,
+    adapters,
+    catalog_packs,
+    doctors_and_system,
+    module_discovery,
+    module_lifecycle,
+    cli,
+)
+
+
+def _exports_from_parts():
+    exports = {}
+    for module in PARTS:
+        for name, value in vars(module).items():
+            if name.startswith("__"):
+                continue
+            exports[name] = value
+    return exports
+
+
+def _sync_part_globals():
+    exports = _exports_from_parts()
+    for module in PARTS:
+        vars(module).update(exports)
+
+
+_sync_part_globals()
+
+
+def public_exports():
+    exports = _exports_from_parts()
+    exports["__smu_parts__"] = tuple(module.__name__ for module in PARTS)
+    return exports
+
+
+def set_part_attribute(name, value):
+    if name == "__file__":
+        installer_root = __import__("os").path.dirname(value)
+        for module in PARTS:
+            setattr(module, "installer_root", installer_root)
+    for module in PARTS:
+        if hasattr(module, name):
+            setattr(module, name, value)

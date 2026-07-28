@@ -1,3 +1,6 @@
+from .core import *
+
+
 def _current_os_bucket():
     """Return the modules/<bucket> name matching the current OS, or None."""
     if macOS:
@@ -253,3 +256,5 @@ def update_submodules():
     except subprocess.CalledProcessError as e:
         print(f"Failed to update 'set-me-up' submodules: {e}", file=sys.stderr)
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

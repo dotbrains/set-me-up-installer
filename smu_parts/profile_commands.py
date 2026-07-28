@@ -1,3 +1,6 @@
+from .core import *
+
+
 def prompt_profiles():
     registry = _load_prompt_registry()
     profiles = _merge_catalog_manifests(
@@ -47,7 +50,7 @@ def colorscheme_module_dir():
     if os.path.isdir(direct):
         return direct
 
-    local = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "modules", "colorschemes"))
+    local = os.path.abspath(os.path.join(installer_root, "..", "modules", "colorschemes"))
     if os.path.isdir(local):
         return local
 
@@ -462,3 +465,5 @@ def handle_catalog_command(argv):
         raise SystemExit(catalog_search(query))
     die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|publish <pack> --registry <path> [--id id] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list|lock|status]|search [query]]")
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

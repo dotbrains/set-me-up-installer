@@ -1,30 +1,19 @@
 #!/usr/bin/env python3
 
-import os
+import sys
+import types
 
-_SMU_PARTS = (
-    "core.py",
-    "profile_commands.py",
-    "catalog_registry.py",
-    "adapters.py",
-    "catalog_packs.py",
-    "doctors_and_system.py",
-    "module_discovery.py",
-    "module_lifecycle.py",
-    "cli.py",
-)
+import smu_parts
 
 
-def _load_parts():
-    parts_dir = os.path.join(os.path.dirname(__file__), "smu_parts")
-    for part in _SMU_PARTS:
-        path = os.path.join(parts_dir, part)
-        with open(path) as f:
-            code = compile(f.read(), path, "exec")
-        exec(code, globals())
+class _SmuModule(types.ModuleType):
+    def __setattr__(self, name, value):
+        smu_parts.set_part_attribute(name, value)
+        super().__setattr__(name, value)
 
 
-_load_parts()
+globals().update(smu_parts.public_exports())
+sys.modules[__name__].__class__ = _SmuModule
 
 
 if __name__ == "__main__":

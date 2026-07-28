@@ -1,3 +1,7 @@
+from .core import *
+from .profile_commands import *
+
+
 def _theme_adapter_paths(theme):
     entry = theme_manifest_by_id(theme)
     if not entry:
@@ -30,7 +34,7 @@ def _prompt_adapter_paths(prompt):
     if not profile or not registry:
         return []
 
-    aggregate_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    aggregate_root = os.path.abspath(os.path.join(installer_root, ".."))
     return [
         ("prompt", label, str(path))
         for label, path in registry.adapter_paths(aggregate_root, profile)
@@ -262,3 +266,5 @@ def adapter_doctor(theme=None, prompt=None):
 
     return 1 if failed else 0
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

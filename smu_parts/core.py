@@ -14,7 +14,8 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
+installer_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(installer_root, "scripts"))
 import smu_contract
 
 # ANSI escape codes for colors
@@ -50,8 +51,8 @@ adapter_manifest_json_path = os.path.join(adapter_state_path, "manifest.json")
 # 'set-me-up' installer scripts
 installer_path = os.path.join(smu_home_dir, "set-me-up-installer")
 installer_scripts_path = os.path.join(installer_path, "scripts")
-prompt_profiles_path = os.path.join(os.path.dirname(__file__), "prompt-profiles")
-preset_profiles_path = os.path.join(os.path.dirname(__file__), "presets")
+prompt_profiles_path = os.path.join(installer_root, "prompt-profiles")
+preset_profiles_path = os.path.join(installer_root, "presets")
 
 # rcm configuration file path
 rcrc = os.path.join(smu_home_dir, "dotfiles/rcrc")
@@ -151,7 +152,7 @@ def _load_theme_registry():
     return module
 
 def _load_prompt_registry():
-    registry_path = os.path.join(os.path.dirname(__file__), "scripts", "prompt_registry.py")
+    registry_path = os.path.join(installer_root, "scripts", "prompt_registry.py")
     if not os.path.exists(registry_path):
         return None
 
@@ -164,7 +165,7 @@ def _load_prompt_registry():
     return module
 
 def _load_preset_registry():
-    registry_path = os.path.join(os.path.dirname(__file__), "scripts", "preset_registry.py")
+    registry_path = os.path.join(installer_root, "scripts", "preset_registry.py")
     if not os.path.exists(registry_path):
         return None
 
@@ -316,3 +317,5 @@ def _init_adapter(manifest_id, force=False):
         with open(path, "w") as f:
             f.write(stubs[shell])
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]

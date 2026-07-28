@@ -1,3 +1,6 @@
+from .core import *
+
+
 def _option_value(argv, option):
     if option not in argv:
         return None
@@ -419,3 +422,5 @@ def catalog_search(query=""):
             print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{pinned}\t{source}")
     return 0
 
+
+__all__ = [name for name in globals() if not name.startswith("__")]
