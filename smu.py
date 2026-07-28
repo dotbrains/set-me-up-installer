@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import re
@@ -800,6 +801,22 @@ def _download_url(source, cache_subdir):
             shutil.copyfileobj(response, f)
     return target
 
+def _valid_sha256(value):
+    return isinstance(value, str) and bool(re.fullmatch(r"[A-Fa-f0-9]{64}", value))
+
+def _verify_sha256(path, expected):
+    if not expected:
+        return
+    if not _valid_sha256(expected):
+        raise ValueError("sha256 must be 64 hexadecimal characters")
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual.lower() != expected.lower():
+        raise ValueError(f"sha256 mismatch for downloaded pack: expected {expected}, got {actual}")
+
 def _unpack_zip_pack(archive_path, cache_subdir):
     target_dir = os.path.join(catalog_cache_path, cache_subdir, os.path.splitext(os.path.basename(archive_path))[0])
     if os.path.exists(target_dir):
@@ -924,6 +941,8 @@ def _registry_index_errors(registry_name, source, index):
             errors.append(f"registry {registry_name}: pack {pack_id} missing source")
         elif not _registry_source_exists(_registry_pack_source(source, pack["source"])):
             errors.append(f"registry {registry_name}: pack {pack_id} source does not exist")
+        if pack.get("sha256") and not _valid_sha256(pack["sha256"]):
+            errors.append(f"registry {registry_name}: pack {pack_id} sha256 must be 64 hexadecimal characters")
     return errors
 
 def _catalog_registry_entries():
@@ -974,10 +993,11 @@ def _catalog_registry_entry(pack_id):
             return entry
     return None
 
-def _resolve_pack_source(source):
+def _resolve_pack_source(source, sha256=None):
     if not _is_url(source):
         return os.path.abspath(os.path.expanduser(source))
     downloaded = _download_url(source, "packs")
+    _verify_sha256(downloaded, sha256)
     if zipfile.is_zipfile(downloaded):
         return _unpack_zip_pack(downloaded, "packs")
     return downloaded
@@ -997,10 +1017,11 @@ def catalog_search(query=""):
     for entry in entries:
         description = entry.get("description")
         source = entry.get("source")
+        pinned = "pinned" if entry.get("sha256") else "unpinned"
         if description:
-            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{description}\t{source}")
+            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{pinned}\t{description}\t{source}")
         else:
-            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{source}")
+            print(f"{entry['id']}\t{entry.get('name')}\t{entry['registry']}\t{pinned}\t{source}")
     return 0
 
 def _theme_adapter_paths(theme):
@@ -1410,7 +1431,7 @@ def catalog_install(pack_dir, dry_run=False, force=False):
             print(f"{COL_RED}FAIL{COL_RESET} catalog pack not found: {requested}")
             return 1
         try:
-            pack_dir = _resolve_pack_source(registry_entry["source"])
+            pack_dir = _resolve_pack_source(registry_entry["source"], sha256=registry_entry.get("sha256"))
         except (OSError, ValueError, zipfile.BadZipFile) as e:
             print(f"{COL_RED}FAIL{COL_RESET} catalog pack could not be loaded: {e}")
             return 1

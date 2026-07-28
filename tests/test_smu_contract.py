@@ -73,6 +73,17 @@ class TestSmuContract(unittest.TestCase):
             self.assertEqual(manifest["packs"]["work"]["name"], "Work")
             self.assertEqual(manifest["packs"]["work"]["source"], "packs/work.smu-pack")
 
+    def test_read_manifest_preserves_quoted_numeric_strings(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "index.toml")
+            with open(path, "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('sha256 = "0000000000000000000000000000000000000000000000000000000000000000"\n')
+
+            manifest = smu_contract.read_manifest(path)
+            self.assertEqual(manifest["schema_version"], 1)
+            self.assertEqual(manifest["sha256"], "0" * 64)
+
     def test_merge_catalog_manifests_resolves_inheritance_without_overriding_builtins(self):
         builtins = [
             {"id": "default", "theme": "gruvbox", "prompt": "starship"},

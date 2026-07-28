@@ -13,12 +13,17 @@ SUPPORTED_SCHEMA_VERSION = 1
 
 
 def parse_value(value):
-    value = value.strip().strip('"').strip("'")
+    value = value.strip()
+    quoted = (
+        (value.startswith('"') and value.endswith('"'))
+        or (value.startswith("'") and value.endswith("'"))
+    )
+    value = value.strip('"').strip("'")
     if value == "true":
         return True
     if value == "false":
         return False
-    if re.match(r"^-?[0-9]+$", value):
+    if not quoted and re.match(r"^-?[0-9]+$", value):
         return int(value)
     return value
 

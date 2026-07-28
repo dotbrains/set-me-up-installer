@@ -322,6 +322,7 @@ schema_version = 1
 name = "Work Shell"
 description = "Portable shell prompt pack."
 source = "packs/work-shell.smu-pack"
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
 ```
 
 Add a personal or team registry, search it, and install by pack ID:
@@ -347,6 +348,16 @@ are cached under:
 
 Remote pack sources should point at a ZIP archive containing `pack.toml` at the
 archive root, or inside one top-level directory.
+
+Remote pack entries can pin downloaded bytes with `sha256`. Generate the value
+before publishing the registry index:
+
+```bash
+shasum -a 256 work-shell.smu-pack.zip
+```
+
+When `sha256` is present, `smu catalog install <pack-id>` refuses to install a
+remote pack if the downloaded bytes do not match the registry entry.
 
 Generate the shell-facing resolved profile after changing profile, override, or
 catalog files:
