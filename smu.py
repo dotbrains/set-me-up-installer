@@ -3,11 +3,15 @@
 import argparse
 import importlib.util
 import json
+import re
 import subprocess
 import os
 import shlex
 import shutil
 import sys
+import urllib.parse
+import urllib.request
+import zipfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
 import smu_contract
@@ -36,6 +40,7 @@ theme_catalog_path = os.path.join(catalogs_path, "themes")
 prompt_catalog_path = os.path.join(catalogs_path, "prompt-profiles")
 preset_catalog_path = os.path.join(catalogs_path, "presets")
 catalog_registries_path = os.path.join(config_dir, "registries.toml")
+catalog_cache_path = os.path.join(os.path.expanduser("~"), ".cache", "set-me-up", "catalogs")
 adapter_state_path = os.path.join(config_dir, "adapters")
 adapter_manifest_env_path = os.path.join(adapter_state_path, "manifest.env")
 adapter_manifest_json_path = os.path.join(adapter_state_path, "manifest.json")
@@ -772,6 +777,54 @@ def _option_value(argv, option):
         die(f"{option} requires a value")
     return argv[index + 1]
 
+def _is_url(source):
+    return urllib.parse.urlparse(source).scheme != ""
+
+def _is_https_url(source):
+    return urllib.parse.urlparse(source).scheme == "https"
+
+def _url_cache_name(source):
+    parsed = urllib.parse.urlparse(source)
+    parts = [parsed.netloc] + [part for part in parsed.path.split("/") if part]
+    name = "__".join(parts) or "index"
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
+
+def _download_url(source, cache_subdir):
+    if not _is_https_url(source):
+        raise ValueError(f"Only https:// catalog sources are supported: {source}")
+    cache_dir = os.path.join(catalog_cache_path, cache_subdir)
+    os.makedirs(cache_dir, exist_ok=True)
+    target = os.path.join(cache_dir, _url_cache_name(source))
+    with urllib.request.urlopen(source, timeout=30) as response:
+        with open(target, "wb") as f:
+            shutil.copyfileobj(response, f)
+    return target
+
+def _unpack_zip_pack(archive_path, cache_subdir):
+    target_dir = os.path.join(catalog_cache_path, cache_subdir, os.path.splitext(os.path.basename(archive_path))[0])
+    if os.path.exists(target_dir):
+        shutil.rmtree(target_dir)
+    os.makedirs(target_dir, exist_ok=True)
+    with zipfile.ZipFile(archive_path) as archive:
+        target_root = os.path.abspath(target_dir)
+        for member in archive.infolist():
+            member_path = os.path.abspath(os.path.join(target_dir, member.filename))
+            if not member_path.startswith(target_root + os.sep) and member_path != target_root:
+                raise ValueError(f"Pack archive contains unsafe path: {member.filename}")
+        archive.extractall(target_dir)
+
+    if os.path.exists(os.path.join(target_dir, "pack.toml")):
+        return target_dir
+    children = [
+        os.path.join(target_dir, child)
+        for child in os.listdir(target_dir)
+        if os.path.isdir(os.path.join(target_dir, child))
+    ]
+    for child in children:
+        if os.path.exists(os.path.join(child, "pack.toml")):
+            return child
+    return target_dir
+
 def _read_catalog_registries():
     manifest = _read_simple_toml(catalog_registries_path)
     registries = manifest.get("registries", {})
@@ -788,6 +841,8 @@ def _write_catalog_registries(registries):
 def _catalog_registry_add(name, source):
     if not _valid_catalog_id(name):
         die(f"Registry name must be kebab-case: {name}")
+    if _is_url(source) and not _is_https_url(source):
+        die(f"Registry URL must use https://: {source}")
     registries = _read_catalog_registries()
     registries[name] = source
     _write_catalog_registries(registries)
@@ -813,18 +868,35 @@ def handle_catalog_registry_command(argv):
         raise SystemExit(_catalog_registry_add(argv[1], argv[2]))
     die("Usage: smu catalog registry [add <name> <path>|list]")
 
-def _registry_index_path(source):
+def _registry_index_path(source, download_remote=False):
+    if _is_url(source):
+        if not _is_https_url(source):
+            raise ValueError(f"Registry URL must use https://: {source}")
+        if download_remote:
+            return _download_url(source, "registries")
+        return None
     source = os.path.abspath(os.path.expanduser(source))
     if os.path.isdir(source):
         return os.path.join(source, "index.toml")
     return source
 
 def _registry_pack_source(index_source, pack_source):
+    if _is_url(pack_source):
+        if not _is_https_url(pack_source):
+            raise ValueError(f"Pack URL must use https://: {pack_source}")
+        return pack_source
+    if _is_url(index_source):
+        return urllib.parse.urljoin(index_source, pack_source)
     expanded = os.path.expanduser(pack_source)
     if os.path.isabs(expanded):
         return expanded
     index_path = _registry_index_path(index_source)
     return os.path.abspath(os.path.join(os.path.dirname(index_path), expanded))
+
+def _registry_source_exists(source):
+    if _is_url(source):
+        return _is_https_url(source)
+    return os.path.exists(source)
 
 def _registry_index_errors(registry_name, source, index):
     errors = []
@@ -850,15 +922,19 @@ def _registry_index_errors(registry_name, source, index):
             errors.append(f"registry {registry_name}: pack {pack_id} missing name")
         if not pack.get("source"):
             errors.append(f"registry {registry_name}: pack {pack_id} missing source")
-        elif not os.path.exists(_registry_pack_source(source, pack["source"])):
+        elif not _registry_source_exists(_registry_pack_source(source, pack["source"])):
             errors.append(f"registry {registry_name}: pack {pack_id} source does not exist")
     return errors
 
 def _catalog_registry_entries():
     entries = []
     for registry_name, source in sorted(_read_catalog_registries().items()):
-        index_path = _registry_index_path(source)
-        if not os.path.exists(index_path):
+        try:
+            index_path = _registry_index_path(source, download_remote=True)
+        except (OSError, ValueError) as e:
+            warn(f"Registry {registry_name} could not be loaded: {e}")
+            continue
+        if not index_path or not os.path.exists(index_path):
             warn(f"Registry {registry_name} index does not exist: {index_path}")
             continue
         index = _read_simple_toml(index_path)
@@ -881,8 +957,12 @@ def _catalog_registry_errors():
         if not _valid_catalog_id(registry_name):
             errors.append(f"registry {registry_name} name must be kebab-case")
             continue
-        index_path = _registry_index_path(source)
-        if not os.path.exists(index_path):
+        try:
+            index_path = _registry_index_path(source, download_remote=True)
+        except (OSError, ValueError) as e:
+            errors.append(f"registry {registry_name} could not be loaded: {e}")
+            continue
+        if not index_path or not os.path.exists(index_path):
             errors.append(f"registry {registry_name} index does not exist: {index_path}")
             continue
         errors.extend(_registry_index_errors(registry_name, source, _read_simple_toml(index_path)))
@@ -893,6 +973,14 @@ def _catalog_registry_entry(pack_id):
         if entry["id"] == pack_id:
             return entry
     return None
+
+def _resolve_pack_source(source):
+    if not _is_url(source):
+        return os.path.abspath(os.path.expanduser(source))
+    downloaded = _download_url(source, "packs")
+    if zipfile.is_zipfile(downloaded):
+        return _unpack_zip_pack(downloaded, "packs")
+    return downloaded
 
 def catalog_search(query=""):
     query = query.lower()
@@ -1310,14 +1398,28 @@ def catalog_install(pack_dir, dry_run=False, force=False):
     registry_entry = None
     requested = pack_dir
     expanded = os.path.abspath(os.path.expanduser(pack_dir))
-    if not os.path.exists(expanded):
+    if _is_url(pack_dir):
+        try:
+            pack_dir = _resolve_pack_source(pack_dir)
+        except (OSError, ValueError, zipfile.BadZipFile) as e:
+            print(f"{COL_RED}FAIL{COL_RESET} catalog pack could not be loaded: {e}")
+            return 1
+    elif not os.path.exists(expanded):
         registry_entry = _catalog_registry_entry(pack_dir)
         if not registry_entry:
             print(f"{COL_RED}FAIL{COL_RESET} catalog pack not found: {requested}")
             return 1
-        pack_dir = registry_entry["source"]
+        try:
+            pack_dir = _resolve_pack_source(registry_entry["source"])
+        except (OSError, ValueError, zipfile.BadZipFile) as e:
+            print(f"{COL_RED}FAIL{COL_RESET} catalog pack could not be loaded: {e}")
+            return 1
     else:
-        pack_dir = expanded
+        try:
+            pack_dir = _resolve_pack_source(pack_dir)
+        except (OSError, ValueError, zipfile.BadZipFile) as e:
+            print(f"{COL_RED}FAIL{COL_RESET} catalog pack could not be loaded: {e}")
+            return 1
 
     errors = _catalog_pack_errors(pack_dir)
     errors.extend(_catalog_install_conflicts(pack_dir, force=force))

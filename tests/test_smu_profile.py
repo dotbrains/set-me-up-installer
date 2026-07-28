@@ -4,6 +4,7 @@ import os
 import pathlib
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 import smu
@@ -13,6 +14,26 @@ def _touch(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w"):
         pass
+
+
+class _FakeResponse:
+    def __init__(self, data):
+        self.data = data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self, size=-1):
+        if size == -1:
+            data = self.data
+            self.data = b""
+            return data
+        data = self.data[:size]
+        self.data = self.data[size:]
+        return data
 
 
 class TestProfile(unittest.TestCase):
@@ -911,6 +932,94 @@ class TestThemeRegistry(unittest.TestCase):
             ):
                 self.assertEqual(smu._catalog_registry_add("local", registry), 0)
                 self.assertEqual(smu.catalog_doctor(), 1)
+
+    def test_catalog_registry_add_rejects_non_https_urls(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(smu, "catalog_registries_path", os.path.join(tempdir, "registries.toml")):
+                with self.assertRaises(SystemExit):
+                    smu._catalog_registry_add("remote", "http://example.com/index.toml")
+
+    def test_catalog_search_reads_https_registry_index(self):
+        index_url = "https://example.com/index.toml"
+        pack_url = "https://example.com/work.smu-pack.zip"
+        responses = {
+            index_url: (
+                "schema_version = 1\n"
+                "[packs.work]\n"
+                'name = "Work"\n'
+                'description = "Remote work pack."\n'
+                f'source = "{pack_url}"\n'
+            ).encode(),
+        }
+
+        def fake_urlopen(url, timeout=30):
+            return _FakeResponse(responses[url])
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            with (
+                patch.object(smu, "catalog_registries_path", os.path.join(tempdir, "registries.toml")),
+                patch.object(smu, "catalog_cache_path", os.path.join(tempdir, "cache")),
+                patch("smu.urllib.request.urlopen", side_effect=fake_urlopen),
+            ):
+                self.assertEqual(smu._catalog_registry_add("remote", index_url), 0)
+                self.assertEqual(smu.catalog_search("remote"), 0)
+                entries = smu._catalog_registry_entries()
+                self.assertEqual(entries[0]["id"], "work")
+                self.assertEqual(entries[0]["source"], pack_url)
+
+    def test_catalog_install_resolves_https_pack_zip_from_registry(self):
+        index_url = "https://example.com/index.toml"
+        pack_url = "https://example.com/work.smu-pack.zip"
+        with tempfile.TemporaryDirectory() as tempdir:
+            archive_path = os.path.join(tempdir, "work.smu-pack.zip")
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("pack.toml", 'schema_version = 1\nid = "work"\nname = "Work"\n')
+                archive.writestr("prompt-profiles/work.toml", 'schema_version = 1\nid = "work"\nname = "Work"\n')
+            with open(archive_path, "rb") as f:
+                archive_bytes = f.read()
+            responses = {
+                index_url: (
+                    "schema_version = 1\n"
+                    "[packs.work]\n"
+                    'name = "Work"\n'
+                    f'source = "{pack_url}"\n'
+                ).encode(),
+                pack_url: archive_bytes,
+            }
+
+            def fake_urlopen(url, timeout=30):
+                return _FakeResponse(responses[url])
+
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            with (
+                patch.object(smu, "catalog_registries_path", os.path.join(tempdir, "registries.toml")),
+                patch.object(smu, "catalog_cache_path", os.path.join(tempdir, "cache")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+                patch("smu.urllib.request.urlopen", side_effect=fake_urlopen),
+            ):
+                self.assertEqual(smu._catalog_registry_add("remote", index_url), 0)
+                self.assertEqual(smu.catalog_install("work"), 0)
+                self.assertTrue(os.path.exists(os.path.join(prompt_target, "work.toml")))
+
+    def test_catalog_install_rejects_unsafe_remote_zip_paths(self):
+        pack_url = "https://example.com/unsafe.smu-pack.zip"
+        with tempfile.TemporaryDirectory() as tempdir:
+            archive_path = os.path.join(tempdir, "unsafe.smu-pack.zip")
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("../outside.toml", "bad\n")
+            with open(archive_path, "rb") as f:
+                archive_bytes = f.read()
+
+            def fake_urlopen(url, timeout=30):
+                return _FakeResponse(archive_bytes)
+
+            with (
+                patch.object(smu, "catalog_cache_path", os.path.join(tempdir, "cache")),
+                patch("smu.urllib.request.urlopen", side_effect=fake_urlopen),
+            ):
+                self.assertEqual(smu.catalog_install(pack_url, dry_run=True), 1)
 
 
 class TestThemeModuleResolution(unittest.TestCase):

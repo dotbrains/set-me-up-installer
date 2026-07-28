@@ -328,6 +328,7 @@ Add a personal or team registry, search it, and install by pack ID:
 
 ```bash
 smu catalog registry add local ./catalog-registry
+smu catalog registry add team https://example.com/set-me-up/index.toml
 smu catalog registry list
 smu catalog search shell
 smu catalog install work-shell --dry-run
@@ -335,8 +336,17 @@ smu catalog install work-shell
 ```
 
 Registry names and pack IDs must be kebab-case. Relative `source` paths resolve
-from the registry index directory. Registry indexes use the same
-`schema_version = 1` compatibility checks as catalog packs.
+from the registry index directory or URL. Registry indexes use the same
+`schema_version = 1` compatibility checks as catalog packs. Remote registries
+and remote pack sources must use `https://`; downloaded indexes and ZIP packs
+are cached under:
+
+```text
+~/.cache/set-me-up/catalogs/
+```
+
+Remote pack sources should point at a ZIP archive containing `pack.toml` at the
+archive root, or inside one top-level directory.
 
 Generate the shell-facing resolved profile after changing profile, override, or
 catalog files:
