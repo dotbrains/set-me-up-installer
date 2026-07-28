@@ -1,0 +1,464 @@
+def prompt_profiles():
+    registry = _load_prompt_registry()
+    profiles = _merge_catalog_manifests(
+        _read_manifest_dir(prompt_profiles_path, registry),
+        _read_manifest_dir(prompt_catalog_path, registry),
+    )
+
+    if profiles:
+        return profiles
+
+    return [{"id": prompt} for prompt in SUPPORTED_PROMPTS]
+
+def supported_prompts():
+    return tuple(profile["id"] for profile in prompt_profiles())
+
+def preset_profiles():
+    registry = _load_preset_registry()
+    presets = _merge_catalog_manifests(
+        _read_manifest_dir(preset_profiles_path, registry),
+        _read_manifest_dir(preset_catalog_path, registry),
+    )
+
+    if presets:
+        return presets
+
+    return [{"id": DEFAULT_PRESET, "theme": DEFAULT_THEME, "prompt": DEFAULT_PROMPT}]
+
+def supported_presets():
+    return tuple(preset["id"] for preset in preset_profiles())
+
+def preset_by_id(preset):
+    return {
+        entry["id"]: entry
+        for entry in preset_profiles()
+        if entry.get("id")
+    }.get(preset)
+
+def prompt_profile_by_id(prompt):
+    return {
+        entry["id"]: entry
+        for entry in prompt_profiles()
+        if entry.get("id")
+    }.get(prompt)
+
+def colorscheme_module_dir():
+    direct = os.path.join(module_path, "colorschemes")
+    if os.path.isdir(direct):
+        return direct
+
+    local = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "modules", "colorschemes"))
+    if os.path.isdir(local):
+        return local
+
+    return direct
+
+def theme_manifests_dir():
+    return os.path.join(colorscheme_module_dir(), "themes")
+
+def theme_manifests():
+    registry = _load_theme_registry()
+    return _merge_catalog_manifests(
+        _read_manifest_dir(theme_manifests_dir(), registry),
+        _read_manifest_dir(theme_catalog_path, registry),
+    )
+
+def supported_themes():
+    manifests = theme_manifests()
+    if manifests:
+        return tuple(theme["id"] for theme in manifests)
+    return SUPPORTED_THEMES
+
+def theme_manifest_by_id(theme):
+    return {
+        entry["id"]: entry
+        for entry in theme_manifests()
+        if entry.get("id")
+    }.get(theme)
+
+def read_profile():
+    profile = {}
+    if not os.path.exists(profile_path):
+        return profile
+
+    try:
+        with open(profile_path) as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                key, value = _parse_profile_line(line)
+                if key:
+                    profile[key] = value
+    except (IOError, OSError) as e:
+        warn(f"Could not read profile '{profile_path}': {e}")
+
+    return profile
+
+def write_profile(profile):
+    os.makedirs(os.path.dirname(profile_path), exist_ok=True)
+    preset = profile.get("SMU_PRESET", DEFAULT_PRESET)
+    theme = profile.get("SMU_THEME", DEFAULT_THEME)
+    prompt = profile.get("SMU_PROMPT", DEFAULT_PROMPT)
+
+    with open(profile_path, "w") as f:
+        f.write("# set-me-up profile\n")
+        f.write(f"export SMU_PRESET=\"{preset}\"\n")
+        f.write(f"export SMU_THEME=\"{theme}\"\n")
+        f.write(f"export SMU_PROMPT=\"{prompt}\"\n")
+
+def _shell_quote(value):
+    value = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$")
+    return f'"{value}"'
+
+def _bool_env(value):
+    return "true" if value is True else "false"
+
+def _flatten_manifest(prefix, manifest):
+    flattened = {}
+    for key, value in manifest.items():
+        if key == "extends":
+            continue
+        if isinstance(value, dict):
+            for nested_key, nested_value in value.items():
+                env_key = f"{prefix}_{key}_{nested_key}".upper().replace("-", "_")
+                flattened[env_key] = nested_value
+        else:
+            env_key = f"{prefix}_{key}".upper().replace("-", "_")
+            flattened[env_key] = value
+    return flattened
+
+def resolved_profile():
+    preset_id = current_preset()
+    theme_id = current_theme()
+    prompt_id = current_prompt()
+    preset = preset_by_id(preset_id) or {}
+    theme = theme_manifest_by_id(theme_id) or {"id": theme_id}
+    prompt = prompt_profile_by_id(prompt_id) or {"id": prompt_id}
+
+    resolved = {
+        "SMU_PRESET": preset_id,
+        "SMU_THEME": theme_id,
+        "SMU_PROMPT": prompt_id,
+        "SMU_PROFILE_PATH": profile_path,
+        "SMU_RESOLVED_PROFILE_PATH": resolved_profile_path,
+        "SMU_CATALOGS_PATH": catalogs_path,
+    }
+    resolved.update(_flatten_manifest("SMU_PRESET", preset))
+    resolved.update(_flatten_manifest("SMU_THEME", theme))
+    resolved.update(_flatten_manifest("SMU_PROMPT", prompt))
+    return resolved
+
+def write_resolved_profile():
+    os.makedirs(os.path.dirname(resolved_profile_path), exist_ok=True)
+    resolved = resolved_profile()
+    with open(resolved_profile_path, "w") as f:
+        f.write("# generated by set-me-up; run `smu profile resolve` to refresh\n")
+        for key in sorted(resolved):
+            value = resolved[key]
+            if isinstance(value, bool):
+                value = _bool_env(value)
+            f.write(f"export {key}={_shell_quote(value)}\n")
+    return resolved
+
+def resolved_profile_doctor():
+    failed = False
+    preset = current_preset()
+    theme = current_theme()
+    prompt = current_prompt()
+
+    checks = (
+        ("preset", preset, preset_by_id(preset)),
+        ("theme", theme, theme_manifest_by_id(theme) or ({"id": theme} if theme in supported_themes() else None)),
+        ("prompt", prompt, prompt_profile_by_id(prompt)),
+    )
+    for label, value, manifest in checks:
+        if manifest:
+            print(f"{COL_GREEN}OK{COL_RESET}   {label} {value}")
+        else:
+            failed = True
+            print(f"{COL_RED}FAIL{COL_RESET} unknown {label} {value}")
+
+    expected = resolved_profile()
+    current = read_profile_file(resolved_profile_path)
+    if not os.path.exists(resolved_profile_path):
+        failed = True
+        print(f"{COL_RED}MISS{COL_RESET} resolved profile: {resolved_profile_path}")
+    else:
+        stale = []
+        for key, value in expected.items():
+            expected_value = _bool_env(value) if isinstance(value, bool) else str(value)
+            if current.get(key) != expected_value:
+                stale.append(key)
+        if stale:
+            failed = True
+            print(f"{COL_RED}FAIL{COL_RESET} resolved profile is stale: {', '.join(sorted(stale))}")
+        else:
+            print(f"{COL_GREEN}OK{COL_RESET}   resolved profile {resolved_profile_path}")
+
+    return 1 if failed else 0
+
+def read_profile_file(path):
+    profile = {}
+    if not os.path.exists(path):
+        return profile
+    try:
+        with open(path) as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                key, value = _parse_profile_line(line)
+                if key:
+                    profile[key] = value
+    except (IOError, OSError) as e:
+        warn(f"Could not read profile '{path}': {e}")
+    return profile
+
+def _read_override_choice(path, keys):
+    data = _read_simple_toml(path)
+    for key in keys:
+        value = data.get(key)
+        if value:
+            return value
+    return None
+
+def current_preset():
+    return (
+        os.getenv("SMU_PRESET")
+        or _read_override_choice(preset_override_path, ("preset", "id"))
+        or read_profile().get("SMU_PRESET", DEFAULT_PRESET)
+    )
+
+def current_theme():
+    return (
+        os.getenv("SMU_THEME")
+        or _read_override_choice(theme_override_path, ("theme", "id"))
+        or read_profile().get("SMU_THEME", DEFAULT_THEME)
+    )
+
+def current_prompt():
+    return (
+        os.getenv("SMU_PROMPT")
+        or _read_override_choice(prompt_override_path, ("prompt", "id"))
+        or read_profile().get("SMU_PROMPT", DEFAULT_PROMPT)
+    )
+
+def set_preset(preset):
+    entry = preset_by_id(preset)
+    if not entry:
+        die(f"Unknown preset '{preset}'. Valid values: {', '.join(supported_presets())}")
+
+    theme = entry.get("theme")
+    prompt = entry.get("prompt")
+    if theme not in supported_themes():
+        die(f"Preset '{preset}' references unknown theme '{theme}'.")
+    if prompt not in supported_prompts():
+        die(f"Preset '{preset}' references unknown prompt '{prompt}'.")
+
+    profile = read_profile()
+    profile["SMU_PRESET"] = preset
+    profile["SMU_THEME"] = theme
+    profile["SMU_PROMPT"] = prompt
+    write_profile(profile)
+    success(f"Saved preset={preset}, theme={theme}, prompt={prompt} to {profile_path}")
+
+def set_profile_value(key, value, allowed):
+    if value not in allowed:
+        die(f"Unknown {key.lower().replace('smu_', '')} '{value}'. Valid values: {', '.join(allowed)}")
+
+    profile = read_profile()
+    profile[key] = value
+    profile.setdefault("SMU_PRESET", current_preset())
+    profile.setdefault("SMU_THEME", current_theme())
+    profile.setdefault("SMU_PROMPT", current_prompt())
+    write_profile(profile)
+    success(f"Saved {key}={value} to {profile_path}")
+
+def print_profile():
+    print(f"Profile: {profile_path}")
+    print(f"Preset: {BOLD}{current_preset()}{NORMAL}")
+    print(f"Theme:  {BOLD}{current_theme()}{NORMAL}")
+    print(f"Prompt: {BOLD}{current_prompt()}{NORMAL}")
+
+def handle_profile_command(argv):
+    if not argv:
+        print_profile()
+        return
+
+    command = argv[0]
+    if command in ("show", "current"):
+        print_profile()
+        return
+    if command == "resolve":
+        write_resolved_profile()
+        success(f"Wrote resolved profile to {resolved_profile_path}")
+        return
+    if command == "doctor":
+        raise SystemExit(resolved_profile_doctor())
+
+    die(f"Unknown profile command '{command}'. Use: smu profile [show|resolve|doctor]")
+
+def handle_theme_command(argv):
+    if not argv or argv[0] in ("current", "show"):
+        print(current_theme())
+        return
+
+    command = argv[0]
+    if command == "list":
+        for theme in supported_themes():
+            marker = "*" if theme == current_theme() else " "
+            print(f"{marker} {theme}")
+        return
+
+    if command == "set":
+        if len(argv) < 2:
+            die("Usage: smu theme set <theme> [--apply]")
+        theme = argv[1]
+        apply_after = "--apply" in argv[2:]
+        set_profile_value("SMU_THEME", theme, supported_themes())
+        if apply_after:
+            provision_module("colorschemes")
+        return
+
+    if command == "doctor":
+        theme = argv[1] if len(argv) > 1 else current_theme()
+        raise SystemExit(theme_doctor(theme))
+
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu theme init <id> [--extends <theme>] [--force]")
+        parent = None
+        if "--extends" in argv:
+            index = argv.index("--extends")
+            if index + 1 >= len(argv):
+                die("Usage: smu theme init <id> [--extends <theme>] [--force]")
+            parent = argv[index + 1]
+        _init_theme(argv[1], parent=parent, force="--force" in argv[2:])
+        return
+
+    if command == "apply":
+        provision_module("colorschemes")
+        return
+
+    die("Usage: smu theme [list|current|set <theme> [--apply]|init <id>|apply]")
+
+def handle_prompt_command(argv):
+    if not argv or argv[0] in ("current", "show"):
+        print(current_prompt())
+        return
+
+    command = argv[0]
+    if command == "list":
+        for profile in prompt_profiles():
+            prompt = profile["id"]
+            marker = "*" if prompt == current_prompt() else " "
+            description = profile.get("description")
+            if description:
+                print(f"{marker} {prompt} - {description}")
+            else:
+                print(f"{marker} {prompt}")
+        return
+
+    if command == "set":
+        if len(argv) < 2:
+            die("Usage: smu prompt set <prompt>")
+        set_profile_value("SMU_PROMPT", argv[1], supported_prompts())
+        return
+
+    if command == "doctor":
+        prompt = argv[1] if len(argv) > 1 else current_prompt()
+        raise SystemExit(prompt_doctor(prompt))
+
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu prompt init <id> [--extends <prompt>] [--force]")
+        parent = None
+        if "--extends" in argv:
+            index = argv.index("--extends")
+            if index + 1 >= len(argv):
+                die("Usage: smu prompt init <id> [--extends <prompt>] [--force]")
+            parent = argv[index + 1]
+        _init_prompt(argv[1], parent=parent, force="--force" in argv[2:])
+        return
+
+    die("Usage: smu prompt [list|current|set <prompt>|init <id>|doctor [prompt]]")
+
+def handle_preset_command(argv):
+    if not argv or argv[0] in ("current", "show"):
+        print(current_preset())
+        return
+
+    command = argv[0]
+    if command == "list":
+        for preset in preset_profiles():
+            preset_id = preset["id"]
+            marker = "*" if preset_id == current_preset() else " "
+            description = preset.get("description")
+            bundle = f"{preset.get('theme', '?')} + {preset.get('prompt', '?')}"
+            if description:
+                print(f"{marker} {preset_id} - {bundle} - {description}")
+            else:
+                print(f"{marker} {preset_id} - {bundle}")
+        return
+
+    if command == "set":
+        if len(argv) < 2:
+            die("Usage: smu preset set <preset> [--apply]")
+        preset = argv[1]
+        apply_after = "--apply" in argv[2:]
+        set_preset(preset)
+        if apply_after:
+            provision_module("colorschemes")
+        return
+
+    if command == "doctor":
+        preset = argv[1] if len(argv) > 1 else current_preset()
+        raise SystemExit(preset_doctor(preset))
+
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu preset init <id> [--force]")
+        _init_preset(argv[1], force="--force" in argv[2:])
+        return
+
+    die("Usage: smu preset [list|current|set <preset> [--apply]|init <id>|doctor [preset]]")
+
+def handle_catalog_command(argv):
+    if not argv or argv[0] == "doctor":
+        raise SystemExit(catalog_doctor())
+    if argv[0] == "path":
+        print(catalogs_path)
+        return
+    if argv[0] == "migrate":
+        dry_run = "--dry-run" in argv[1:]
+        raise SystemExit(catalog_migrate(dry_run=dry_run))
+    if argv[0] == "package":
+        if len(argv) < 2:
+            die("Usage: smu catalog package <id> [--output path] [--force]")
+        output = _option_value(argv[2:], "--output")
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_package(argv[1], output=output, force=force))
+    if argv[0] == "publish":
+        if len(argv) < 2:
+            die("Usage: smu catalog publish <pack> --registry <path> [--id id] [--force]")
+        registry = _option_value(argv[2:], "--registry")
+        if not registry:
+            die("Usage: smu catalog publish <pack> --registry <path> [--id id] [--force]")
+        pack_id = _option_value(argv[2:], "--id")
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_publish(argv[1], registry=registry, pack_id=pack_id, force=force))
+    if argv[0] == "install":
+        if len(argv) < 2:
+            die("Usage: smu catalog install <path> [--dry-run] [--force]")
+        dry_run = "--dry-run" in argv[2:]
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_install(argv[1], dry_run=dry_run, force=force))
+    if argv[0] == "registry":
+        handle_catalog_registry_command(argv[1:])
+        return
+    if argv[0] == "search":
+        query = argv[1] if len(argv) > 1 else ""
+        raise SystemExit(catalog_search(query))
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|publish <pack> --registry <path> [--id id] [--force]|install <path-or-id> [--dry-run] [--force]|registry [add|list|lock|status]|search [query]]")
+

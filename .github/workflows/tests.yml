@@ -23,6 +23,8 @@ jobs:
         SMU_BLUEPRINT: owner/repo
         SMU_BLUEPRINT_BRANCH: main
       run: |
+        python scripts/check_file_sizes.py
+        python scripts/check_flat_directories.py
         python -m unittest discover -s tests -t . -v
         python scripts/prompt_contract.py --local
         python scripts/preset_contract.py

@@ -1,0 +1,170 @@
+def main():
+    if len(sys.argv) > 1:
+        command = sys.argv[1]
+        command_args = sys.argv[2:]
+        if command == "profile":
+            handle_profile_command(command_args)
+            return
+        if command == "theme":
+            handle_theme_command(command_args)
+            return
+        if command == "prompt":
+            handle_prompt_command(command_args)
+            return
+        if command == "preset":
+            handle_preset_command(command_args)
+            return
+        if command == "catalog":
+            handle_catalog_command(command_args)
+            return
+        if command == "adapter":
+            handle_adapter_command(command_args)
+            return
+        if command == "doctor":
+            raise SystemExit(doctor())
+
+    parser = argparse.ArgumentParser(description="set-me-up installer")
+    parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
+    parser.add_argument("-du", "--debian-update", action="store_true", help="Update Debian-based system")
+    parser.add_argument("-mu", "--macos-update", action="store_true", help="Update MacOS system")
+    parser.add_argument("-au", "--arch-update", action="store_true", help="Update Arch-based system")
+    parser.add_argument("-b", "--base", action="store_true", help="Run base module")
+    parser.add_argument("-nb", "--no-base", action="store_true", help="Do not run base module")
+    parser.add_argument("-su", "--self-update", action="store_true", help="Update set-me-up")
+    parser.add_argument("-us", "--update-submodules", action="store_true", help="Update set-me-up submodules")
+    parser.add_argument("-p", "--provision", action="store_true", help="Provision given modules")
+    parser.add_argument("-m", "--modules", nargs='*', default=[], help="Modules to provision")
+    parser.add_argument("--lsrc", action="store_true", help="List files that will be symlinked via 'rcm' into your home directory")
+    parser.add_argument("--rcup", action="store_true", help="Symlink files via 'rcm' into your home directory")
+    parser.add_argument("--rcdn", action="store_true", help="Remove files that were symlinked via 'rcup")
+    parser.add_argument("-cbd", "--create-boot-disk", action="store_true", help="Creates a MacOS boot disk")
+    parser.add_argument("-l", "--list-modules", action="store_true", help="List available modules grouped by OS bucket")
+    parser.add_argument("-i", "--interactive", action="store_true", help="Interactively pick modules with fzf (SPACE to toggle, ENTER to run)")
+    parser.add_argument("-st", "--status", action="store_true", help="Show installed/missing status for visible modules")
+    parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall the given modules")
+    parser.add_argument("-iu", "--uninstall-interactive", action="store_true", help="Pick modules to uninstall via fzf")
+    parser.add_argument("--dry-run", action="store_true", help="With --uninstall: print the plan, do nothing")
+    parser.add_argument("-y", "--yes", action="store_true", help="With --uninstall: skip the confirmation prompt")
+    parser.add_argument("-V", "--verbose", action="store_true", help="With --status: show per-entry detail")
+    parser.add_argument("--search", metavar="QUERY", help="Filter --list-modules / --status / --interactive by substring (case-insensitive)")
+    parser.add_argument("--all", action="store_true", help="With --list-modules / --status / --interactive, include modules for other OS buckets")
+    parser.add_argument("--theme", choices=supported_themes(), help="Save the selected set-me-up theme before provisioning")
+    parser.add_argument("--prompt", choices=supported_prompts(), help="Save the selected set-me-up prompt profile before provisioning")
+    parser.add_argument("--preset", choices=supported_presets(), help="Save the selected set-me-up preset before provisioning")
+
+    args = parser.parse_args()
+
+    if args.preset:
+        set_preset(args.preset)
+    if args.theme:
+        set_profile_value("SMU_THEME", args.theme, supported_themes())
+    if args.prompt:
+        set_profile_value("SMU_PROMPT", args.prompt, supported_prompts())
+
+    # --------------------------------------------------------------------------------------
+
+    # Check if 'rcm' is installed, because it is required for this script to work.
+    # 'rcm' is a dotfile management tool that is used to symlink files into the home directory.
+    # see: https://github.com/thoughtbot/rcm
+    rcm = subprocess.call("command -v rcup &> /dev/null", shell=True) == 0
+
+    command = ""
+
+    if args.lsrc:
+        command = "lsrc"
+    elif args.rcup:
+        command = "rcup"
+    elif args.rcdn:
+        command = "rcdn"
+
+    # If 'rcm' is not installed, and the user is trying to run 'rcup', 'rcdn', or 'lsrc',
+    if not rcm and (args.lsrc or args.rcup or args.rcdn):
+        die(f"'rcm' is not installed. Please run the '{BOLD}base{NORMAL}' module prior to executing '{command}'.")
+
+    # --------------------------------------------------------------------------------------
+
+    if args.list_modules:
+        list_modules(search=args.search, show_all=args.all)
+        return
+
+    if args.status:
+        status_modules(search=args.search, show_all=args.all, verbose=args.verbose)
+        return
+
+    if args.uninstall_interactive:
+        modules = interactive_select_modules(search=args.search, show_all=args.all)
+        if not modules:
+            return
+        uninstall_modules_batch(modules, dry_run=args.dry_run, no_confirm=args.yes)
+        return
+
+    if args.uninstall:
+        modules = list(args.modules)
+        if not modules:
+            die("--uninstall requires -m <module> [<module> ...] (or use --uninstall-interactive).")
+        uninstall_modules_batch(modules, dry_run=args.dry_run, no_confirm=args.yes)
+        return
+
+    if args.lsrc:
+        list_symlinks()
+    elif args.rcup:
+        symlink()
+    elif args.rcdn:
+        remove_symlinks()
+    elif args.debian_update:
+        if not debian:
+            die("This module is only supported on Debian-based systems.")
+
+        update()
+    elif args.macos_update:
+        if not macOS:
+            die("This module is only supported on MacOS.")
+
+        update()
+    elif args.arch_update:
+        if not arch:
+            die("This module is only supported on Arch-based systems.")
+
+        update()
+    elif args.create_boot_disk:
+        if not macOS:
+            die("This module is only supported on MacOS.")
+
+        create_boot_disk()
+    elif args.self_update:
+        self_update()
+    elif args.update_submodules:
+        update_submodules()
+    elif args.base:
+        provision_module("base")
+    elif args.provision:
+        modules = list(args.modules)
+
+        # If the 'base' module is not in the module list, add it to the beginning.
+        if args.base and "base" not in modules:
+            modules.insert(0, "base")
+
+        # If 'no-base' is specified, remove the 'base' module from the module list.
+        if args.no_base and "base" in modules:
+            modules.remove("base")
+
+        provision_modules_batch(modules)
+    elif args.interactive:
+        modules = interactive_select_modules(search=args.search, show_all=args.all)
+        if not modules:
+            return
+
+        if args.base and "base" not in modules:
+            modules.insert(0, "base")
+        if args.no_base and "base" in modules:
+            modules.remove("base")
+
+        provision_modules_batch(modules)
+    elif args.modules:
+        # Handle the case where modules are specified without --provision
+        print("Modules specified, but --provision flag is not set.", file=sys.stderr)
+    else:
+        # If no modules are specified, show help
+        parser.print_help()
+
+
