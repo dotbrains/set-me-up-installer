@@ -312,6 +312,80 @@ class TestProfile(unittest.TestCase):
             ):
                 self.assertEqual(smu.catalog_doctor(), 1)
 
+    def test_init_commands_scaffold_user_catalog_manifests(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            theme_dir = os.path.join(tempdir, "catalogs", "themes")
+            prompt_dir = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            preset_dir = os.path.join(tempdir, "catalogs", "presets")
+
+            with (
+                patch.object(smu, "theme_catalog_path", theme_dir),
+                patch.object(smu, "prompt_catalog_path", prompt_dir),
+                patch.object(smu, "preset_catalog_path", preset_dir),
+                patch.object(smu, "current_theme", return_value="gruvbox"),
+                patch.object(smu, "current_prompt", return_value="starship"),
+            ):
+                smu.handle_theme_command(["init", "work-theme"])
+                smu.handle_prompt_command(["init", "work-prompt"])
+                smu.handle_preset_command(["init", "work-preset"])
+
+                self.assertTrue(os.path.exists(os.path.join(theme_dir, "work-theme.toml")))
+                self.assertTrue(os.path.exists(os.path.join(prompt_dir, "work-prompt.toml")))
+                self.assertTrue(os.path.exists(os.path.join(preset_dir, "work-preset.toml")))
+
+                theme = smu._read_simple_toml(os.path.join(theme_dir, "work-theme.toml"))
+                prompt = smu._read_simple_toml(os.path.join(prompt_dir, "work-prompt.toml"))
+                preset = smu._read_simple_toml(os.path.join(preset_dir, "work-preset.toml"))
+                self.assertEqual(theme["extends"], "gruvbox")
+                self.assertEqual(prompt["extends"], "starship")
+                self.assertEqual(preset["theme"], "gruvbox")
+                self.assertEqual(preset["prompt"], "starship")
+
+    def test_adapter_init_scaffolds_materializable_prompt_profile(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            prompt_dir = os.path.join(tempdir, "catalogs", "prompt-profiles")
+
+            with patch.object(smu, "prompt_catalog_path", prompt_dir):
+                smu.handle_adapter_command(["init", "work-shell"])
+                manifest_path = os.path.join(prompt_dir, "work-shell.toml")
+                manifest = smu._read_simple_toml(manifest_path)
+
+                self.assertEqual(manifest["id"], "work-shell")
+                self.assertEqual(manifest["engine"], "shell")
+                self.assertEqual(manifest["adapters"]["bash"], "prompts/work-shell.bash")
+                self.assertEqual(manifest["adapter_sources"]["bash"], "files/work-shell.bash")
+                self.assertEqual(manifest["adapter_modes"]["bash"], "copy")
+                self.assertTrue(os.path.exists(os.path.join(prompt_dir, "files", "work-shell.bash")))
+                self.assertTrue(os.path.exists(os.path.join(prompt_dir, "files", "work-shell.nu")))
+
+    def test_init_rejects_invalid_ids(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "themes")):
+                with self.assertRaises(SystemExit):
+                    smu.handle_theme_command(["init", "Bad_Theme"])
+
+    def test_catalog_doctor_rejects_invalid_adapter_authoring(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            prompts_dir = os.path.join(tempdir, "prompt-profiles")
+            os.makedirs(prompts_dir)
+            with open(os.path.join(prompts_dir, "bad.toml"), "w") as f:
+                f.write('id = "bad"\n')
+                f.write("[adapter_sources]\n")
+                f.write('bash = "files/bad.bash"\n')
+                f.write("[adapter_modes]\n")
+                f.write('bash = "move"\n')
+
+            with (
+                patch.object(smu, "prompt_profiles_path", prompts_dir),
+                patch.object(smu, "prompt_catalog_path", os.path.join(tempdir, "missing-prompts")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "missing-themes")),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "missing-presets")),
+                patch.object(smu, "_load_theme_registry", return_value=None),
+                patch.object(smu, "_load_prompt_registry", return_value=None),
+                patch.object(smu, "_load_preset_registry", return_value=None),
+            ):
+                self.assertEqual(smu.catalog_doctor(), 1)
+
     def test_adapter_paths_include_theme_and_prompt_adapters(self):
         class FakeThemeRegistry:
             @staticmethod

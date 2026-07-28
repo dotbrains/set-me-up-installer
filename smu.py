@@ -5,6 +5,7 @@ import importlib.util
 import json
 import subprocess
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -96,6 +97,8 @@ SUPPORTED_PROMPTS = ("starship", "starship-minimal", "classic")
 DEFAULT_THEME = "gruvbox"
 DEFAULT_PROMPT = "starship"
 DEFAULT_PRESET = "default"
+ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+ADAPTER_MODES = ("copy", "symlink")
 
 def warn(message):
     print(f"{COL_YELLOW}[warning]{COL_RESET} {message}")
@@ -273,6 +276,113 @@ def _catalog_duplicate_ids(entries):
             duplicates.append(entry_id)
         seen.add(entry_id)
     return duplicates
+
+def _valid_catalog_id(manifest_id):
+    return bool(manifest_id and ID_RE.match(manifest_id))
+
+def _display_name(manifest_id):
+    return manifest_id.replace("-", " ").title()
+
+def _write_catalog_file(path, content, force=False):
+    if os.path.exists(path) and not force:
+        die(f"Catalog manifest already exists: {path}. Use --force to overwrite.")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(content)
+    success(f"Wrote catalog manifest to {path}")
+
+def _init_theme(manifest_id, parent=None, force=False):
+    if not _valid_catalog_id(manifest_id):
+        die(f"Theme id must be kebab-case: {manifest_id}")
+    parent = parent or current_theme()
+    path = os.path.join(theme_catalog_path, f"{manifest_id}.toml")
+    content = (
+        f'id = "{manifest_id}"\n'
+        f'extends = "{parent}"\n'
+        f'name = "{_display_name(manifest_id)}"\n'
+    )
+    _write_catalog_file(path, content, force=force)
+
+def _init_prompt(manifest_id, parent=None, force=False):
+    if not _valid_catalog_id(manifest_id):
+        die(f"Prompt id must be kebab-case: {manifest_id}")
+    parent = parent or current_prompt()
+    path = os.path.join(prompt_catalog_path, f"{manifest_id}.toml")
+    content = (
+        f'id = "{manifest_id}"\n'
+        f'extends = "{parent}"\n'
+        f'name = "{_display_name(manifest_id)}"\n'
+        f'description = "Custom prompt profile."\n'
+    )
+    _write_catalog_file(path, content, force=force)
+
+def _init_preset(manifest_id, force=False):
+    if not _valid_catalog_id(manifest_id):
+        die(f"Preset id must be kebab-case: {manifest_id}")
+    path = os.path.join(preset_catalog_path, f"{manifest_id}.toml")
+    content = (
+        f'id = "{manifest_id}"\n'
+        f'name = "{_display_name(manifest_id)}"\n'
+        f'description = "Custom set-me-up preset."\n'
+        f'theme = "{current_theme()}"\n'
+        f'prompt = "{current_prompt()}"\n'
+    )
+    _write_catalog_file(path, content, force=force)
+
+def _init_adapter(manifest_id, force=False):
+    if not _valid_catalog_id(manifest_id):
+        die(f"Adapter id must be kebab-case: {manifest_id}")
+
+    os.makedirs(os.path.join(prompt_catalog_path, "files"), exist_ok=True)
+    manifest_path = os.path.join(prompt_catalog_path, f"{manifest_id}.toml")
+    source_files = {
+        "bash": os.path.join(prompt_catalog_path, "files", f"{manifest_id}.bash"),
+        "zsh": os.path.join(prompt_catalog_path, "files", f"{manifest_id}.zsh"),
+        "fish": os.path.join(prompt_catalog_path, "files", f"{manifest_id}.fish"),
+        "nushell": os.path.join(prompt_catalog_path, "files", f"{manifest_id}.nu"),
+    }
+    content = (
+        f'id = "{manifest_id}"\n'
+        f'name = "{_display_name(manifest_id)}"\n'
+        f'description = "Custom materialized shell prompt."\n'
+        'engine = "shell"\n'
+        'theme_aware = true\n\n'
+        '[shell]\n'
+        'mode = "native"\n\n'
+        '[adapters]\n'
+        f'bash = "prompts/{manifest_id}.bash"\n'
+        f'zsh = "prompts/{manifest_id}.zsh"\n'
+        f'fish = "prompts/{manifest_id}.fish"\n'
+        f'nushell = "prompts/{manifest_id}.nu"\n\n'
+        '[adapter_sources]\n'
+        f'bash = "files/{manifest_id}.bash"\n'
+        f'zsh = "files/{manifest_id}.zsh"\n'
+        f'fish = "files/{manifest_id}.fish"\n'
+        f'nushell = "files/{manifest_id}.nu"\n\n'
+        '[adapter_targets]\n'
+        f'bash = "~/.config/bash/prompts/{manifest_id}.bash"\n'
+        f'zsh = "~/.config/zsh/prompts/{manifest_id}.zsh"\n'
+        f'fish = "~/.config/fish/prompts/{manifest_id}.fish"\n'
+        f'nushell = "~/.config/nushell/prompts/{manifest_id}.nu"\n\n'
+        '[adapter_modes]\n'
+        'bash = "copy"\n'
+        'zsh = "copy"\n'
+        'fish = "copy"\n'
+        'nushell = "copy"\n'
+    )
+    _write_catalog_file(manifest_path, content, force=force)
+
+    stubs = {
+        "bash": "#!/usr/bin/env bash\nexport PS1='\\u@\\h:\\w\\$ '\n",
+        "zsh": "PROMPT='%n@%m:%~%# '\n",
+        "fish": "function fish_prompt\n    printf '%s@%s:%s> ' (whoami) (hostname -s) (prompt_pwd)\nend\n",
+        "nushell": "$env.PROMPT_COMMAND = { || $\"(whoami)@(hostname):(pwd)> \" }\n",
+    }
+    for shell, path in source_files.items():
+        if os.path.exists(path) and not force:
+            continue
+        with open(path, "w") as f:
+            f.write(stubs[shell])
 
 def prompt_profiles():
     registry = _load_prompt_registry()
@@ -601,11 +711,23 @@ def handle_theme_command(argv):
         theme = argv[1] if len(argv) > 1 else current_theme()
         raise SystemExit(theme_doctor(theme))
 
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu theme init <id> [--extends <theme>] [--force]")
+        parent = None
+        if "--extends" in argv:
+            index = argv.index("--extends")
+            if index + 1 >= len(argv):
+                die("Usage: smu theme init <id> [--extends <theme>] [--force]")
+            parent = argv[index + 1]
+        _init_theme(argv[1], parent=parent, force="--force" in argv[2:])
+        return
+
     if command == "apply":
         provision_module("colorschemes")
         return
 
-    die("Usage: smu theme [list|current|set <theme> [--apply]|apply]")
+    die("Usage: smu theme [list|current|set <theme> [--apply]|init <id>|apply]")
 
 def handle_prompt_command(argv):
     if not argv or argv[0] in ("current", "show"):
@@ -634,7 +756,19 @@ def handle_prompt_command(argv):
         prompt = argv[1] if len(argv) > 1 else current_prompt()
         raise SystemExit(prompt_doctor(prompt))
 
-    die("Usage: smu prompt [list|current|set <prompt>|doctor [prompt]]")
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu prompt init <id> [--extends <prompt>] [--force]")
+        parent = None
+        if "--extends" in argv:
+            index = argv.index("--extends")
+            if index + 1 >= len(argv):
+                die("Usage: smu prompt init <id> [--extends <prompt>] [--force]")
+            parent = argv[index + 1]
+        _init_prompt(argv[1], parent=parent, force="--force" in argv[2:])
+        return
+
+    die("Usage: smu prompt [list|current|set <prompt>|init <id>|doctor [prompt]]")
 
 def handle_preset_command(argv):
     if not argv or argv[0] in ("current", "show"):
@@ -668,7 +802,13 @@ def handle_preset_command(argv):
         preset = argv[1] if len(argv) > 1 else current_preset()
         raise SystemExit(preset_doctor(preset))
 
-    die("Usage: smu preset [list|current|set <preset> [--apply]|doctor [preset]]")
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu preset init <id> [--force]")
+        _init_preset(argv[1], force="--force" in argv[2:])
+        return
+
+    die("Usage: smu preset [list|current|set <preset> [--apply]|init <id>|doctor [preset]]")
 
 def handle_catalog_command(argv):
     if not argv or argv[0] == "doctor":
@@ -891,7 +1031,13 @@ def handle_adapter_command(argv):
         success(f"Installed adapters for theme={theme}, prompt={prompt}")
         return
 
-    die("Usage: smu adapter [list [theme] [prompt]|doctor [theme] [prompt]|materialize [theme] [prompt] [--dry-run]|install [theme] [prompt]]")
+    if command == "init":
+        if len(argv) < 2:
+            die("Usage: smu adapter init <id> [--force]")
+        _init_adapter(argv[1], force="--force" in argv[2:])
+        return
+
+    die("Usage: smu adapter [list [theme] [prompt]|doctor [theme] [prompt]|materialize [theme] [prompt] [--dry-run]|install [theme] [prompt]|init <id>]")
 
 def adapter_doctor(theme=None, prompt=None):
     theme = theme or current_theme()
@@ -958,6 +1104,40 @@ def _catalog_layer_errors(label, builtin_dir, user_dir, registry=None):
 
     return errors
 
+def _manifest_authoring_errors(label, manifests):
+    errors = []
+    for manifest in manifests:
+        manifest_id = manifest.get("id", "<unknown>")
+        if manifest.get("id") and not _valid_catalog_id(manifest["id"]):
+            errors.append(f"{label}: {manifest_id} id must be kebab-case")
+
+        sources = manifest.get("adapter_sources", {})
+        targets = manifest.get("adapter_targets", {})
+        modes = manifest.get("adapter_modes", {})
+        if sources and not isinstance(sources, dict):
+            errors.append(f"{label}: {manifest_id} [adapter_sources] must be a table")
+            sources = {}
+        if targets and not isinstance(targets, dict):
+            errors.append(f"{label}: {manifest_id} [adapter_targets] must be a table")
+            targets = {}
+        if modes and not isinstance(modes, dict):
+            errors.append(f"{label}: {manifest_id} [adapter_modes] must be a table")
+            modes = {}
+
+        for name in sorted(set(sources) - set(targets)):
+            errors.append(f"{label}: {manifest_id} adapter {name} has source without target")
+        for name in sorted(set(targets) - set(sources)):
+            errors.append(f"{label}: {manifest_id} adapter {name} has target without source")
+        for name, mode in sorted(modes.items()):
+            if name not in sources:
+                errors.append(f"{label}: {manifest_id} adapter {name} has mode without source")
+            if mode not in ADAPTER_MODES:
+                errors.append(
+                    f"{label}: {manifest_id} adapter {name} mode must be one of {', '.join(ADAPTER_MODES)}"
+                )
+
+    return errors
+
 def catalog_doctor():
     errors = []
     errors.extend(_catalog_layer_errors(
@@ -987,6 +1167,14 @@ def catalog_doctor():
                 for error in prompt_registry.validate_profile(profile)
             )
 
+    theme_registry = _load_theme_registry()
+    if theme_registry and hasattr(theme_registry, "validate_theme"):
+        for theme in theme_manifests():
+            errors.extend(
+                f"themes: {error}"
+                for error in theme_registry.validate_theme(theme)
+            )
+
     preset_registry = _load_preset_registry()
     if preset_registry:
         for preset in preset_profiles():
@@ -998,6 +1186,10 @@ def catalog_doctor():
                     supported_prompts(),
                 )
             )
+
+    errors.extend(_manifest_authoring_errors("themes", theme_manifests()))
+    errors.extend(_manifest_authoring_errors("prompts", prompt_profiles()))
+    errors.extend(_manifest_authoring_errors("presets", preset_profiles()))
 
     if errors:
         for error in errors:

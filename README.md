@@ -260,6 +260,21 @@ smu catalog doctor
 smu doctor
 ```
 
+Scaffold new user catalog manifests with init commands:
+
+```bash
+smu theme init work-theme --extends gruvbox
+smu prompt init work-prompt --extends starship
+smu preset init work-preset
+smu adapter init work-shell
+smu catalog doctor
+```
+
+Init commands write to the user catalog under `~/.config/set-me-up/catalogs/`.
+They reject non-kebab-case IDs and refuse to overwrite an existing manifest
+unless `--force` is passed. `smu adapter init` creates a shell prompt profile
+plus starter source files under `prompt-profiles/files/`.
+
 Generate the shell-facing resolved profile after changing profile, override, or
 catalog files:
 
