@@ -743,7 +743,27 @@ def handle_catalog_command(argv):
     if argv[0] == "migrate":
         dry_run = "--dry-run" in argv[1:]
         raise SystemExit(catalog_migrate(dry_run=dry_run))
-    die("Usage: smu catalog [doctor|path|migrate [--dry-run]]")
+    if argv[0] == "package":
+        if len(argv) < 2:
+            die("Usage: smu catalog package <id> [--output path] [--force]")
+        output = _option_value(argv[2:], "--output")
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_package(argv[1], output=output, force=force))
+    if argv[0] == "install":
+        if len(argv) < 2:
+            die("Usage: smu catalog install <path> [--dry-run] [--force]")
+        dry_run = "--dry-run" in argv[2:]
+        force = "--force" in argv[2:]
+        raise SystemExit(catalog_install(argv[1], dry_run=dry_run, force=force))
+    die("Usage: smu catalog [doctor|path|migrate [--dry-run]|package <id> [--output path] [--force]|install <path> [--dry-run] [--force]]")
+
+def _option_value(argv, option):
+    if option not in argv:
+        return None
+    index = argv.index(option)
+    if index + 1 >= len(argv):
+        die(f"{option} requires a value")
+    return argv[index + 1]
 
 def _theme_adapter_paths(theme):
     entry = theme_manifest_by_id(theme)
@@ -1042,6 +1062,179 @@ def _catalog_manifest_paths(catalog_dir):
         for filename in sorted(os.listdir(catalog_dir))
         if filename.endswith(".toml")
     ]
+
+def _catalog_pack_manifest(pack_dir):
+    path = os.path.join(pack_dir, "pack.toml")
+    if not os.path.exists(path):
+        return {}
+    return _read_simple_toml(path)
+
+def _catalog_pack_errors(pack_dir):
+    errors = []
+    pack = _catalog_pack_manifest(pack_dir)
+    if not pack:
+        errors.append(f"pack missing pack.toml: {pack_dir}")
+        return errors
+
+    errors.extend(
+        smu_contract.schema_version_errors(
+            "pack",
+            [pack],
+            require_schema_version=True,
+        )
+    )
+    if not pack.get("id"):
+        errors.append("pack: <unknown> missing id")
+    elif not _valid_catalog_id(pack["id"]):
+        errors.append(f"pack: {pack['id']} id must be kebab-case")
+    if not pack.get("name"):
+        errors.append(f"pack: {pack.get('id', '<unknown>')} missing name")
+
+    manifest_dirs = {
+        "themes": os.path.join(pack_dir, "themes"),
+        "prompts": os.path.join(pack_dir, "prompt-profiles"),
+        "presets": os.path.join(pack_dir, "presets"),
+    }
+    for label, manifest_dir in manifest_dirs.items():
+        manifests = [_read_simple_toml(path) for path in _catalog_manifest_paths(manifest_dir)]
+        errors.extend(smu_contract.manifest_authoring_errors(label, manifests))
+
+    return errors
+
+def _catalog_pack_destinations(pack_dir):
+    return [
+        ("themes", os.path.join(pack_dir, "themes"), theme_catalog_path, theme_manifests_dir()),
+        ("prompts", os.path.join(pack_dir, "prompt-profiles"), prompt_catalog_path, prompt_profiles_path),
+        ("presets", os.path.join(pack_dir, "presets"), preset_catalog_path, preset_profiles_path),
+    ]
+
+def _copy_catalog_tree(source_dir, target_dir, dry_run=False, force=False):
+    copied = []
+    if not os.path.isdir(source_dir):
+        return copied
+
+    for root, _, filenames in os.walk(source_dir):
+        for filename in sorted(filenames):
+            source = os.path.join(root, filename)
+            relative = os.path.relpath(source, source_dir)
+            target = os.path.join(target_dir, relative)
+            if os.path.exists(target) and not force:
+                die(f"Catalog file already exists: {target}. Use --force to overwrite.")
+            copied.append((source, target))
+            if dry_run:
+                print(f"{COL_YELLOW}DRY{COL_RESET}  would install {target}")
+                continue
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copy2(source, target)
+            print(f"{COL_GREEN}OK{COL_RESET}   installed {target}")
+
+    return copied
+
+def _catalog_install_conflicts(pack_dir, force=False):
+    errors = []
+    for label, source_dir, user_dir, builtin_dir in _catalog_pack_destinations(pack_dir):
+        pack_manifests = [_read_simple_toml(path) for path in _catalog_manifest_paths(source_dir)]
+        builtin_ids = {
+            entry.get("id")
+            for entry in _read_manifest_dir(builtin_dir)
+            if entry.get("id")
+        }
+        user_ids = {
+            entry.get("id")
+            for entry in _read_manifest_dir(user_dir)
+            if entry.get("id")
+        }
+
+        for manifest in pack_manifests:
+            manifest_id = manifest.get("id")
+            if not manifest_id:
+                continue
+            if manifest_id in builtin_ids:
+                errors.append(f"{label}: pack id {manifest_id} conflicts with built-in manifest")
+            if manifest_id in user_ids and not force:
+                errors.append(f"{label}: pack id {manifest_id} conflicts with user catalog manifest")
+
+    return errors
+
+def catalog_install(pack_dir, dry_run=False, force=False):
+    pack_dir = os.path.abspath(os.path.expanduser(pack_dir))
+    errors = _catalog_pack_errors(pack_dir)
+    errors.extend(_catalog_install_conflicts(pack_dir, force=force))
+    if errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+
+    copied = []
+    for _, source_dir, target_dir, _ in _catalog_pack_destinations(pack_dir):
+        copied.extend(_copy_catalog_tree(source_dir, target_dir, dry_run=dry_run, force=force))
+
+    if not copied:
+        print(f"{COL_YELLOW}WARN{COL_RESET}  pack has no catalog files")
+    elif dry_run:
+        print(f"{COL_GREEN}OK{COL_RESET}   pack can install {len(copied)} file(s)")
+    else:
+        print(f"{COL_GREEN}OK{COL_RESET}   installed pack {_catalog_pack_manifest(pack_dir).get('id')}")
+
+    return 0
+
+def _copy_pack_entry(source, pack_root, relative_dir, force=False):
+    target = os.path.join(pack_root, relative_dir, os.path.basename(source))
+    if os.path.exists(target) and not force:
+        die(f"Pack file already exists: {target}. Use --force to overwrite.")
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    shutil.copy2(source, target)
+    return target
+
+def _package_manifest_with_files(manifest_path, pack_root, relative_dir, force=False):
+    manifest = _read_simple_toml(manifest_path)
+    copied = [_copy_pack_entry(manifest_path, pack_root, relative_dir, force=force)]
+    sources = manifest.get("adapter_sources", {})
+    if isinstance(sources, dict):
+        source_dir = os.path.dirname(manifest_path)
+        for source in sources.values():
+            source_path = _expand_adapter_path(source, source_dir)
+            if os.path.exists(source_path):
+                relative_source = os.path.relpath(source_path, source_dir)
+                target = os.path.join(pack_root, relative_dir, relative_source)
+                if os.path.exists(target) and not force:
+                    die(f"Pack file already exists: {target}. Use --force to overwrite.")
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                shutil.copy2(source_path, target)
+                copied.append(target)
+    return copied
+
+def catalog_package(manifest_id, output=None, force=False):
+    if not _valid_catalog_id(manifest_id):
+        die(f"Pack id must be kebab-case: {manifest_id}")
+
+    output = output or f"{manifest_id}.smu-pack"
+    pack_root = os.path.abspath(os.path.expanduser(output))
+    if os.path.exists(pack_root) and not force:
+        die(f"Pack output already exists: {pack_root}. Use --force to overwrite.")
+    os.makedirs(pack_root, exist_ok=True)
+
+    copied = []
+    candidates = [
+        (theme_catalog_path, "themes"),
+        (prompt_catalog_path, "prompt-profiles"),
+        (preset_catalog_path, "presets"),
+    ]
+    for source_dir, relative_dir in candidates:
+        manifest_path = _manifest_file_for_id(manifest_id, (source_dir,))
+        if manifest_path:
+            copied.extend(_package_manifest_with_files(manifest_path, pack_root, relative_dir, force=force))
+
+    if not copied:
+        die(f"No user catalog manifest found for id '{manifest_id}'")
+
+    smu_contract.write_manifest(os.path.join(pack_root, "pack.toml"), {
+        "schema_version": smu_contract.SUPPORTED_SCHEMA_VERSION,
+        "id": manifest_id,
+        "name": _display_name(manifest_id),
+    })
+    print(f"{COL_GREEN}OK{COL_RESET}   packaged {len(copied)} file(s) into {pack_root}")
+    return 0
 
 def catalog_migrate(dry_run=False):
     targets = [

@@ -32,6 +32,8 @@ jobs:
         python smu.py adapter list
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py adapter init ci-shell
+        HOME="$RUNNER_TEMP/smu-home" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell.smu-pack"
+        HOME="$RUNNER_TEMP/smu-home-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell.smu-pack" --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py catalog migrate --dry-run
         HOME="$RUNNER_TEMP/smu-home" python smu.py catalog doctor
 
@@ -50,6 +52,8 @@ jobs:
         python smu.py adapter list
         python smu.py adapter materialize --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py adapter init ci-shell
+        HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog package ci-shell --output "$RUNNER_TEMP/ci-shell-pytest.smu-pack"
+        HOME="$RUNNER_TEMP/smu-home-pytest-install" python smu.py catalog install "$RUNNER_TEMP/ci-shell-pytest.smu-pack" --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog migrate --dry-run
         HOME="$RUNNER_TEMP/smu-home-pytest" python smu.py catalog doctor
 

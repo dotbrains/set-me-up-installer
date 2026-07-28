@@ -728,6 +728,100 @@ class TestThemeRegistry(unittest.TestCase):
                 with open(manifest_path) as f:
                     self.assertIn("schema_version = 1", f.read())
 
+    def test_catalog_package_exports_user_manifest_and_adapter_files(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            prompt_catalog = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            output = os.path.join(tempdir, "work-shell.smu-pack")
+            os.makedirs(os.path.join(prompt_catalog, "files"))
+            with open(os.path.join(prompt_catalog, "files", "work.bash"), "w") as f:
+                f.write("prompt\n")
+            with open(os.path.join(prompt_catalog, "work-shell.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work-shell"\n')
+                f.write('name = "Work Shell"\n')
+                f.write("[adapter_sources]\n")
+                f.write('bash = "files/work.bash"\n')
+                f.write("[adapter_targets]\n")
+                f.write('bash = "~/.config/bash/prompts/work.bash"\n')
+
+            with (
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_catalog),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu.catalog_package("work-shell", output=output), 0)
+
+            self.assertTrue(os.path.exists(os.path.join(output, "pack.toml")))
+            self.assertTrue(os.path.exists(os.path.join(output, "prompt-profiles", "work-shell.toml")))
+            self.assertTrue(os.path.exists(os.path.join(output, "prompt-profiles", "files", "work.bash")))
+
+    def test_catalog_install_dry_run_and_apply_pack(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            pack = os.path.join(tempdir, "work.smu-pack")
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(os.path.join(pack, "prompt-profiles", "files"))
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "work.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "files", "work.bash"), "w") as f:
+                f.write("prompt\n")
+
+            with (
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu.catalog_install(pack, dry_run=True), 0)
+                self.assertFalse(os.path.exists(os.path.join(prompt_target, "work.toml")))
+
+                self.assertEqual(smu.catalog_install(pack), 0)
+                self.assertTrue(os.path.exists(os.path.join(prompt_target, "work.toml")))
+                self.assertTrue(os.path.exists(os.path.join(prompt_target, "files", "work.bash")))
+
+    def test_catalog_install_rejects_unsupported_pack_schema_version(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            pack = os.path.join(tempdir, "future.smu-pack")
+            os.makedirs(pack)
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 99\n")
+                f.write('id = "future"\n')
+                f.write('name = "Future"\n')
+
+            self.assertEqual(smu.catalog_install(pack, dry_run=True), 1)
+
+    def test_catalog_install_rejects_manifest_id_conflicts(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            pack = os.path.join(tempdir, "work.smu-pack")
+            builtins = os.path.join(tempdir, "builtins", "prompt-profiles")
+            prompt_target = os.path.join(tempdir, "catalogs", "prompt-profiles")
+            os.makedirs(os.path.join(pack, "prompt-profiles"))
+            os.makedirs(builtins)
+            with open(os.path.join(pack, "pack.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "work"\n')
+                f.write('name = "Work"\n')
+            with open(os.path.join(pack, "prompt-profiles", "renamed.toml"), "w") as f:
+                f.write("schema_version = 1\n")
+                f.write('id = "starship"\n')
+                f.write('name = "Starship Override"\n')
+            with open(os.path.join(builtins, "starship.toml"), "w") as f:
+                f.write('id = "starship"\n')
+
+            with (
+                patch.object(smu, "theme_manifests_dir", return_value=os.path.join(tempdir, "builtins", "themes")),
+                patch.object(smu, "prompt_profiles_path", builtins),
+                patch.object(smu, "preset_profiles_path", os.path.join(tempdir, "builtins", "presets")),
+                patch.object(smu, "theme_catalog_path", os.path.join(tempdir, "catalogs", "themes")),
+                patch.object(smu, "prompt_catalog_path", prompt_target),
+                patch.object(smu, "preset_catalog_path", os.path.join(tempdir, "catalogs", "presets")),
+            ):
+                self.assertEqual(smu.catalog_install(pack, dry_run=True), 1)
+
 
 class TestThemeModuleResolution(unittest.TestCase):
     def test_resolves_top_level_colorscheme_module(self):

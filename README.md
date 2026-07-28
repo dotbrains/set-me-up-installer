@@ -283,6 +283,35 @@ They reject non-kebab-case IDs and refuse to overwrite an existing manifest
 unless `--force` is passed. `smu adapter init` creates a shell prompt profile
 plus starter source files under `prompt-profiles/files/`.
 
+Catalog packs make user manifests portable. A pack is a directory with
+`pack.toml` plus any of `themes/`, `prompt-profiles/`, and `presets/`:
+
+```text
+work-shell.smu-pack/
+├── pack.toml
+└── prompt-profiles/
+    ├── work-shell.toml
+    └── files/
+        └── work-shell.bash
+```
+
+Package a user catalog manifest and its declared adapter source files:
+
+```bash
+smu catalog package work-shell --output work-shell.smu-pack
+```
+
+Install a local pack into the user catalog:
+
+```bash
+smu catalog install ./work-shell.smu-pack --dry-run
+smu catalog install ./work-shell.smu-pack
+smu catalog doctor
+```
+
+Pack install validates `pack.toml`, rejects unsupported schema versions, and
+refuses to overwrite existing catalog files unless `--force` is passed.
+
 Generate the shell-facing resolved profile after changing profile, override, or
 catalog files:
 
