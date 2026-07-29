@@ -2,8 +2,12 @@
 
 import json
 import os
-import tomllib
 import unittest
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

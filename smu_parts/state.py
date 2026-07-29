@@ -6,7 +6,7 @@ state_ledger_path = os.path.join(state_dir, "ledger.json")
 
 
 def _utc_timestamp():
-    return datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _read_json_file(path, fallback):

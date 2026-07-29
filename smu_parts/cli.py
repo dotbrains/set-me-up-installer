@@ -9,6 +9,49 @@ from .profile_commands import *
 from .state import *
 
 
+def client_update_plan(validate=False, self_update_requested=False):
+    actions = [
+        "update-submodules",
+        "resolve-profile",
+        "materialize-adapters",
+    ]
+    if self_update_requested:
+        actions.insert(0, "self-update")
+    if validate:
+        actions.append("doctor")
+    return {
+        "actions": actions,
+        "theme": current_theme(),
+        "prompt": current_prompt(),
+        "smu_home": smu_home_dir,
+    }
+
+
+def client_update(dry_run=False, json_output=False, validate=False, self_update_requested=False):
+    plan = client_update_plan(
+        validate=validate,
+        self_update_requested=self_update_requested,
+    )
+    if dry_run:
+        if json_output:
+            print(json.dumps({"dry_run": True, **plan}, indent=2, sort_keys=True))
+        else:
+            for action_name in plan["actions"]:
+                print(f"plan\t{action_name}")
+        return 0
+
+    if self_update_requested:
+        self_update()
+    update_submodules()
+    write_resolved_profile()
+    materialize_adapters(plan["theme"], plan["prompt"], dry_run=False)
+    exit_code = doctor() if validate else 0
+
+    if json_output:
+        print(json.dumps({"dry_run": False, "exit_code": exit_code, **plan}, indent=2, sort_keys=True))
+    return exit_code
+
+
 def main():
     if len(sys.argv) > 1:
         command = sys.argv[1]
@@ -52,6 +95,17 @@ def main():
         if command == "rollback":
             dry_run = "--dry-run" in command_args
             raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
+        if command == "update":
+            dry_run = "--dry-run" in command_args
+            json_output = "--json" in command_args
+            validate = "--validate" in command_args
+            self_update_requested = "--self" in command_args
+            raise SystemExit(client_update(
+                dry_run=dry_run,
+                json_output=json_output,
+                validate=validate,
+                self_update_requested=self_update_requested,
+            ))
 
     parser = argparse.ArgumentParser(description="set-me-up installer")
     parser.add_argument("-v", "--version", action="version", version="set-me-up 1.0.0")
@@ -73,6 +127,8 @@ def main():
     parser.add_argument("-st", "--status", action="store_true", help="Show installed/missing status for visible modules")
     parser.add_argument("--status-json", action="store_true", help="Print machine-readable status as JSON")
     parser.add_argument("--diff", action="store_true", help="Print planned module and adapter changes")
+    parser.add_argument("--client-update", action="store_true", help="Update smu-managed config")
+    parser.add_argument("--client-update-self", action="store_true", help="With --client-update, reinstall smu before refreshing config")
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall the given modules")
     parser.add_argument("-iu", "--uninstall-interactive", action="store_true", help="Pick modules to uninstall via fzf")
     parser.add_argument("--dry-run", action="store_true", help="With --uninstall: print the plan, do nothing")
@@ -134,6 +190,12 @@ def main():
         plan.extend(adapter_change_plan(materializable_adapters()))
         print_diff_plan(plan)
         return
+
+    if args.client_update:
+        raise SystemExit(client_update(
+            validate=True,
+            self_update_requested=args.client_update_self,
+        ))
 
     if args.uninstall_interactive:
         modules = interactive_select_modules(search=args.search, show_all=args.all)

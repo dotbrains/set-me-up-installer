@@ -290,6 +290,23 @@ How each kind is detected:
   sources it under `utilities.sh`; exit 0 means installed. Without the marker
   the module reports `unknown`.
 
+## Updating an installed machine
+
+Use `smu update` after upstream set-me-up repos change and the local machine
+needs newer config, theme, prompt, and adapter files:
+
+```bash
+smu update --dry-run
+smu update --dry-run --json
+smu update --validate
+smu update --self --validate
+```
+
+The command updates submodules, rewrites the resolved profile, materializes
+generated adapters for the active theme and prompt, and optionally runs
+`smu doctor`. Add `--self` when the installer itself should be reinstalled
+before refreshing config.
+
 ## Uninstalling modules
 
 Use `-u` / `--uninstall` to undo a module's install. Brewfiles and `packages`

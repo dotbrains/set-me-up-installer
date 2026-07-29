@@ -102,6 +102,53 @@ class TestSmuState(unittest.TestCase):
 
         self.assertIn("install\tmodule\tbase\tmissing", buf.getvalue())
 
+    def test_update_subcommand_supports_json_dry_run(self):
+        with patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "update", "--dry-run", "--json", "--validate"]
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as raised:
+                    smu.main()
+
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(raised.exception.code, 0)
+        self.assertTrue(payload["dry_run"])
+        self.assertNotIn("self-update", payload["actions"])
+        self.assertIn("doctor", payload["actions"])
+        self.assertEqual(payload["theme"], "nord")
+
+    def test_client_update_applies_refresh_steps(self):
+        with patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "self_update") as self_update, \
+                patch.object(smu, "update_submodules") as update_submodules, \
+                patch.object(smu, "write_resolved_profile") as write_profile, \
+                patch.object(smu, "materialize_adapters") as materialize, \
+                patch.object(smu, "doctor", return_value=0) as doctor:
+            exit_code = smu.client_update(validate=True)
+
+        self.assertEqual(exit_code, 0)
+        self_update.assert_not_called()
+        update_submodules.assert_called_once_with()
+        write_profile.assert_called_once_with()
+        materialize.assert_called_once_with("nord", "classic", dry_run=False)
+        doctor.assert_called_once_with()
+
+    def test_client_update_self_applies_self_update(self):
+        with patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "self_update") as self_update, \
+                patch.object(smu, "update_submodules"), \
+                patch.object(smu, "write_resolved_profile"), \
+                patch.object(smu, "materialize_adapters"), \
+                patch.object(smu, "doctor", return_value=0):
+            exit_code = smu.client_update(validate=True, self_update_requested=True)
+
+        self.assertEqual(exit_code, 0)
+        self_update.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()
