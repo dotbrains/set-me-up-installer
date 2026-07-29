@@ -296,16 +296,35 @@ Use `smu update` after upstream set-me-up repos change and the local machine
 needs newer config, theme, prompt, and adapter files:
 
 ```bash
+smu update --check
+smu update --check --json
 smu update --dry-run
 smu update --dry-run --json
 smu update --validate
+smu update --yes --json --validate
+smu update --ref stable --validate
 smu update --self --validate
+smu update --rollback
 ```
 
 The command updates submodules, rewrites the resolved profile, materializes
 generated adapters for the active theme and prompt, and optionally runs
 `smu doctor`. Add `--self` when the installer itself should be reinstalled
-before refreshing config.
+before refreshing config. Add `--ref <branch|tag|sha>` when the client should
+checkout a specific branch, tag, or commit before refreshing generated config.
+
+Each applied update writes a machine-readable lockfile:
+
+```text
+~/.config/set-me-up/update.lock
+```
+
+The lock records the active preset, theme, prompt, requested ref, before/after
+repository SHAs, validation exit code, and update actions. Use
+`smu status --json` or `smu update --check --json` from cron, launchd, systemd,
+or an agent to decide whether a client is behind and what changed last.
+`smu update --rollback` delegates to the normal state ledger rollback, so the
+last adapter materialization can be restored safely.
 
 ## Uninstalling modules
 

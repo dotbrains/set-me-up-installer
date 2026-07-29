@@ -20,6 +20,91 @@ def _read_json_file(path, fallback):
         return fallback
 
 
+def write_json_file(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp_path, path)
+
+
+def git_head(path):
+    try:
+        result = subprocess.run(
+            ["git", "-C", path, "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def git_branch(path):
+    try:
+        result = subprocess.run(
+            ["git", "-C", path, "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() or None
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def git_upstream_sync(path):
+    branch = git_branch(path)
+    if not branch:
+        return {"branch": None, "status": "detached", "ahead": 0, "behind": 0}
+    try:
+        subprocess.run(["git", "-C", path, "fetch", "--quiet", "origin"], check=False)
+        result = subprocess.run(
+            ["git", "-C", path, "rev-list", "--left-right", "--count", f"HEAD...origin/{branch}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        ahead, behind = (int(value) for value in result.stdout.split())
+    except (subprocess.CalledProcessError, OSError, ValueError):
+        return {"branch": branch, "status": "unknown", "ahead": 0, "behind": 0}
+    if ahead and behind:
+        status = "diverged"
+    elif ahead:
+        status = "ahead"
+    elif behind:
+        status = "behind"
+    else:
+        status = "current"
+    return {"branch": branch, "status": status, "ahead": ahead, "behind": behind}
+
+
+def read_update_lock():
+    data = _read_json_file(update_lock_path, {})
+    return data if isinstance(data, dict) else {}
+
+
+def write_update_lock(report):
+    lock = {
+        "updated_at": _utc_timestamp(),
+        "smu_home": smu_home_dir,
+        "installer_root": installer_root,
+        "theme": report.get("theme"),
+        "prompt": report.get("prompt"),
+        "preset": report.get("preset"),
+        "ref": report.get("ref"),
+        "self_update": report.get("self_update", False),
+        "validate": report.get("validate", False),
+        "exit_code": report.get("exit_code", 0),
+        "repositories": report.get("repositories", []),
+        "actions": report.get("actions", []),
+    }
+    write_json_file(update_lock_path, lock)
+    return lock
+
+
 def read_state_ledger():
     data = _read_json_file(state_ledger_path, [])
     return data if isinstance(data, list) else []
@@ -149,6 +234,10 @@ def status_report(search=None, show_all=False, verbose=False):
             "path": state_ledger_path,
             "entries": len(read_state_ledger()),
             "last": last_state_event(),
+        },
+        "updates": {
+            "path": update_lock_path,
+            "last": read_update_lock(),
         },
     }
 
