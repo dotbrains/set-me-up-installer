@@ -7,137 +7,7 @@ from .module_discovery import *
 from .module_lifecycle import *
 from .profile_commands import *
 from .state import *
-
-
-def client_update_repositories():
-    return [
-        {"name": "smu_home", "path": smu_home_dir},
-        {"name": "installer", "path": installer_root},
-    ]
-
-
-def client_update_repository_status():
-    repositories = []
-    for repo in client_update_repositories():
-        repositories.append({
-            **repo,
-            "head": git_head(repo["path"]),
-            **git_upstream_sync(repo["path"]),
-        })
-    return repositories
-
-
-def client_update_status(ref=None):
-    repositories = client_update_repository_status()
-    return {
-        "update_lock_path": update_lock_path,
-        "last_update": read_update_lock(),
-        "ref": ref,
-        "theme": current_theme(),
-        "prompt": current_prompt(),
-        "preset": current_preset(),
-        "repositories": repositories,
-        "updates_available": any(repo["status"] == "behind" for repo in repositories),
-    }
-
-
-def checkout_client_update_ref(ref):
-    if not ref:
-        return []
-    results = []
-    for repo in client_update_repositories():
-        before = git_head(repo["path"])
-        try:
-            subprocess.run(["git", "-C", repo["path"], "fetch", "--quiet", "origin"], check=False)
-            subprocess.run(["git", "-C", repo["path"], "checkout", ref], check=True)
-            status = "checked-out"
-        except (subprocess.CalledProcessError, OSError):
-            status = "failed"
-        results.append({
-            **repo,
-            "before": before,
-            "after": git_head(repo["path"]),
-            "ref": ref,
-            "status": status,
-        })
-    return results
-
-
-def print_client_update_status(json_output=False, ref=None):
-    status = client_update_status(ref=ref)
-    if json_output:
-        print(json.dumps(status, indent=2, sort_keys=True))
-        return
-    for repo in status["repositories"]:
-        print(f"{repo['status']}\t{repo['name']}\t{repo.get('branch') or '-'}\tbehind={repo['behind']}\tahead={repo['ahead']}")
-
-
-def client_update_plan(validate=False, self_update_requested=False, ref=None):
-    actions = [
-        "update-submodules",
-        "resolve-profile",
-        "materialize-adapters",
-    ]
-    if self_update_requested:
-        actions.insert(0, "self-update")
-    if ref:
-        actions.insert(0, "checkout-ref")
-    if validate:
-        actions.append("doctor")
-    return {
-        "actions": actions,
-        "theme": current_theme(),
-        "prompt": current_prompt(),
-        "preset": current_preset(),
-        "smu_home": smu_home_dir,
-        "ref": ref,
-    }
-
-
-def client_update(dry_run=False, json_output=False, validate=False, self_update_requested=False, ref=None, yes=False):
-    before = client_update_repository_status()
-    plan = client_update_plan(
-        validate=validate,
-        self_update_requested=self_update_requested,
-        ref=ref,
-    )
-    report = {
-        "dry_run": dry_run,
-        "self_update": self_update_requested,
-        "validate": validate,
-        "yes": yes,
-        "before": before,
-        **plan,
-    }
-    if dry_run:
-        if json_output:
-            print(json.dumps(report, indent=2, sort_keys=True))
-        else:
-            for action_name in plan["actions"]:
-                print(f"plan\t{action_name}")
-        return 0
-
-    report["ref_results"] = checkout_client_update_ref(ref)
-    if any(result["status"] == "failed" for result in report["ref_results"]):
-        report["exit_code"] = 1
-        write_update_lock(report)
-        if json_output:
-            print(json.dumps(report, indent=2, sort_keys=True))
-        return 1
-    if self_update_requested:
-        self_update()
-    update_submodules()
-    write_resolved_profile()
-    materialize_adapters(plan["theme"], plan["prompt"], dry_run=False)
-    exit_code = doctor() if validate else 0
-    report["after"] = client_update_repository_status()
-    report["repositories"] = report["after"]
-    report["exit_code"] = exit_code
-    write_update_lock(report)
-
-    if json_output:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    return exit_code
+from .client_update import *
 
 
 def main():
@@ -190,7 +60,8 @@ def main():
             self_update_requested = "--self" in command_args
             yes = "--yes" in command_args or "-y" in command_args
             ref = _option_value(command_args, "--ref")
-            if "--check" in command_args:
+            require_signed = "--require-signed" in command_args
+            if "--check" in command_args or "--report" in command_args:
                 print_client_update_status(json_output=json_output, ref=ref)
                 return
             if "--rollback" in command_args:
@@ -202,6 +73,7 @@ def main():
                 self_update_requested=self_update_requested,
                 ref=ref,
                 yes=yes,
+                require_signed=require_signed,
             ))
 
     parser = argparse.ArgumentParser(description="set-me-up installer")
@@ -227,6 +99,7 @@ def main():
     parser.add_argument("--client-update", action="store_true", help="Update smu-managed config")
     parser.add_argument("--client-update-self", action="store_true", help="With --client-update, reinstall smu before refreshing config")
     parser.add_argument("--client-update-ref", help="With --client-update, checkout a branch, tag, or commit before refreshing config")
+    parser.add_argument("--client-update-require-signed", action="store_true", help="With --client-update, require signed checked-out commits")
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall the given modules")
     parser.add_argument("-iu", "--uninstall-interactive", action="store_true", help="Pick modules to uninstall via fzf")
     parser.add_argument("--dry-run", action="store_true", help="With --uninstall: print the plan, do nothing")
@@ -295,6 +168,7 @@ def main():
             self_update_requested=args.client_update_self,
             ref=args.client_update_ref,
             yes=args.yes,
+            require_signed=args.client_update_require_signed,
         ))
 
     if args.uninstall_interactive:

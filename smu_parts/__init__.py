@@ -9,6 +9,7 @@ from . import doctors_and_system
 from . import module_discovery
 from . import module_lifecycle
 from . import state
+from . import client_update
 from . import cli
 
 
@@ -22,6 +23,7 @@ PARTS = (
     module_discovery,
     module_lifecycle,
     state,
+    client_update,
     cli,
 )
 

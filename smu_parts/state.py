@@ -81,6 +81,73 @@ def git_upstream_sync(path):
     return {"branch": branch, "status": status, "ahead": ahead, "behind": behind}
 
 
+def git_head_signature(path):
+    try:
+        subprocess.run(
+            ["git", "-C", path, "verify-commit", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return "verified"
+    except subprocess.CalledProcessError:
+        return "unverified"
+    except OSError:
+        return "unknown"
+
+
+def file_sha256(path):
+    if not os.path.isfile(path):
+        return None
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def generated_config_paths():
+    paths = [resolved_profile_path, adapter_manifest_json_path, adapter_manifest_env_path]
+    for entry in _read_adapter_manifest():
+        target = entry.get("target")
+        if target:
+            paths.append(target)
+    return sorted(set(paths))
+
+
+def generated_config_fingerprints():
+    return [
+        {
+            "path": path,
+            "exists": os.path.lexists(path),
+            "sha256": file_sha256(path),
+        }
+        for path in generated_config_paths()
+    ]
+
+
+def config_drift_report():
+    last = read_update_lock()
+    expected = {
+        item["path"]: item
+        for item in last.get("generated_config", [])
+        if item.get("path")
+    }
+    current = generated_config_fingerprints()
+    drift = []
+    current_paths = {item["path"] for item in current}
+    for item in current:
+        previous = expected.get(item["path"])
+        if not previous:
+            drift.append({**item, "status": "untracked"})
+        elif previous.get("sha256") != item.get("sha256") or previous.get("exists") != item.get("exists"):
+            drift.append({**item, "status": "changed", "expected": previous})
+    for path, previous in expected.items():
+        if path not in current_paths:
+            drift.append({"path": path, "exists": False, "sha256": None, "status": "missing", "expected": previous})
+    return {"drifted": bool(drift), "items": drift}
+
+
 def read_update_lock():
     data = _read_json_file(update_lock_path, {})
     return data if isinstance(data, dict) else {}
@@ -100,6 +167,7 @@ def write_update_lock(report):
         "exit_code": report.get("exit_code", 0),
         "repositories": report.get("repositories", []),
         "actions": report.get("actions", []),
+        "generated_config": report.get("generated_config", []),
     }
     write_json_file(update_lock_path, lock)
     return lock
@@ -238,6 +306,7 @@ def status_report(search=None, show_all=False, verbose=False):
         "updates": {
             "path": update_lock_path,
             "last": read_update_lock(),
+            "config_drift": config_drift_report(),
         },
     }
 
@@ -259,7 +328,7 @@ def rollback_last_state_event(dry_run=False):
     if operation == "provision_modules":
         for item in reversed(items):
             uninstall_module(item["module"], dry_run=False)
-    elif operation == "materialize_adapters":
+    elif operation in ("materialize_adapters", "client_update"):
         for item in reversed(items):
             restore_file_snapshot(item["before"])
     elif operation == "uninstall_modules":

@@ -298,11 +298,13 @@ needs newer config, theme, prompt, and adapter files:
 ```bash
 smu update --check
 smu update --check --json
+smu update --report --json
 smu update --dry-run
 smu update --dry-run --json
 smu update --validate
 smu update --yes --json --validate
 smu update --ref stable --validate
+smu update --ref stable --require-signed --validate
 smu update --self --validate
 smu update --rollback
 ```
@@ -320,11 +322,29 @@ Each applied update writes a machine-readable lockfile:
 ```
 
 The lock records the active preset, theme, prompt, requested ref, before/after
-repository SHAs, validation exit code, and update actions. Use
-`smu status --json` or `smu update --check --json` from cron, launchd, systemd,
-or an agent to decide whether a client is behind and what changed last.
-`smu update --rollback` delegates to the normal state ledger rollback, so the
-last adapter materialization can be restored safely.
+repository SHAs, generated config fingerprints, validation exit code, and update
+actions. Use `smu status --json` or `smu update --check --json` from cron,
+launchd, systemd, or an agent to decide whether a client is behind, whether
+generated config has drifted since the last applied update, and what changed
+last.
+`smu update --rollback` delegates to the normal state ledger rollback and
+restores the previous resolved profile, adapter manifests, and materialized
+adapter targets from the last client update.
+
+`smu update --check --json` includes a `config_drift` object. A drift item means
+a generated file was changed, removed, or is not represented in the last update
+lock. Treat that as a review signal before unattended updates.
+
+Use `smu update --report --json` as the stable fleet-reporting shape for
+inventory collection. It emits the same repository, lockfile, signature, and
+drift fields as `--check --json` without applying changes. Scheduled update
+jobs should run the check/report command first, then apply with
+`smu update --yes --json --validate` only when policy allows it.
+
+`--require-signed` verifies the checked-out `HEAD` commit in each managed repo
+with local Git trust settings before generated config is rewritten. Unsigned or
+untrusted commits stop the update and write the failed attempt to the update
+lock for audit.
 
 ## Uninstalling modules
 

@@ -60,6 +60,38 @@ class TestSmuState(unittest.TestCase):
                     self.assertEqual(f.read(), "before")
                 self.assertEqual(smu.read_state_ledger(), [])
 
+    def test_rollback_client_update_restores_generated_config(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            ledger = os.path.join(tempdir, "state", "ledger.json")
+            resolved = os.path.join(tempdir, "resolved.env")
+            adapter_manifest = os.path.join(tempdir, "manifest.json")
+            target = os.path.join(tempdir, "target.txt")
+            for path in (resolved, adapter_manifest, target):
+                with open(path, "w") as f:
+                    f.write("before")
+            items = [
+                {"before": smu.file_snapshot(resolved)},
+                {"before": smu.file_snapshot(adapter_manifest)},
+                {"before": smu.file_snapshot(target)},
+            ]
+            for path in (resolved, adapter_manifest, target):
+                with open(path, "w") as f:
+                    f.write("after")
+
+            with patch.object(smu, "state_dir", os.path.dirname(ledger)), \
+                    patch.object(smu, "state_ledger_path", ledger):
+                smu.write_state_ledger([{
+                    "id": "event",
+                    "operation": "client_update",
+                    "items": items,
+                }])
+
+                self.assertTrue(smu.rollback_last_state_event())
+
+            for path in (resolved, adapter_manifest, target):
+                with open(path) as f:
+                    self.assertEqual(f.read(), "before")
+
     def test_status_report_includes_modules_adapters_and_ledger(self):
         with tempfile.TemporaryDirectory() as tempdir:
             ledger = os.path.join(tempdir, "state", "ledger.json")
@@ -92,10 +124,12 @@ class TestSmuState(unittest.TestCase):
                     patch.object(smu, "module_status_report", return_value=[]), \
                     patch.object(smu, "_read_adapter_manifest", return_value=[]), \
                     patch.object(smu, "read_state_ledger", return_value=[]), \
-                    patch.object(smu, "last_state_event", return_value=None):
+                    patch.object(smu, "last_state_event", return_value=None), \
+                    patch.object(smu, "config_drift_report", return_value={"drifted": False, "items": []}):
                 report = smu.status_report()
 
             self.assertEqual(report["updates"]["last"]["theme"], "nord")
+            self.assertFalse(report["updates"]["config_drift"]["drifted"])
 
     def test_status_subcommand_supports_json(self):
         with patch.object(smu, "print_status_json") as print_json, \
@@ -161,6 +195,45 @@ class TestSmuState(unittest.TestCase):
         self.assertTrue(payload["updates_available"])
         self.assertEqual(payload["repositories"][0]["behind"], 2)
 
+    def test_update_report_alias_outputs_fleet_report(self):
+        with patch.object(smu, "client_update_repository_status", return_value=[]), \
+                patch.object(smu, "read_update_lock", return_value={}), \
+                patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "config_drift_report", return_value={"drifted": False, "items": []}), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "update", "--report", "--json"]
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                smu.main()
+
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(payload["theme"], "nord")
+        self.assertFalse(payload["updates_available"])
+
+    def test_config_drift_report_detects_changed_generated_file(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            generated = os.path.join(tempdir, "resolved.env")
+            with open(generated, "w") as f:
+                f.write("before")
+            previous = smu.file_sha256(generated)
+            with open(generated, "w") as f:
+                f.write("after")
+
+            with patch.object(smu, "read_update_lock", return_value={
+                    "generated_config": [{
+                        "path": generated,
+                        "exists": True,
+                        "sha256": previous,
+                    }],
+                }), \
+                    patch.object(smu, "generated_config_paths", return_value=[generated]):
+                report = smu.config_drift_report()
+
+        self.assertTrue(report["drifted"])
+        self.assertEqual(report["items"][0]["status"], "changed")
+
     def test_client_update_applies_refresh_steps(self):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
@@ -170,6 +243,10 @@ class TestSmuState(unittest.TestCase):
                 patch.object(smu, "update_submodules") as update_submodules, \
                 patch.object(smu, "write_resolved_profile") as write_profile, \
                 patch.object(smu, "materialize_adapters") as materialize, \
+                patch.object(smu, "client_update_snapshots", return_value=[{"before": {"exists": False, "path": "/tmp/generated"}}]), \
+                patch.object(smu, "collapse_materialize_event", return_value=[]), \
+                patch.object(smu, "generated_config_fingerprints", return_value=[]), \
+                patch.object(smu, "record_state_event") as record_event, \
                 patch.object(smu, "doctor", return_value=0) as doctor, \
                 patch.object(smu, "write_update_lock") as write_lock:
             exit_code = smu.client_update(validate=True)
@@ -181,6 +258,7 @@ class TestSmuState(unittest.TestCase):
         materialize.assert_called_once_with("nord", "classic", dry_run=False)
         doctor.assert_called_once_with()
         write_lock.assert_called_once()
+        record_event.assert_called_once()
 
     def test_client_update_self_applies_self_update(self):
         with patch.object(smu, "current_theme", return_value="nord"), \
@@ -222,6 +300,23 @@ class TestSmuState(unittest.TestCase):
                 patch.object(smu, "update_submodules") as update_submodules, \
                 patch.object(smu, "write_update_lock") as write_lock:
             exit_code = smu.client_update(ref="missing")
+
+        self.assertEqual(exit_code, 1)
+        update_submodules.assert_not_called()
+        write_lock.assert_called_once()
+
+    def test_client_update_require_signed_stops_unverified_update(self):
+        with patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "client_update_repository_status", side_effect=[
+                    [],
+                    [{"name": "smu_home", "signature": "unverified"}],
+                ]), \
+                patch.object(smu, "checkout_client_update_ref", return_value=[]), \
+                patch.object(smu, "update_submodules") as update_submodules, \
+                patch.object(smu, "write_update_lock") as write_lock:
+            exit_code = smu.client_update(require_signed=True)
 
         self.assertEqual(exit_code, 1)
         update_submodules.assert_not_called()
