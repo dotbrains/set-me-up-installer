@@ -160,12 +160,59 @@ def default_update_policy():
         "validate": False,
         "auto_apply": False,
         "schedule": None,
+        "report_url": None,
+        "min_interval_seconds": 0,
+        "backoff_seconds": 0,
+        "history_limit": 20,
     }
+
+
+def update_policy_schema():
+    return {
+        "ref": ("optional-string", None),
+        "require_signed": ("bool", False),
+        "validate": ("bool", False),
+        "auto_apply": ("bool", False),
+        "schedule": ("optional-string", None),
+        "report_url": ("optional-https-url", None),
+        "min_interval_seconds": ("nonnegative-int", 0),
+        "backoff_seconds": ("nonnegative-int", 0),
+        "history_limit": ("positive-int", 20),
+    }
+
+
+def read_raw_update_policy():
+    data = _read_json_file(update_policy_path, {})
+    return data if isinstance(data, dict) else {}
+
+
+def validate_update_policy(policy=None):
+    raw = read_raw_update_policy() if policy is None else dict(policy)
+    schema = update_policy_schema()
+    errors = []
+    for key in sorted(set(raw) - set(schema)):
+        errors.append({"field": key, "message": "unknown policy field"})
+    for key, (kind, _) in schema.items():
+        value = raw.get(key, default_update_policy()[key])
+        if kind == "bool" and not isinstance(value, bool):
+            errors.append({"field": key, "message": "must be a boolean"})
+        elif kind == "optional-string" and value is not None and not isinstance(value, str):
+            errors.append({"field": key, "message": "must be a string or null"})
+        elif kind == "optional-https-url":
+            if value is not None and not isinstance(value, str):
+                errors.append({"field": key, "message": "must be an HTTPS URL or null"})
+            elif value and not value.startswith("https://"):
+                errors.append({"field": key, "message": "must use https://"})
+        elif kind == "nonnegative-int" and (not isinstance(value, int) or value < 0):
+            errors.append({"field": key, "message": "must be an integer >= 0"})
+        elif kind == "positive-int" and (not isinstance(value, int) or value < 1):
+            errors.append({"field": key, "message": "must be an integer >= 1"})
+    return errors
 
 
 def read_update_policy():
     policy = default_update_policy()
-    data = _read_json_file(update_policy_path, {})
+    data = read_raw_update_policy()
     if isinstance(data, dict):
         for key in policy:
             if key in data:
@@ -176,13 +223,66 @@ def read_update_policy():
 def write_update_policy(policy):
     merged = default_update_policy()
     merged.update({key: policy[key] for key in merged if key in policy})
+    errors = validate_update_policy(merged)
+    if errors:
+        die("; ".join(f"{error['field']}: {error['message']}" for error in errors))
     write_json_file(update_policy_path, merged)
     return merged
 
 
+def read_update_history():
+    data = _read_json_file(update_history_path, [])
+    return data if isinstance(data, list) else []
+
+
+def append_update_history(report):
+    entry = {
+        "updated_at": report.get("updated_at") or _utc_timestamp(),
+        "theme": report.get("theme"),
+        "prompt": report.get("prompt"),
+        "preset": report.get("preset"),
+        "ref": report.get("ref"),
+        "self_update": report.get("self_update", False),
+        "validate": report.get("validate", False),
+        "exit_code": report.get("exit_code", 0),
+        "actions": report.get("actions", []),
+        "repositories": report.get("repositories", []),
+        "report_delivery": report.get("report_delivery"),
+    }
+    history = read_update_history()
+    history.append(entry)
+    limit = read_update_policy().get("history_limit", 20)
+    write_json_file(update_history_path, history[-limit:])
+    return entry
+
+
+def update_rate_limit_status(policy=None):
+    policy = policy or read_update_policy()
+    interval = policy.get("min_interval_seconds", 0)
+    backoff = policy.get("backoff_seconds", 0)
+    if not interval and not backoff:
+        return {"status": "ready", "wait_seconds": 0}
+    history = read_update_history()
+    last = history[-1] if history else None
+    if not last:
+        return {"status": "ready", "wait_seconds": 0}
+    last_at = last.get("updated_at")
+    try:
+        updated_at = datetime.datetime.fromisoformat(last_at.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return {"status": "unknown", "wait_seconds": 0}
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=datetime.timezone.utc)
+    window = backoff if last.get("exit_code", 0) else interval
+    elapsed = (datetime.datetime.now(datetime.timezone.utc) - updated_at).total_seconds()
+    wait_seconds = max(0, int(window - elapsed))
+    return {"status": "waiting" if wait_seconds else "ready", "wait_seconds": wait_seconds}
+
+
 def write_update_lock(report):
+    updated_at = _utc_timestamp()
     lock = {
-        "updated_at": _utc_timestamp(),
+        "updated_at": updated_at,
         "smu_home": smu_home_dir,
         "installer_root": installer_root,
         "theme": report.get("theme"),
@@ -197,6 +297,7 @@ def write_update_lock(report):
         "generated_config": report.get("generated_config", []),
     }
     write_json_file(update_lock_path, lock)
+    append_update_history({**report, **lock})
     return lock
 
 
@@ -335,6 +436,9 @@ def status_report(search=None, show_all=False, verbose=False):
             "last": read_update_lock(),
             "policy_path": update_policy_path,
             "policy": read_update_policy(),
+            "policy_errors": validate_update_policy(),
+            "history_path": update_history_path,
+            "history_entries": len(read_update_history()),
             "config_drift": config_drift_report(),
         },
     }

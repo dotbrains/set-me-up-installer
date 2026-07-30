@@ -68,7 +68,7 @@ def main():
             if "doctor" in command_args or "--doctor" in command_args:
                 raise SystemExit(print_update_policy_doctor(json_output=json_output))
             if "--check" in command_args or "--report" in command_args:
-                print_client_update_status(json_output=json_output, ref=ref)
+                print_client_update_status(json_output=json_output, ref=ref, send_report="--report" in command_args)
                 return
             if "--rollback" in command_args:
                 raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)

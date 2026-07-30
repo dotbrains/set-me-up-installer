@@ -11,6 +11,7 @@ import os
 import shlex
 import shutil
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -46,6 +47,7 @@ catalog_registries_path = os.path.join(config_dir, "registries.toml")
 catalog_registry_lock_path = os.path.join(config_dir, "registry.lock")
 update_lock_path = os.path.join(config_dir, "update.lock")
 update_policy_path = os.path.join(config_dir, "update-policy.json")
+update_history_path = os.path.join(config_dir, "update-history.json")
 catalog_cache_path = os.path.join(os.path.expanduser("~"), ".cache", "set-me-up", "catalogs")
 adapter_state_path = os.path.join(config_dir, "adapters")
 adapter_manifest_env_path = os.path.join(adapter_state_path, "manifest.env")

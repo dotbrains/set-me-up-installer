@@ -9,6 +9,8 @@ smu update --check --json
 smu update --report --json
 smu update baseline
 smu update policy --set-ref stable --require-signed --validate --json
+smu update policy --report-url https://updates.example.com/smu
+smu update policy --min-interval-seconds 3600 --backoff-seconds 900
 smu update doctor --json
 smu update --yes --json --validate
 smu update --ref stable --require-signed --validate
@@ -20,16 +22,20 @@ State files:
 
 - `~/.config/set-me-up/update.lock`
 - `~/.config/set-me-up/update-policy.json`
+- `~/.config/set-me-up/update-history.json`
 - `~/.config/set-me-up/state/ledger.json`
 
 The lock records active preset, theme, prompt, requested ref, before/after
 repository SHAs, generated config fingerprints, validation exit code, and update
-actions. The policy file stores durable defaults for ref, signed commits,
-validation, scheduled update intent, and auto-apply intent.
+actions. The history file stores recent update outcomes for audit and retry
+decisions. The policy file stores durable defaults for ref, signed commits,
+validation, scheduled update intent, auto-apply intent, optional HTTPS report
+delivery, retry backoff, rate-limit interval, and history retention.
 
 `smu update --check --json` and `smu update --report --json` include:
 
 - `policy` and `update_policy_path`
+- `policy_errors`, `rate_limit`, and recent `history`
 - `last_update` and `update_lock_path`
 - `repositories`
 - `updates_available`
@@ -41,7 +47,12 @@ supports update locks. It records the current generated config fingerprints
 without pulling or rewriting config, clearing first-run drift.
 
 Use `smu update doctor --json` before enabling unattended updates. It checks
-lockfile, policy, drift, schedule, and signature health.
+lockfile, policy schema, drift, schedule, rate-limit readiness, report hook,
+and signature health.
+
+When `report_url` is configured, `smu update --report --json` and completed
+updates POST their JSON payload to that endpoint. Report delivery failures are
+recorded in the payload and history but do not fail the local update.
 
 Scheduled jobs should run check/report first, then apply with
 `smu update --yes --json --validate` only when policy allows it.

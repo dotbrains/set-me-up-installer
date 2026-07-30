@@ -32,8 +32,12 @@ def client_update_status(ref=None):
     return {
         "update_lock_path": update_lock_path,
         "update_policy_path": update_policy_path,
+        "update_history_path": update_history_path,
         "last_update": read_update_lock(),
+        "history": read_update_history()[-5:],
         "policy": policy,
+        "policy_errors": validate_update_policy(),
+        "rate_limit": update_rate_limit_status(policy),
         "ref": ref,
         "theme": current_theme(),
         "prompt": current_prompt(),
@@ -73,16 +77,49 @@ def client_update_baseline(json_output=False):
     return 0
 
 
+def _clearable_option(argv, name):
+    value = _option_value(argv, name)
+    if value is None:
+        return None, False
+    return None if value in ("", "none", "null") else value, True
+
+
+def _int_option(argv, name):
+    value = _option_value(argv, name)
+    if value is None:
+        return None, False
+    try:
+        return int(value), True
+    except ValueError:
+        die(f"{name} must be an integer.")
+
+
 def update_policy_from_args(argv):
     policy = read_update_policy()
-    ref = _option_value(argv, "--set-ref")
-    schedule = _option_value(argv, "--schedule")
+    ref, has_ref = _clearable_option(argv, "--set-ref")
+    schedule, has_schedule = _clearable_option(argv, "--schedule")
+    report_url, has_report_url = _clearable_option(argv, "--report-url")
+    min_interval, has_min_interval = _int_option(argv, "--min-interval-seconds")
+    backoff, has_backoff = _int_option(argv, "--backoff-seconds")
+    history_limit, has_history_limit = _int_option(argv, "--history-limit")
     changed = False
-    if ref is not None:
-        policy["ref"] = None if ref in ("", "none", "null") else ref
+    if has_ref:
+        policy["ref"] = ref
         changed = True
-    if schedule is not None:
-        policy["schedule"] = None if schedule in ("", "none", "null") else schedule
+    if has_schedule:
+        policy["schedule"] = schedule
+        changed = True
+    if has_report_url:
+        policy["report_url"] = report_url
+        changed = True
+    if has_min_interval:
+        policy["min_interval_seconds"] = min_interval
+        changed = True
+    if has_backoff:
+        policy["backoff_seconds"] = backoff
+        changed = True
+    if has_history_limit:
+        policy["history_limit"] = history_limit
         changed = True
     flag_pairs = (
         ("--require-signed", "--no-require-signed", "require_signed"),
@@ -111,11 +148,15 @@ def print_update_policy(argv, json_output=False):
 def update_policy_doctor():
     policy = read_update_policy()
     report = client_update_status(ref=policy.get("ref"))
+    policy_errors = validate_update_policy()
     checks = []
     checks.append({"name": "policy", "status": "present" if os.path.exists(update_policy_path) else "default"})
+    checks.append({"name": "policy_schema", "status": "failed" if policy_errors else "passed", "errors": policy_errors})
     checks.append({"name": "lockfile", "status": "present" if os.path.exists(update_lock_path) else "missing"})
     checks.append({"name": "config_drift", "status": "failed" if report["config_drift"]["drifted"] else "passed"})
     checks.append({"name": "schedule", "status": "configured" if policy.get("schedule") else "manual"})
+    checks.append({"name": "rate_limit", **report["rate_limit"]})
+    checks.append({"name": "report_hook", "status": "configured" if policy.get("report_url") else "disabled"})
     if policy.get("require_signed"):
         unsigned = [repo for repo in report["repositories"] if repo["signature"] != "verified"]
         checks.append({"name": "signatures", "status": "failed" if unsigned else "passed", "repositories": unsigned})
@@ -154,8 +195,28 @@ def checkout_client_update_ref(ref):
     return results
 
 
-def print_client_update_status(json_output=False, ref=None):
+def post_update_report(payload, policy=None):
+    policy = policy or read_update_policy()
+    report_url = policy.get("report_url")
+    if not report_url:
+        return {"status": "disabled"}
+    try:
+        request = urllib.request.Request(
+            report_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return {"status": "sent", "code": response.status}
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError) as e:
+        return {"status": "failed", "error": str(e)}
+
+
+def print_client_update_status(json_output=False, ref=None, send_report=False):
     status = client_update_status(ref=ref)
+    if send_report:
+        status["report_delivery"] = post_update_report(status, status["policy"])
     if json_output:
         print(json.dumps(status, indent=2, sort_keys=True))
         return
@@ -240,6 +301,7 @@ def client_update(dry_run=False, json_output=False, validate=False, self_update_
     report["ref_results"] = checkout_client_update_ref(ref)
     if any(result["status"] == "failed" for result in report["ref_results"]):
         report["exit_code"] = 1
+        report["report_delivery"] = post_update_report(report, policy)
         write_update_lock(report)
         if json_output:
             print(json.dumps(report, indent=2, sort_keys=True))
@@ -253,6 +315,7 @@ def client_update(dry_run=False, json_output=False, validate=False, self_update_
     if signature_failures:
         report["signature_failures"] = signature_failures
         report["exit_code"] = 1
+        report["report_delivery"] = post_update_report(report, policy)
         write_update_lock(report)
         if json_output:
             print(json.dumps(report, indent=2, sort_keys=True))
@@ -268,6 +331,7 @@ def client_update(dry_run=False, json_output=False, validate=False, self_update_
     report["repositories"] = report["after"]
     report["generated_config"] = generated_config_fingerprints()
     report["exit_code"] = exit_code
+    report["report_delivery"] = post_update_report(report, policy)
     write_update_lock(report)
     record_state_event("client_update", snapshots)
 
