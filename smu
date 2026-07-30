@@ -70,6 +70,19 @@ install_brew() {
 
 }
 
+is_setup_profile_command() {
+	[[ "${1:-}" = "--setup-profile" ]]
+}
+
+run_python_smu() {
+	if [ ! -f "${smu_home_dir}/set-me-up-installer/smu.py" ]; then
+		error "'smu.py' does not exist."
+		exit 1
+	fi
+
+	python3 "${smu_home_dir}"/set-me-up-installer/smu.py "$@"
+}
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 main() {
@@ -91,6 +104,15 @@ main() {
 	success "Detected 'set-me-up' version: ${bold}${SMU_OS}${normal}."
 
 	printf "\n"
+
+	if is_setup_profile_command "$@"; then
+		if ! cmd_exists "python3"; then
+			error "'python3' is required to run setup profiles."
+			exit 1
+		fi
+		run_python_smu "$@"
+		return
+	fi
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -160,13 +182,6 @@ main() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Check that the 'smu.py' script exists
-	if [ ! -f "${smu_home_dir}/set-me-up-installer/smu.py" ]; then
-		error "'smu.py' does not exist."
-		exit 1
-	fi
-
-	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 	# Pull the latest changes from the 'set-me-up-installer' repository
 
 	git -C "${smu_home_dir}"/set-me-up-installer pull origin main --quiet
@@ -174,7 +189,7 @@ main() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	printf "\n"
-	python3 "${smu_home_dir}"/set-me-up-installer/smu.py "$@"
+	run_python_smu "$@"
 
 }
 
