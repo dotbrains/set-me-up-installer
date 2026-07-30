@@ -11,9 +11,9 @@ python_bin="${PYTHON:-python3}"
 python_checks() {
     "$python_bin" scripts/check_file_sizes.py
     "$python_bin" scripts/check_flat_directories.py
-    "$python_bin" -m py_compile \
-        smu.py smu_parts/*.py tests/*.py \
-        scripts/check_file_sizes.py scripts/check_flat_directories.py
+    find smu.py smu_parts tests scripts/check_file_sizes.py scripts/check_flat_directories.py \
+        -type f -name "*.py" -print0 |
+        xargs -0 "$python_bin" -m py_compile
     "$python_bin" -m unittest discover -s tests -t . -v
 
     if "$python_bin" -m pytest --version >/dev/null 2>&1; then
