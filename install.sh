@@ -165,7 +165,7 @@ function update_selected_submodules() {
 		return 0
 	fi
 
-	git -C "${SMU_HOME_DIR}" submodule update --init --recursive -- "${paths[@]}"
+	git -C "${SMU_HOME_DIR}" submodule update --init --recursive --depth 1 -- "${paths[@]}"
 }
 
 function has_untracked_changes() {
@@ -347,7 +347,7 @@ function obtain() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	# Otherwise, clone the repository and update selected submodules.
-	git clone --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
+	git clone --depth 1 --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
 	update_selected_submodules
 }
 
