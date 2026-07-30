@@ -153,6 +153,33 @@ def read_update_lock():
     return data if isinstance(data, dict) else {}
 
 
+def default_update_policy():
+    return {
+        "ref": None,
+        "require_signed": False,
+        "validate": False,
+        "auto_apply": False,
+        "schedule": None,
+    }
+
+
+def read_update_policy():
+    policy = default_update_policy()
+    data = _read_json_file(update_policy_path, {})
+    if isinstance(data, dict):
+        for key in policy:
+            if key in data:
+                policy[key] = data[key]
+    return policy
+
+
+def write_update_policy(policy):
+    merged = default_update_policy()
+    merged.update({key: policy[key] for key in merged if key in policy})
+    write_json_file(update_policy_path, merged)
+    return merged
+
+
 def write_update_lock(report):
     lock = {
         "updated_at": _utc_timestamp(),
@@ -306,6 +333,8 @@ def status_report(search=None, show_all=False, verbose=False):
         "updates": {
             "path": update_lock_path,
             "last": read_update_lock(),
+            "policy_path": update_policy_path,
+            "policy": read_update_policy(),
             "config_drift": config_drift_report(),
         },
     }

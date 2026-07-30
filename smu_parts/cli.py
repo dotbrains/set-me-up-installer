@@ -61,6 +61,12 @@ def main():
             yes = "--yes" in command_args or "-y" in command_args
             ref = _option_value(command_args, "--ref")
             require_signed = "--require-signed" in command_args
+            if "baseline" in command_args or "--baseline" in command_args:
+                raise SystemExit(client_update_baseline(json_output=json_output))
+            if "policy" in command_args or "--policy" in command_args:
+                raise SystemExit(print_update_policy(command_args, json_output=json_output))
+            if "doctor" in command_args or "--doctor" in command_args:
+                raise SystemExit(print_update_policy_doctor(json_output=json_output))
             if "--check" in command_args or "--report" in command_args:
                 print_client_update_status(json_output=json_output, ref=ref)
                 return

@@ -26,11 +26,14 @@ def client_update_repository_status():
 
 
 def client_update_status(ref=None):
+    policy = read_update_policy()
     repositories = client_update_repository_status()
     drift = config_drift_report()
     return {
         "update_lock_path": update_lock_path,
+        "update_policy_path": update_policy_path,
         "last_update": read_update_lock(),
+        "policy": policy,
         "ref": ref,
         "theme": current_theme(),
         "prompt": current_prompt(),
@@ -39,6 +42,94 @@ def client_update_status(ref=None):
         "updates_available": any(repo["status"] == "behind" for repo in repositories),
         "config_drift": drift,
     }
+
+
+def print_client_update_payload(payload, json_output=False):
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    for key, value in payload.items():
+        if isinstance(value, (str, int, bool)) or value is None:
+            print(f"{key}\t{value}")
+
+
+def client_update_baseline(json_output=False):
+    report = {
+        "baseline": True,
+        "actions": ["baseline"],
+        "theme": current_theme(),
+        "prompt": current_prompt(),
+        "preset": current_preset(),
+        "ref": read_update_policy().get("ref"),
+        "self_update": False,
+        "validate": False,
+        "exit_code": 0,
+        "repositories": client_update_repository_status(),
+        "generated_config": generated_config_fingerprints(),
+    }
+    lock = write_update_lock(report)
+    payload = {"update_lock": lock, "config_drift": config_drift_report()}
+    print_client_update_payload(payload, json_output=json_output)
+    return 0
+
+
+def update_policy_from_args(argv):
+    policy = read_update_policy()
+    ref = _option_value(argv, "--set-ref")
+    schedule = _option_value(argv, "--schedule")
+    changed = False
+    if ref is not None:
+        policy["ref"] = None if ref in ("", "none", "null") else ref
+        changed = True
+    if schedule is not None:
+        policy["schedule"] = None if schedule in ("", "none", "null") else schedule
+        changed = True
+    flag_pairs = (
+        ("--require-signed", "--no-require-signed", "require_signed"),
+        ("--auto-apply", "--no-auto-apply", "auto_apply"),
+        ("--validate", "--no-validate", "validate"),
+    )
+    for enabled, disabled, key in flag_pairs:
+        if enabled in argv:
+            policy[key] = True
+            changed = True
+        if disabled in argv:
+            policy[key] = False
+            changed = True
+    if changed:
+        write_update_policy(policy)
+    return policy
+
+
+def print_update_policy(argv, json_output=False):
+    policy = update_policy_from_args(argv)
+    payload = {"path": update_policy_path, "policy": policy}
+    print_client_update_payload(payload, json_output=json_output)
+    return 0
+
+
+def update_policy_doctor():
+    policy = read_update_policy()
+    report = client_update_status(ref=policy.get("ref"))
+    checks = []
+    checks.append({"name": "policy", "status": "present" if os.path.exists(update_policy_path) else "default"})
+    checks.append({"name": "lockfile", "status": "present" if os.path.exists(update_lock_path) else "missing"})
+    checks.append({"name": "config_drift", "status": "failed" if report["config_drift"]["drifted"] else "passed"})
+    checks.append({"name": "schedule", "status": "configured" if policy.get("schedule") else "manual"})
+    if policy.get("require_signed"):
+        unsigned = [repo for repo in report["repositories"] if repo["signature"] != "verified"]
+        checks.append({"name": "signatures", "status": "failed" if unsigned else "passed", "repositories": unsigned})
+    return {"policy": policy, "report": report, "checks": checks}
+
+
+def print_update_policy_doctor(json_output=False):
+    payload = update_policy_doctor()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for check in payload["checks"]:
+            print(f"{check['status']}\t{check['name']}")
+    return 1 if any(check["status"] == "failed" for check in payload["checks"]) else 0
 
 
 def checkout_client_update_ref(ref):
@@ -116,6 +207,10 @@ def collapse_materialize_event():
 
 
 def client_update(dry_run=False, json_output=False, validate=False, self_update_requested=False, ref=None, yes=False, require_signed=False):
+    policy = read_update_policy()
+    ref = ref if ref is not None else policy.get("ref")
+    validate = validate or bool(policy.get("validate"))
+    require_signed = require_signed or bool(policy.get("require_signed"))
     before = client_update_repository_status()
     drift = config_drift_report()
     plan = client_update_plan(

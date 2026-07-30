@@ -299,9 +299,9 @@ needs newer config, theme, prompt, and adapter files:
 smu update --check
 smu update --check --json
 smu update --report --json
-smu update --dry-run
-smu update --dry-run --json
-smu update --validate
+smu update baseline
+smu update policy --set-ref stable --require-signed --validate --json
+smu update doctor --json
 smu update --yes --json --validate
 smu update --ref stable --validate
 smu update --ref stable --require-signed --validate
@@ -315,36 +315,8 @@ generated adapters for the active theme and prompt, and optionally runs
 before refreshing config. Add `--ref <branch|tag|sha>` when the client should
 checkout a specific branch, tag, or commit before refreshing generated config.
 
-Each applied update writes a machine-readable lockfile:
-
-```text
-~/.config/set-me-up/update.lock
-```
-
-The lock records the active preset, theme, prompt, requested ref, before/after
-repository SHAs, generated config fingerprints, validation exit code, and update
-actions. Use `smu status --json` or `smu update --check --json` from cron,
-launchd, systemd, or an agent to decide whether a client is behind, whether
-generated config has drifted since the last applied update, and what changed
-last.
-`smu update --rollback` delegates to the normal state ledger rollback and
-restores the previous resolved profile, adapter manifests, and materialized
-adapter targets from the last client update.
-
-`smu update --check --json` includes a `config_drift` object. A drift item means
-a generated file was changed, removed, or is not represented in the last update
-lock. Treat that as a review signal before unattended updates.
-
-Use `smu update --report --json` as the stable fleet-reporting shape for
-inventory collection. It emits the same repository, lockfile, signature, and
-drift fields as `--check --json` without applying changes. Scheduled update
-jobs should run the check/report command first, then apply with
-`smu update --yes --json --validate` only when policy allows it.
-
-`--require-signed` verifies the checked-out `HEAD` commit in each managed repo
-with local Git trust settings before generated config is rewritten. Unsigned or
-untrusted commits stop the update and write the failed attempt to the update
-lock for audit.
+See [Client update operations](docs/client-updates.md) for lockfile, policy,
+drift, scheduler, signed-ref, and fleet-report details.
 
 ## Uninstalling modules
 

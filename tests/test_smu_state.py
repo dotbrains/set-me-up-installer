@@ -129,6 +129,7 @@ class TestSmuState(unittest.TestCase):
                 report = smu.status_report()
 
             self.assertEqual(report["updates"]["last"]["theme"], "nord")
+            self.assertEqual(report["updates"]["policy"]["ref"], None)
             self.assertFalse(report["updates"]["config_drift"]["drifted"])
 
     def test_status_subcommand_supports_json(self):
@@ -212,6 +213,70 @@ class TestSmuState(unittest.TestCase):
         self.assertEqual(payload["theme"], "nord")
         self.assertFalse(payload["updates_available"])
 
+    def test_update_baseline_writes_current_fingerprints(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            generated = os.path.join(tempdir, "resolved.env")
+            lock_path = os.path.join(tempdir, "update.lock")
+            with open(generated, "w") as f:
+                f.write("current")
+
+            with patch.object(smu, "update_lock_path", lock_path), \
+                    patch.object(smu, "generated_config_paths", return_value=[generated]), \
+                    patch.object(smu, "client_update_repository_status", return_value=[]), \
+                    patch.object(smu, "current_theme", return_value="nord"), \
+                    patch.object(smu, "current_prompt", return_value="classic"), \
+                    patch.object(smu, "current_preset", return_value="default"), \
+                    patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()):
+                exit_code = smu.client_update_baseline(json_output=False)
+                drifted = smu.config_drift_report()["drifted"]
+
+            self.assertEqual(exit_code, 0)
+            self.assertFalse(drifted)
+
+    def test_update_policy_command_persists_policy(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            policy_path = os.path.join(tempdir, "update-policy.json")
+            with patch.object(smu, "update_policy_path", policy_path), \
+                    patch.object(smu, "sys") as mock_sys:
+                mock_sys.argv = [
+                    "smu.py", "update", "policy", "--set-ref", "stable",
+                    "--require-signed", "--validate", "--json",
+                ]
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    with self.assertRaises(SystemExit) as raised:
+                        smu.main()
+
+            payload = json.loads(buf.getvalue())
+            self.assertEqual(raised.exception.code, 0)
+            self.assertEqual(payload["policy"]["ref"], "stable")
+            self.assertTrue(payload["policy"]["require_signed"])
+            self.assertTrue(payload["policy"]["validate"])
+
+    def test_update_policy_json_is_read_only(self):
+        with patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
+                patch.object(smu, "write_update_policy") as write_policy:
+            policy = smu.update_policy_from_args(["policy", "--json"])
+
+        self.assertEqual(policy["ref"], None)
+        write_policy.assert_not_called()
+
+    def test_update_doctor_reports_policy_health(self):
+        with patch.object(smu, "update_policy_doctor", return_value={
+                "policy": {},
+                "report": {},
+                "checks": [{"name": "config_drift", "status": "passed"}],
+        }), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "update", "doctor", "--json"]
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as raised:
+                    smu.main()
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(json.loads(buf.getvalue())["checks"][0]["status"], "passed")
+
     def test_config_drift_report_detects_changed_generated_file(self):
         with tempfile.TemporaryDirectory() as tempdir:
             generated = os.path.join(tempdir, "resolved.env")
@@ -238,6 +303,7 @@ class TestSmuState(unittest.TestCase):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
                 patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
                 patch.object(smu, "client_update_repository_status", side_effect=[[], []]), \
                 patch.object(smu, "self_update") as self_update, \
                 patch.object(smu, "update_submodules") as update_submodules, \
@@ -264,6 +330,7 @@ class TestSmuState(unittest.TestCase):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
                 patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
                 patch.object(smu, "client_update_repository_status", side_effect=[[], []]), \
                 patch.object(smu, "self_update") as self_update, \
                 patch.object(smu, "update_submodules"), \
@@ -280,6 +347,7 @@ class TestSmuState(unittest.TestCase):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
                 patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
                 patch.object(smu, "client_update_repository_status", side_effect=[[], []]), \
                 patch.object(smu, "checkout_client_update_ref", return_value=[{"status": "checked-out"}]) as checkout_ref, \
                 patch.object(smu, "update_submodules"), \
@@ -295,6 +363,7 @@ class TestSmuState(unittest.TestCase):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
                 patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
                 patch.object(smu, "client_update_repository_status", return_value=[]), \
                 patch.object(smu, "checkout_client_update_ref", return_value=[{"status": "failed"}]), \
                 patch.object(smu, "update_submodules") as update_submodules, \
@@ -309,6 +378,7 @@ class TestSmuState(unittest.TestCase):
         with patch.object(smu, "current_theme", return_value="nord"), \
                 patch.object(smu, "current_prompt", return_value="classic"), \
                 patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()), \
                 patch.object(smu, "client_update_repository_status", side_effect=[
                     [],
                     [{"name": "smu_home", "signature": "unverified"}],
@@ -321,6 +391,33 @@ class TestSmuState(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         update_submodules.assert_not_called()
         write_lock.assert_called_once()
+
+    def test_client_update_uses_policy_defaults(self):
+        with patch.object(smu, "current_theme", return_value="nord"), \
+                patch.object(smu, "current_prompt", return_value="classic"), \
+                patch.object(smu, "current_preset", return_value="default"), \
+                patch.object(smu, "read_update_policy", return_value={
+                    "ref": "stable",
+                    "require_signed": True,
+                    "validate": True,
+                    "auto_apply": False,
+                    "schedule": None,
+                }), \
+                patch.object(smu, "client_update_repository_status", side_effect=[
+                    [], [{"name": "smu_home", "signature": "verified"}], []
+                ]), \
+                patch.object(smu, "checkout_client_update_ref", return_value=[]) as checkout_ref, \
+                patch.object(smu, "update_submodules"), \
+                patch.object(smu, "write_resolved_profile"), \
+                patch.object(smu, "materialize_adapters"), \
+                patch.object(smu, "doctor", return_value=0) as doctor, \
+                patch.object(smu, "write_update_lock"), \
+                patch.object(smu, "record_state_event"):
+            exit_code = smu.client_update()
+
+        self.assertEqual(exit_code, 0)
+        checkout_ref.assert_called_once_with("stable")
+        doctor.assert_called_once_with()
 
     def test_update_rollback_uses_state_ledger(self):
         with patch.object(smu, "rollback_last_state_event", return_value=True) as rollback, \
