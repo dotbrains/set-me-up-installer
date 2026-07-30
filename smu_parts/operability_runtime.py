@@ -56,7 +56,7 @@ HELP_TOPICS = {
         "Generate shell completions for common commands and profile IDs.",
     ],
     "provisioning-adapter": [
-        "smu provisioning-adapter [list|doctor|modules|validate|audit|scaffold|plan|apply] [--json]",
+        "smu provisioning-adapter [list|doctor|modules|validate|audit|bootstrap|scaffold|plan|apply] [--json]",
         "Show, validate, scaffold, plan, or run the selected provisioning engine.",
     ],
     "state prune": [

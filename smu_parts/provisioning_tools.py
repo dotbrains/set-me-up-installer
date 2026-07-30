@@ -1,8 +1,15 @@
 from .core import *
 
 
-def hybrid_module_plan(modules=None, profile=None, nix_adapter=None):
+def hybrid_fallback_allowed():
+    manifest = blueprint_config()
+    value = _manifest_section_value(manifest, "provisioning", "allow_rcm_fallback")
+    return value is not False
+
+
+def hybrid_module_plan(modules=None, profile=None, nix_adapter=None, strict=False):
     nix_adapter = nix_adapter or configured_hybrid_nix_adapter()
+    strict = strict or not hybrid_fallback_allowed()
     modules = tuple(modules or blueprint_profile_modules(profile))
     nix_modules = []
     rcm_modules = []
@@ -13,13 +20,14 @@ def hybrid_module_plan(modules=None, profile=None, nix_adapter=None):
             nix_modules.append(module)
             continue
         fallback = resolve_module_provisioning_adapter(module, DEFAULT_PROVISIONING_ADAPTER)
-        if fallback["state"] == "ready":
+        if not strict and fallback["state"] == "ready":
             rcm_modules.append(module)
         else:
             missing.append(resolution)
     return {
         "adapter": "hybrid",
         "nix_adapter": nix_adapter,
+        "strict": strict,
         "profile": profile or "default",
         "modules": list(modules),
         "nix_modules": nix_modules,
@@ -28,10 +36,14 @@ def hybrid_module_plan(modules=None, profile=None, nix_adapter=None):
     }
 
 
-def apply_hybrid_modules(modules=None, profile=None, json_output=False):
+def apply_hybrid_modules(modules=None, profile=None, json_output=False, strict=False, dry_run=False, action="switch"):
     from .module_lifecycle import provision_modules_batch
 
-    plan = hybrid_module_plan(modules, profile=profile)
+    plan = hybrid_module_plan(modules, profile=profile, strict=strict)
+    if json_output or dry_run:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    if dry_run:
+        return 0 if not plan["missing"] else 1
     if plan["missing"]:
         for entry in plan["missing"]:
             available = ",".join(entry["available_adapters"]) or "<none>"
@@ -43,11 +55,69 @@ def apply_hybrid_modules(modules=None, profile=None, json_output=False):
             plan["nix_modules"],
             profile=profile,
             json_output=json_output,
+            action=action,
         )
         if result != 0:
             return result
     if plan["rcm_modules"]:
         provision_modules_batch(plan["rcm_modules"])
+    return 0
+
+
+def provisioning_adapter_audit(adapter_id=None, profile=None, modules=None, json_output=False, strict=False):
+    adapter_id = adapter_id or configured_provisioning_adapter()
+    modules = list(modules or blueprint_profile_modules(profile))
+    if not modules:
+        modules = [row["name"] for row in module_provisioning_adapter_report(show_all=True)]
+    rows = []
+    for module in modules:
+        resolution = resolve_module_provisioning_adapter(module, adapter_id)
+        rows.append(resolution)
+    summary = {
+        "ready": sum(1 for row in rows if row["state"] == "ready"),
+        "fallback": sum(1 for row in rows if row["state"] == "fallback"),
+        "missing": sum(1 for row in rows if row["state"] in ("missing-adapter", "missing-module")),
+    }
+    payload = {
+        "adapter": adapter_id,
+        "profile": profile or "default",
+        "strict": strict,
+        "summary": summary,
+        "modules": rows,
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"adapter\t{adapter_id}")
+        print(f"profile\t{payload['profile']}")
+        print(f"ready\t{summary['ready']}")
+        print(f"fallback\t{summary['fallback']}")
+        print(f"missing\t{summary['missing']}")
+        for row in rows:
+            available = ",".join(row["available_adapters"]) or "<none>"
+            print(f"{row['state']}\t{row['module']}\t{row['resolved_adapter'] or '-'}\t{available}")
+    if strict and summary["missing"]:
+        return 1
+    return 0
+
+
+def nix_bootstrap_status():
+    return {
+        "nix": subprocess.call("command -v nix >/dev/null 2>&1", shell=True) == 0,
+        "home-manager": subprocess.call("command -v home-manager >/dev/null 2>&1", shell=True) == 0,
+        "darwin-rebuild": subprocess.call("command -v darwin-rebuild >/dev/null 2>&1", shell=True) == 0,
+        "nixos-rebuild": subprocess.call("command -v nixos-rebuild >/dev/null 2>&1", shell=True) == 0,
+    }
+
+
+def print_nix_bootstrap_status(json_output=False):
+    payload = nix_bootstrap_status()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for name, present in payload.items():
+            state = "present" if present else "missing"
+            print(f"{name}\t{state}")
     return 0
 
 
@@ -88,24 +158,38 @@ def validate_module_manifests(json_output=False):
     return 1 if errors else 0
 
 
+def _nix_adapter_template(adapter_id):
+    if adapter_id == "home-manager":
+        return "{ pkgs, ... }:\n\n{\n  home.packages = [ ];\n}\n"
+    return "{ pkgs, ... }:\n\n{\n  environment.systemPackages = [ ];\n}\n"
+
+
 def scaffold_module_adapter(module_name, adapter_id):
-    if adapter_id not in NIX_IMPORT_ADAPTERS:
+    adapter_ids = NIX_IMPORT_ADAPTERS if adapter_id == "all" else (adapter_id,)
+    if any(item not in NIX_IMPORT_ADAPTERS for item in adapter_ids):
         die("Scaffold currently supports home-manager, nix-darwin, and nixos.")
     path = get_module_path(module_name)
     if not path:
         die(f"Unknown module '{module_name}'.")
     module_dir = os.path.dirname(path)
     manifest_path = os.path.join(module_dir, MODULE_MANIFEST)
-    adapter_file = os.path.join(module_dir, f"{adapter_id}.nix")
     if not os.path.exists(manifest_path):
         with open(manifest_path, "w") as f:
             f.write(f'id = "{module_name}"\n')
+    manifest = read_module_manifest_for_dir(module_dir)
+    existing = manifest.get("adapters", {}) if isinstance(manifest.get("adapters", {}), dict) else {}
+    created = []
     with open(manifest_path, "a") as f:
-        f.write(f'\n[adapters.{adapter_id}]\npath = "{adapter_id}.nix"\n')
-    if not os.path.exists(adapter_file):
-        with open(adapter_file, "w") as f:
-            f.write("{ pkgs, ... }:\n\n{\n  home.packages = [ ];\n}\n")
-    print(adapter_file)
+        for item in adapter_ids:
+            adapter_file = os.path.join(module_dir, f"{item}.nix")
+            if item not in existing:
+                f.write(f'\n[adapters.{item}]\npath = "{item}.nix"\n')
+            if not os.path.exists(adapter_file):
+                with open(adapter_file, "w") as adapter_handle:
+                    adapter_handle.write(_nix_adapter_template(item))
+            created.append(adapter_file)
+    for path in created:
+        print(path)
     return 0
 
 

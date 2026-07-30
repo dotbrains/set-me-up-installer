@@ -35,7 +35,9 @@ smu provisioning-adapter doctor --json
 smu provisioning-adapter modules --json
 smu provisioning-adapter validate
 smu provisioning-adapter audit --json
-smu provisioning-adapter scaffold --adapter home-manager -m nushell
+smu provisioning-adapter audit --adapter home-manager --profile default --strict
+smu provisioning-adapter bootstrap --json
+smu provisioning-adapter scaffold --adapter all -m nushell
 smu --diff --provisioning-adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter nix-darwin -m nushell
@@ -44,6 +46,7 @@ smu provisioning-adapter plan --adapter home-manager --profile default
 smu provisioning-adapter plan write --adapter home-manager --profile default
 smu provisioning-adapter plan flake --adapter nixos --profile server
 smu provisioning-adapter apply --adapter home-manager --profile default
+smu provisioning-adapter apply --adapter hybrid --profile default --dry-run --strict
 smu provisioning-adapter apply --adapter home-manager --profile default \
   --action build --dry-run
 smu provisioning-adapter apply --adapter nix-darwin --profile default
@@ -103,6 +106,11 @@ Use `--action build` or `--action test` to avoid switching immediately when the
 underlying Nix tool supports that action. Add `--dry-run` to write the generated
 artifact and print the command without executing it.
 
+Every Nix apply and dry-run writes
+`~/.config/set-me-up/adapters/<adapter>/<profile>.apply.json` with the action,
+command, generated artifact path, and selected modules. Treat that as the audit
+pointer for the last attempted adapter apply.
+
 The `hybrid` adapter chooses the configured Nix adapter first and falls back to
 `rcm` for modules without matching Nix coverage. Configure the Nix side with:
 
@@ -110,4 +118,22 @@ The `hybrid` adapter chooses the configured Nix adapter first and falls back to
 [provisioning]
 adapter = "hybrid"
 nix_adapter = "home-manager"
+allow_rcm_fallback = true
 ```
+
+Set `allow_rcm_fallback = false` or pass `--strict` to make migration audits
+and dry-run applies fail until every selected module has the requested Nix
+adapter.
+
+## Bootstrap Readiness
+
+`smu provisioning-adapter bootstrap --json` reports whether `nix`,
+`home-manager`, `darwin-rebuild`, and `nixos-rebuild` are currently on `PATH`.
+It is intentionally read-only. Install Nix and Home Manager through your chosen
+system policy before running a non-dry-run apply.
+
+## Migration Audits
+
+`smu provisioning-adapter audit --adapter home-manager --profile default`
+prints module-by-module readiness and a summary count. In JSON mode, agents can
+use the same payload to create a migration checklist.

@@ -46,6 +46,10 @@ def nix_import_artifact_path(adapter_id, profile=None):
     return os.path.join(nix_import_state_path(adapter_id), f"{profile or 'default'}.nix")
 
 
+def nix_apply_metadata_path(adapter_id, profile=None):
+    return os.path.join(nix_import_state_path(adapter_id), f"{profile or 'default'}.apply.json")
+
+
 def nix_adapter_host_supported(adapter_id):
     if adapter_id == "home-manager":
         return True
@@ -140,16 +144,20 @@ def apply_nix_import_adapter(adapter_id, modules=None, profile=None, json_output
         _require_nix_apply_command(adapter_id)
     command = nix_action_command(adapter_id, artifact, action)
     _write_nix_import_artifact(plan, artifact)
+    metadata = {
+        "adapter": adapter_id,
+        "action": action,
+        "dry_run": dry_run,
+        "profile": plan["profile"],
+        "modules": plan["modules"],
+        "path": artifact,
+        "command": command,
+    }
+    with open(nix_apply_metadata_path(adapter_id, plan["profile"]), "w") as f:
+        json.dump(metadata, f, indent=2, sort_keys=True)
+        f.write("\n")
     if json_output or dry_run:
-        print(json.dumps({
-            "adapter": adapter_id,
-            "action": action,
-            "dry_run": dry_run,
-            "profile": plan["profile"],
-            "modules": plan["modules"],
-            "path": artifact,
-            "command": command,
-        }, indent=2, sort_keys=True))
+        print(json.dumps(metadata, indent=2, sort_keys=True))
     if dry_run:
         return 0
     return subprocess.run(command).returncode

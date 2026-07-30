@@ -410,6 +410,8 @@ class TestProvisioningAdapters(unittest.TestCase):
                 ["nushell"],
                 profile="server",
                 json_output=True,
+                dry_run=False,
+                action="switch",
             )
 
             self.assertEqual(result, 0)
@@ -418,6 +420,8 @@ class TestProvisioningAdapters(unittest.TestCase):
                 ["nushell"],
                 profile="server",
                 json_output=True,
+                dry_run=False,
+                action="switch",
             )
 
     def test_apply_home_manager_modules_stops_on_missing_coverage(self):

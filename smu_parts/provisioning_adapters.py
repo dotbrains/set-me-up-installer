@@ -289,7 +289,15 @@ def resolve_module_provisioning_adapter(module_name, adapter_id=None):
     }
 
 
-def apply_provisioning_adapter_modules(adapter_id=None, modules=None, profile=None, json_output=False):
+def apply_provisioning_adapter_modules(
+    adapter_id=None,
+    modules=None,
+    profile=None,
+    json_output=False,
+    strict=False,
+    dry_run=False,
+    action="switch",
+):
     from .module_lifecycle import provision_modules_batch
 
     adapter_id = require_available_provisioning_adapter(adapter_id)
@@ -297,9 +305,23 @@ def apply_provisioning_adapter_modules(adapter_id=None, modules=None, profile=No
         provision_modules_batch(modules or blueprint_profile_modules(profile))
         return 0
     if adapter_id in NIX_IMPORT_ADAPTERS:
-        return apply_nix_import_adapter(adapter_id, modules, profile=profile, json_output=json_output)
+        return apply_nix_import_adapter(
+            adapter_id,
+            modules,
+            profile=profile,
+            json_output=json_output,
+            dry_run=dry_run,
+            action=action,
+        )
     if adapter_id == "hybrid":
-        return apply_hybrid_modules(modules, profile=profile, json_output=json_output)
+        return apply_hybrid_modules(
+            modules,
+            profile=profile,
+            json_output=json_output,
+            strict=strict,
+            dry_run=dry_run,
+            action=action,
+        )
     die(f"Provisioning adapter '{adapter_id}' cannot apply modules yet.")
 
 
@@ -320,154 +342,6 @@ def provisioning_module_change_plan(modules, adapter_id=None):
             "available_adapters": resolution["available_adapters"],
         })
     return plan
-
-
-def handle_provisioning_adapter_command(argv):
-    json_output = "--json" in argv
-    show_all = "--all" in argv
-    search = None
-    profile = None
-    action_name = "switch"
-    dry_run = False
-    args = []
-    index = 0
-    while index < len(argv):
-        arg = argv[index]
-        if arg in ("--json", "--all"):
-            index += 1
-            continue
-        if arg == "--dry-run":
-            dry_run = True
-            args.append(arg)
-            index += 1
-            continue
-        if arg == "--action":
-            if index + 1 >= len(argv):
-                die("Usage: smu provisioning-adapter apply --action [build|test|switch]")
-            action_name = argv[index + 1]
-            args.extend((arg, action_name))
-            index += 2
-            continue
-        if arg == "--search":
-            if index + 1 >= len(argv):
-                die("Usage: smu provisioning-adapter modules [--json] [--all] [--search query]")
-            search = argv[index + 1]
-            index += 2
-            continue
-        if arg in ("-m", "--modules"):
-            args.append(arg)
-            index += 1
-            while index < len(argv) and not argv[index].startswith("-"):
-                args.append(argv[index])
-                index += 1
-            continue
-        if arg == "--adapter":
-            if index + 1 >= len(argv):
-                die("Usage: smu provisioning-adapter plan --adapter home-manager -m module [module ...]")
-            args.extend((arg, argv[index + 1]))
-            index += 2
-            continue
-        if arg == "--profile":
-            if index + 1 >= len(argv):
-                die("Usage: smu provisioning-adapter plan --profile name")
-            profile = argv[index + 1]
-            args.extend((arg, profile))
-            index += 2
-            continue
-        args.append(arg)
-        index += 1
-    command = args[0] if args else "list"
-
-    if command == "list":
-        list_provisioning_adapters(json_output=json_output)
-        return 0
-    if command == "doctor":
-        return doctor_provisioning_adapter(json_output=json_output)
-    if command == "modules":
-        list_module_provisioning_adapters(json_output=json_output, search=search, show_all=show_all)
-        return 0
-    if command in ("validate", "audit"):
-        return validate_module_manifests(json_output=json_output)
-    if command == "scaffold":
-        adapter_id = "home-manager"
-        modules = []
-        idx = 1
-        while idx < len(args):
-            if args[idx] == "--adapter":
-                adapter_id = args[idx + 1]
-                idx += 2
-                continue
-            if args[idx] in ("-m", "--modules"):
-                while idx + 1 < len(args) and not args[idx + 1].startswith("-"):
-                    modules.append(args[idx + 1])
-                    idx += 1
-                break
-            idx += 1
-        if len(modules) != 1:
-            die("Usage: smu provisioning-adapter scaffold --adapter <nix-adapter> -m <module>")
-        return scaffold_module_adapter(modules[0], adapter_id)
-    if command == "plan":
-        adapter_id = "home-manager"
-        modules = []
-        write_output = "write" in args
-        flake_output = "flake" in args
-        idx = 1
-        while idx < len(args):
-            if args[idx] in ("write", "flake"):
-                idx += 1
-                continue
-            if args[idx] == "--adapter":
-                adapter_id = args[idx + 1]
-                idx += 2
-                continue
-            if args[idx] in ("-m", "--modules"):
-                while idx + 1 < len(args) and not args[idx + 1].startswith("-"):
-                    modules.append(args[idx + 1])
-                    idx += 1
-                break
-            idx += 1
-        if adapter_id not in NIX_IMPORT_ADAPTERS:
-            die(f"Provisioning adapter '{adapter_id}' does not support Nix import planning.")
-        if not modules:
-            modules = list(blueprint_profile_modules(profile))
-        if not modules:
-            die("Usage: smu provisioning-adapter plan --adapter <nix-adapter> [-m module ...|--profile name] [--json]")
-        if flake_output:
-            return write_nix_flake(adapter_id, modules, profile=profile, json_output=json_output)
-        if write_output:
-            return write_nix_import_plan(adapter_id, modules, profile=profile, json_output=json_output)
-        return print_nix_import_plan(adapter_id, modules, json_output=json_output, profile=profile)
-    if command == "apply":
-        adapter_id = configured_provisioning_adapter()
-        modules = []
-        idx = 1
-        while idx < len(args):
-            if args[idx] == "--adapter":
-                adapter_id = args[idx + 1]
-                idx += 2
-                continue
-            if args[idx] in ("-m", "--modules"):
-                while idx + 1 < len(args) and not args[idx + 1].startswith("-"):
-                    modules.append(args[idx + 1])
-                    idx += 1
-                break
-            idx += 1
-        if not modules:
-            modules = list(blueprint_profile_modules(profile))
-        if not modules:
-            die("Usage: smu provisioning-adapter apply --adapter <adapter> [-m module ...|--profile name] [--json]")
-        if adapter_id in NIX_IMPORT_ADAPTERS:
-            return apply_nix_import_adapter(
-                adapter_id,
-                modules,
-                profile=profile,
-                json_output=json_output,
-                dry_run=dry_run,
-                action=action_name,
-            )
-        return apply_provisioning_adapter_modules(adapter_id, modules, profile=profile, json_output=json_output)
-
-    die("Usage: smu provisioning-adapter [list|doctor|modules|validate|audit|scaffold|plan|apply] [--json]")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
