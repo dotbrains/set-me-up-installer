@@ -36,6 +36,7 @@ smu provisioning-adapter modules --json
 smu provisioning-adapter coverage --json
 smu provisioning-adapter parity --json
 smu provisioning-adapter docs --output provisioning-adapter-coverage.md
+smu provisioning-adapter docs --check --output provisioning-adapter-coverage.md
 smu provisioning-adapter validate
 smu provisioning-adapter profile validate --adapter home-manager \
   --profile default --strict
@@ -44,7 +45,11 @@ smu provisioning-adapter audit --adapter home-manager --profile default --strict
 smu provisioning-adapter bootstrap --json
 smu provisioning-adapter migrate --adapter home-manager \
   --profile default --output migration.md
+smu provisioning-adapter migrate state --adapter home-manager \
+  --profile default --output migration-state.json
+smu provisioning-adapter generate --adapter home-manager -m zsh
 smu provisioning-adapter scaffold --adapter all -m nushell
+smu nix doctor --profile default --json
 smu nix audit --profile default --json
 smu nix init --profile default --json
 smu nix switch --profile default --dry-run --json
@@ -171,9 +176,19 @@ target-only, or missing.
 writes a generated Markdown coverage table. Use it as a checked-in dashboard or
 as a drift check in repository validation.
 
+Pass `--check` to fail when the generated coverage table is missing or stale.
+
 `smu provisioning-adapter migrate --adapter home-manager --profile default
 --output migration.md` writes a markdown checklist with ready modules checked
 off and scaffold commands for missing adapter coverage.
+
+`smu provisioning-adapter migrate state --adapter home-manager --profile
+default --output migration-state.json` writes machine-readable review state for
+each module. Ready modules are marked `accepted`; the rest start as `pending`.
+
+`smu provisioning-adapter generate --adapter home-manager -m zsh` writes a
+starter `home-manager.nix` adapter and updates `module.toml` for the selected
+module.
 
 ## Nix Aliases
 
@@ -188,9 +203,26 @@ smu nix plan --profile default
 smu nix switch --profile default --dry-run
 smu nix migrate --profile default --output migration.md
 smu nix parity --profile default --json
+smu nix generate-adapter -m zsh
 ```
 
-`smu nix init` writes the generated Home Manager import file and companion
-flake in the adapter state directory. `smu nix switch` writes the import file
-and runs `home-manager switch`; use `--dry-run` to preview the command without
-executing it.
+`smu nix doctor --profile default --json` checks the selected profile's module
+coverage, host support, required binaries, and platform policy fields. `smu nix
+init` writes the generated Home Manager import file and companion flake in the
+adapter state directory. `smu nix switch` writes the import file and runs
+`home-manager switch`; use `--dry-run` to preview the command without executing
+it.
+
+## Install Modes
+
+<!-- markdownlint-disable MD013 -->
+
+| Mode | Hosts | Requires root | Apply command |
+| --- | --- | --- | --- |
+| `rcm` | macOS, Debian/Ubuntu, Arch | module-dependent | `smu --provision` |
+| `home-manager` | macOS, Debian/Ubuntu, Arch with Nix | no | `home-manager switch -f <profile>.nix` |
+| `nix-darwin` | macOS with Nix and nix-darwin | yes | `darwin-rebuild switch -I darwin-config=<profile>.nix` |
+| `nixos` | NixOS | yes | `sudo nixos-rebuild switch -I nixos-config=<profile>.nix` |
+| `hybrid` | Any host with selected Nix adapter support | module-dependent | Nix first, then `rcm` fallback |
+
+<!-- markdownlint-enable MD013 -->

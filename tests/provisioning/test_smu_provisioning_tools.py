@@ -18,7 +18,7 @@ class TestProvisioningTools(unittest.TestCase):
             module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
             os.makedirs(module_dir)
             with open(os.path.join(module_dir, "module.toml"), "w") as f:
-                f.write('[adapters.home-manager]\npath = "missing.nix"\n')
+                f.write('id = "nushell"\n[adapters.home-manager]\npath = "missing.nix"\n')
 
             output = io.StringIO()
             with redirect_stdout(output):
@@ -33,7 +33,7 @@ class TestProvisioningTools(unittest.TestCase):
             module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
             os.makedirs(module_dir)
             with open(os.path.join(module_dir, "module.toml"), "w") as f:
-                f.write('[adapters.home-manager]\npath = "home-manager.nix"\n')
+                f.write('id = "nushell"\n[adapters.home-manager]\npath = "home-manager.nix"\n')
             with open(os.path.join(module_dir, "home-manager.nix"), "w"):
                 pass
 
@@ -62,6 +62,19 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(output.getvalue().strip(), flake_path)
             with open(flake_path) as f:
                 self.assertIn('nixosConfigurations."server-one"', f.read())
+
+    def test_validate_module_manifests_rejects_invalid_policy_fields(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('id = "nushell"\n[adapters.home-manager]\n')
+                f.write('path = "home-manager.nix"\nrequires_root = "yes"\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+
+            self.assertEqual(smu.validate_module_manifests(), 1)
 
     def test_apply_nix_import_adapter_dry_run_skips_switch(self):
         with tempfile.TemporaryDirectory() as tempdir, \
@@ -184,6 +197,66 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(result, 0)
             with open(output_path) as f:
                 self.assertIn("| `home-manager` |", f.read())
+
+    def test_nix_profile_doctor_reports_policy_errors(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir), \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")), \
+                patch.object(smu, "macOS", False), \
+                patch.object(smu, "linux", True), \
+                patch.object(smu, "debian", True), \
+                patch.object(smu, "arch", False), \
+                patch("smu.subprocess.call", return_value=1):
+            with open(os.path.join(tempdir, "smu.toml"), "w") as f:
+                f.write('[profile.default]\nmodules = ["nushell"]\n')
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('id = "nushell"\n[adapters.home-manager]\n')
+                f.write('path = "home-manager.nix"\nplatforms = ["macos"]\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                result = smu.nix_profile_doctor(json_output=True, strict=True)
+
+            payload = json.loads(output.getvalue())
+            self.assertEqual(result, 1)
+            self.assertTrue(payload["policy_errors"])
+
+    def test_write_migration_state_tracks_review_status(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")), \
+                patch.object(smu, "adapter_state_path", os.path.join(tempdir, "state")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('id = "nushell"\n[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+
+            result = smu.write_migration_state("home-manager", modules=["nushell"])
+
+            self.assertEqual(result, 0)
+            with open(os.path.join(tempdir, "state", "home-manager-migration-state.json")) as f:
+                payload = json.load(f)
+            self.assertEqual(payload["modules"][0]["review_status"], "accepted")
+
+    def test_generate_home_manager_adapter_writes_manifest_entry(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "zsh")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "zsh.sh"), "w"):
+                pass
+
+            result = smu.generate_home_manager_adapter("zsh")
+
+            self.assertEqual(result, 0)
+            self.assertTrue(os.path.exists(os.path.join(module_dir, "home-manager.nix")))
+            with open(os.path.join(module_dir, "module.toml")) as f:
+                self.assertIn("[adapters.home-manager]", f.read())
 
     def test_print_nix_bootstrap_status_reports_known_binaries(self):
         with patch("smu.subprocess.call", side_effect=[0, 1, 1, 1]):
