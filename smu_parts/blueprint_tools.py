@@ -1,4 +1,5 @@
 from .core import *
+from .blueprint_providers import blueprint_provider_matrix, print_blueprint_provider_matrix
 
 
 BLUEPRINT_MODES = ("rcm", "nix", "hybrid")
@@ -366,12 +367,14 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
             checks.append(_blueprint_ci_check("github-actions-example", rel, exists, "present" if exists else "missing"))
             if not exists:
                 errors.append(f"{rel}: missing")
-        for provider in ("debian-vps", "ubuntu-vps", "arch-vps", "nixos-vps", "digitalocean-droplet", "hetzner-cloud"):
-            rel = os.path.join("examples", "providers", provider, "smu.toml")
-            exists = os.path.exists(os.path.join(root, rel))
-            checks.append(_blueprint_ci_check("provider-example", rel, exists, "present" if exists else "missing"))
-            if not exists:
-                errors.append(f"{rel}: missing")
+        provider_matrix = blueprint_provider_matrix(root)
+        for provider in provider_matrix["providers"]:
+            message = (
+                f"{provider['mode'] or '<missing>'}/"
+                f"{provider['adapter'] or '<missing>'}"
+            )
+            checks.append(_blueprint_ci_check("provider-example", provider["path"], provider["valid"], message))
+        errors.extend(provider_matrix["errors"])
         if check_docs:
             rel = "PROVISIONING-COMPATIBILITY.md"
             doc_path = os.path.join(root, rel)
@@ -428,11 +431,14 @@ def handle_blueprint_command(argv):
     if command == "ci":
         root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
         return blueprint_ci_contract(root=root, json_output=json_output, check_docs=check or "--check-docs" in args)
+    if command == "providers":
+        root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
+        return print_blueprint_provider_matrix(root=root, json_output=json_output)
     if command == "compatibility":
         if check or output_path:
             return write_blueprint_compatibility_docs(output_path=output_path, check=check)
         return print_provisioning_compatibility_matrix(json_output=json_output)
-    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|compatibility] [--json]")
+    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|providers|compatibility] [--json]")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

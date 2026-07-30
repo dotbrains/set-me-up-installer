@@ -394,6 +394,37 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertTrue(payload["valid"])
 
+    def test_blueprint_provider_matrix_reports_expected_modes(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            for provider in ("debian-vps", "ubuntu-vps", "arch-vps", "nixos-vps", "digitalocean-droplet", "hetzner-cloud"):
+                os.makedirs(os.path.join(tempdir, "examples", "providers", provider))
+            for provider in ("debian-vps", "ubuntu-vps", "arch-vps"):
+                with open(os.path.join(tempdir, "examples", "providers", provider, "smu.toml"), "w") as f:
+                    f.write('[provisioning]\nmode = "nix"\nadapter = "home-manager"\n')
+            with open(os.path.join(tempdir, "examples", "providers", "nixos-vps", "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "nix"\nadapter = "nixos"\n')
+            for provider in ("digitalocean-droplet", "hetzner-cloud"):
+                with open(os.path.join(tempdir, "examples", "providers", provider, "smu.toml"), "w") as f:
+                    f.write('[provisioning]\nmode = "hybrid"\nadapter = "hybrid"\nnix_adapter = "home-manager"\n')
+
+            payload = smu.blueprint_provider_matrix(root=tempdir)
+
+            self.assertTrue(payload["valid"])
+            self.assertEqual(len(payload["providers"]), 6)
+            self.assertEqual(payload["providers"][0]["id"], "debian-vps")
+            self.assertEqual(payload["providers"][0]["adapter"], "home-manager")
+
+    def test_blueprint_provider_matrix_rejects_wrong_provider_adapter(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "nixos-vps"))
+            with open(os.path.join(tempdir, "examples", "providers", "nixos-vps", "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "nix"\nadapter = "home-manager"\n')
+
+            payload = smu.blueprint_provider_matrix(root=tempdir)
+
+            self.assertFalse(payload["valid"])
+            self.assertIn("examples/providers/nixos-vps/smu.toml: expected adapter nixos", payload["errors"])
+
     def test_blueprint_ci_contract_rejects_drift(self):
         with tempfile.TemporaryDirectory() as tempdir:
             with open(os.path.join(tempdir, "smu.toml"), "w") as f:

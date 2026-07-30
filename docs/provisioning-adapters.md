@@ -25,6 +25,7 @@ smu blueprint migrate --from rcm --to nix --force --json
 smu blueprint migrate --from rcm --to hybrid --force --json
 smu blueprint schema --output schemas/blueprint.schema.json
 smu blueprint schema --check --output schemas/blueprint.schema.json
+smu blueprint providers --path . --json
 smu blueprint ci --path . --check-docs --json
 smu blueprint compatibility --json
 smu blueprint compatibility --output blueprint-compatibility.md
@@ -54,6 +55,8 @@ configured Nix adapter when possible and falls back to `rcm` for legacy modules.
 contract for blueprint repositories. It validates mode/adapter consistency,
 provider examples, copyable GitHub Actions examples, and the checked-in
 readiness document without requiring `SMU_HOME_DIR` to point at that checkout.
+Use `smu blueprint providers --path <checkout> --json` to inspect the supported
+provider examples as a machine-readable mode and adapter matrix.
 
 Inspect support:
 
