@@ -229,11 +229,15 @@ def catalog_package(manifest_id, output=None, force=False):
     if not copied:
         die(f"No user catalog manifest found for id '{manifest_id}'")
 
-    smu_contract.write_manifest(os.path.join(pack_root, "pack.toml"), {
+    pack_manifest = {
         "schema_version": smu_contract.SUPPORTED_SCHEMA_VERSION,
         "id": manifest_id,
         "name": _display_name(manifest_id),
-    })
+    }
+    publisher = os.getenv("SMU_CATALOG_PUBLISHER")
+    if publisher:
+        pack_manifest["publisher"] = publisher
+    smu_contract.write_manifest(os.path.join(pack_root, "pack.toml"), pack_manifest)
     print(f"{COL_GREEN}OK{COL_RESET}   packaged {len(copied)} file(s) into {pack_root}")
     return 0
 

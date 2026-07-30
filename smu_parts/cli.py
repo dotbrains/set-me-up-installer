@@ -14,6 +14,8 @@ def main():
     if len(sys.argv) > 1:
         command = sys.argv[1]
         command_args = sys.argv[2:]
+        if command in ("init", "bootstrap"):
+            raise SystemExit(bootstrap(command_args))
         if command == "profile":
             handle_profile_command(command_args)
             return
@@ -27,12 +29,16 @@ def main():
             handle_preset_command(command_args)
             return
         if command == "catalog":
+            if command_args and command_args[0] == "trust":
+                raise SystemExit(catalog_trust_command(command_args[1:], json_output="--json" in command_args))
             handle_catalog_command(command_args)
             return
         if command == "adapter":
             handle_adapter_command(command_args)
             return
         if command == "doctor":
+            if "--json" in command_args:
+                raise SystemExit(print_doctor_json())
             raise SystemExit(doctor())
         if command == "status":
             json_output = "--json" in command_args
@@ -52,6 +58,8 @@ def main():
             return
         if command == "rollback":
             dry_run = "--dry-run" in command_args
+            if "--json" in command_args:
+                raise SystemExit(print_rollback_preview(json_output=True))
             raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
         if command == "update":
             dry_run = "--dry-run" in command_args

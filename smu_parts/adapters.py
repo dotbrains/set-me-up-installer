@@ -149,7 +149,19 @@ def _read_adapter_manifest():
         warn(f"Could not read adapter manifest '{adapter_manifest_json_path}': {e}")
     return []
 
-def materialize_adapters(theme=None, prompt=None, dry_run=False):
+def _adapter_target_conflicts(entry):
+    target = entry["target"]
+    if not os.path.lexists(target):
+        return False
+    snapshot = file_snapshot(target)
+    if snapshot.get("type") == "symlink" and snapshot.get("link_target") == entry["source"]:
+        return False
+    source_hash = file_sha256(entry["source"])
+    target_hash = file_sha256(target)
+    return not (source_hash and target_hash and source_hash == target_hash)
+
+
+def materialize_adapters(theme=None, prompt=None, dry_run=False, force=False):
     entries = materializable_adapters(theme, prompt)
     state_items = []
     for entry in entries:
@@ -161,6 +173,8 @@ def materialize_adapters(theme=None, prompt=None, dry_run=False):
             continue
         if not os.path.exists(source):
             die(f"Adapter source does not exist: {source}")
+        if not force and _adapter_target_conflicts(entry):
+            die(f"Adapter target has unmanaged content: {target}. Use --force to overwrite.")
         os.makedirs(os.path.dirname(target), exist_ok=True)
         state_items.append({
             "kind": entry["kind"],
@@ -205,10 +219,11 @@ def handle_adapter_command(argv):
 
     if command == "materialize":
         dry_run = "--dry-run" in argv[1:]
+        force = "--force" in argv[1:]
         positional = [arg for arg in argv[1:] if not arg.startswith("--")]
         theme = positional[0] if len(positional) > 0 else current_theme()
         prompt = positional[1] if len(positional) > 1 else current_prompt()
-        materialize_adapters(theme, prompt, dry_run=dry_run)
+        materialize_adapters(theme, prompt, dry_run=dry_run, force=force)
         return
 
     if command == "install":
@@ -231,7 +246,7 @@ def handle_adapter_command(argv):
         _init_adapter(argv[1], force="--force" in argv[2:])
         return
 
-    die("Usage: smu adapter [list [theme] [prompt]|doctor [theme] [prompt]|materialize [theme] [prompt] [--dry-run]|install [theme] [prompt]|init <id>]")
+    die("Usage: smu adapter [list [theme] [prompt]|doctor [theme] [prompt]|materialize [theme] [prompt] [--dry-run] [--force]|install [theme] [prompt]|init <id>]")
 
 def adapter_doctor(theme=None, prompt=None):
     theme = theme or current_theme()
