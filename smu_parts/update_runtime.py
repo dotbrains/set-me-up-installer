@@ -107,17 +107,77 @@ def update_schedule_payload():
     }
 
 
+def update_schedule_files(payload):
+    smu_path = os.path.join(installer_root, "smu.py")
+    interval = str(max(60, payload.get("min_interval_seconds") or 3600))
+    if sys.platform == "darwin":
+        return [{
+            "path": update_launchd_path,
+            "content": "\n".join([
+                '<?xml version="1.0" encoding="UTF-8"?>',
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+                '<plist version="1.0"><dict>',
+                '<key>Label</key><string>com.dotbrains.smu-update</string>',
+                '<key>ProgramArguments</key><array>',
+                f"<string>{sys.executable}</string><string>{smu_path}</string><string>update</string><string>preflight</string><string>--json</string>",
+                '</array>',
+                f"<key>StartInterval</key><integer>{interval}</integer>",
+                '<key>RunAtLoad</key><true/>',
+                '</dict></plist>',
+                "",
+            ]),
+        }]
+    service_path = os.path.join(update_systemd_dir, "smu-update.service")
+    timer_path = os.path.join(update_systemd_dir, "smu-update.timer")
+    return [
+        {
+            "path": service_path,
+            "content": "\n".join([
+                "[Unit]",
+                "Description=set-me-up client update preflight",
+                "",
+                "[Service]",
+                "Type=oneshot",
+                f"ExecStart={sys.executable} {smu_path} update preflight --json",
+                "",
+            ]),
+        },
+        {
+            "path": timer_path,
+            "content": "\n".join([
+                "[Unit]",
+                "Description=Run set-me-up client update preflight",
+                "",
+                "[Timer]",
+                "OnBootSec=5m",
+                f"OnUnitActiveSec={interval}s",
+                "",
+                "[Install]",
+                "WantedBy=timers.target",
+                "",
+            ]),
+        },
+    ]
+
+
 def update_schedule(action_name, json_output=False):
     payload = update_schedule_payload()
+    files = update_schedule_files(payload)
     if action_name == "install":
         write_json_file(update_schedule_path, payload)
+        for item in files:
+            os.makedirs(os.path.dirname(item["path"]), exist_ok=True)
+            with open(item["path"], "w") as f:
+                f.write(item["content"])
         payload["status"] = "installed"
     elif action_name == "remove":
-        if os.path.exists(update_schedule_path):
-            os.unlink(update_schedule_path)
+        for path in [update_schedule_path, *(item["path"] for item in files)]:
+            if os.path.exists(path):
+                os.unlink(path)
         payload["status"] = "removed"
     else:
         payload["status"] = "installed" if os.path.exists(update_schedule_path) else "missing"
+    payload["scheduler_files"] = [{"path": item["path"], "exists": os.path.exists(item["path"])} for item in files]
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:

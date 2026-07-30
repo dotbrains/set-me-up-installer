@@ -76,8 +76,10 @@ before the preflight passes.
 Scheduled jobs should run check/report first, then apply with
 `smu update --yes --json --validate` only when policy allows it.
 `smu update schedule install` writes the scheduler payload to
-`~/.config/set-me-up/update-schedule.json`; platform-specific launchd/systemd
-wrappers can consume that file without duplicating policy parsing.
+`~/.config/set-me-up/update-schedule.json` and generates a launchd plist on
+macOS or systemd user service/timer files on Linux. It does not enable those
+files globally; users or fleet tooling can install them using the platform's
+normal user-service commands.
 
 `--require-signed` verifies checked-out `HEAD` in each managed repo with local
 Git trust settings before generated config is rewritten. Unsigned or untrusted

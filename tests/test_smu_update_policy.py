@@ -117,12 +117,17 @@ class TestSmuUpdatePolicy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tempdir:
             schedule_path = os.path.join(tempdir, "update-schedule.json")
             with patch.object(smu, "update_schedule_path", schedule_path), \
+                    patch.object(smu, "update_launchd_path", os.path.join(tempdir, "launchd.plist")), \
+                    patch.object(smu, "update_systemd_dir", os.path.join(tempdir, "systemd")), \
                     patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()):
                 smu.update_schedule("install", json_output=False)
                 with open(schedule_path) as f:
                     payload = json.load(f)
+                generated = [item["path"] for item in smu.update_schedule_files(payload)]
+                generated_exists = any(os.path.exists(path) for path in generated)
 
-        self.assertIn("preflight", payload["command"])
+            self.assertIn("preflight", payload["command"])
+            self.assertTrue(generated_exists)
 
     def test_repo_rollback_checks_out_previous_refs(self):
         with patch.object(smu, "read_update_lock", return_value={
