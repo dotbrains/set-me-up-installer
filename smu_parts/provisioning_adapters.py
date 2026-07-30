@@ -7,22 +7,57 @@ PROVISIONING_ADAPTERS = {
     "rcm": {
         "summary": "Current rcm-based dotfile and module provisioning",
         "status": "available",
+        "mode": "rcm",
+        "engine": "rcm",
+        "uses_nix": False,
+        "scope": "user",
+        "host_families": ["macos", "debian", "ubuntu", "arch", "linux"],
+        "supports_fallback": False,
+        "requires_nix": False,
     },
     "home-manager": {
         "summary": "Nix package manager plus Home Manager user provisioning",
         "status": "available",
+        "mode": "nix",
+        "engine": "home-manager",
+        "uses_nix": True,
+        "scope": "user",
+        "host_families": ["macos", "debian", "ubuntu", "arch", "linux"],
+        "supports_fallback": False,
+        "requires_nix": True,
     },
     "nix-darwin": {
         "summary": "macOS provisioning through nix-darwin",
         "status": "available",
+        "mode": "nix",
+        "engine": "nix-darwin",
+        "uses_nix": True,
+        "scope": "system",
+        "host_families": ["macos"],
+        "supports_fallback": False,
+        "requires_nix": True,
     },
     "nixos": {
         "summary": "Full NixOS host provisioning",
         "status": "available",
+        "mode": "nix",
+        "engine": "nixos",
+        "uses_nix": True,
+        "scope": "system",
+        "host_families": ["nixos"],
+        "supports_fallback": False,
+        "requires_nix": True,
     },
     "hybrid": {
         "summary": "Nix-first provisioning with rcm fallback",
         "status": "available",
+        "mode": "hybrid",
+        "engine": "home-manager",
+        "uses_nix": True,
+        "scope": "user",
+        "host_families": ["macos", "debian", "ubuntu", "arch", "linux"],
+        "supports_fallback": True,
+        "requires_nix": True,
     },
 }
 
@@ -164,6 +199,31 @@ def list_provisioning_adapters(json_output=False):
     for entry in entries:
         marker = "*" if entry["current"] else " "
         print(f"{marker} {entry['id']}\t{entry['status']}\t{entry['summary']}")
+
+
+def provisioning_adapter_capabilities():
+    adapters = []
+    for adapter_id, adapter in PROVISIONING_ADAPTERS.items():
+        entry = {"id": adapter_id}
+        entry.update(adapter)
+        adapters.append(entry)
+    return {"adapters": adapters}
+
+
+def print_provisioning_adapter_capabilities(json_output=False):
+    payload = provisioning_adapter_capabilities()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print("adapter\tmode\tengine\tscope\trequires_nix\tfallback\thost_families")
+        for adapter in payload["adapters"]:
+            print(
+                f"{adapter['id']}\t{adapter['mode']}\t{adapter['engine']}\t"
+                f"{adapter['scope']}\t{str(adapter['requires_nix']).lower()}\t"
+                f"{str(adapter['supports_fallback']).lower()}\t"
+                f"{','.join(adapter['host_families'])}"
+            )
+    return 0
 
 
 def doctor_provisioning_adapter(json_output=False):

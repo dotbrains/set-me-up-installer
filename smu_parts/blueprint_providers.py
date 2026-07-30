@@ -1,4 +1,5 @@
 from .core import *
+from .provisioning_adapters import PROVISIONING_ADAPTERS
 
 
 BLUEPRINT_PROVIDER_EXAMPLES = {
@@ -67,6 +68,7 @@ def blueprint_provider_matrix(root=None):
             provider_errors.append(f"expected nix_adapter {expected['nix_adapter']}")
         if exists and not expected["nix_adapter"] and nix_adapter:
             provider_errors.append("nix_adapter is only valid for hybrid examples")
+        capability = PROVISIONING_ADAPTERS.get(adapter or expected["adapter"], {})
         errors.extend(f"{rel}: {error}" for error in provider_errors)
         providers.append({
             "id": provider,
@@ -78,6 +80,7 @@ def blueprint_provider_matrix(root=None):
             "expected_mode": expected["mode"],
             "expected_adapter": expected["adapter"],
             "expected_nix_adapter": expected["nix_adapter"],
+            "capability": capability,
             "valid": not provider_errors,
         })
     return {

@@ -95,6 +95,19 @@ class TestProvisioningAdapters(unittest.TestCase):
             current = [item for item in payload["adapters"] if item["current"]]
             self.assertEqual(current[0]["id"], "nixos")
 
+    def test_provisioning_adapter_capabilities_describe_modes(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = smu.print_provisioning_adapter_capabilities(json_output=True)
+
+        payload = json.loads(output.getvalue())
+        by_id = {item["id"]: item for item in payload["adapters"]}
+        self.assertEqual(result, 0)
+        self.assertFalse(by_id["rcm"]["requires_nix"])
+        self.assertEqual(by_id["home-manager"]["mode"], "nix")
+        self.assertEqual(by_id["nixos"]["scope"], "system")
+        self.assertTrue(by_id["hybrid"]["supports_fallback"])
+
     def test_doctor_reports_unsupported_host(self):
         with tempfile.TemporaryDirectory() as tempdir, \
                 patch.object(smu, "smu_home_dir", tempdir), \

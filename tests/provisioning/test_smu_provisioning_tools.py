@@ -413,6 +413,8 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(len(payload["providers"]), 6)
             self.assertEqual(payload["providers"][0]["id"], "debian-vps")
             self.assertEqual(payload["providers"][0]["adapter"], "home-manager")
+            self.assertEqual(payload["providers"][0]["capability"]["mode"], "nix")
+            self.assertTrue(payload["providers"][0]["capability"]["requires_nix"])
 
     def test_blueprint_provider_matrix_rejects_wrong_provider_adapter(self):
         with tempfile.TemporaryDirectory() as tempdir:

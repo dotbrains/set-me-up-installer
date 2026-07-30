@@ -57,6 +57,7 @@ provider examples, copyable GitHub Actions examples, and the checked-in
 readiness document without requiring `SMU_HOME_DIR` to point at that checkout.
 Use `smu blueprint providers --path <checkout> --json` to inspect the supported
 provider examples as a machine-readable mode and adapter matrix.
+Each provider row includes the selected adapter capability contract.
 
 Inspect support:
 
@@ -65,6 +66,7 @@ smu provisioning-adapter list
 smu provisioning-adapter doctor --json
 smu provisioning-adapter modules --json
 smu provisioning-adapter coverage --json
+smu provisioning-adapter capabilities --json
 smu provisioning-adapter parity --json
 smu provisioning-adapter docs --output provisioning-adapter-coverage.md
 smu provisioning-adapter docs --check --output provisioning-adapter-coverage.md
@@ -102,6 +104,11 @@ smu provisioning-adapter apply --adapter nix-darwin --profile default
 smu provisioning-adapter apply --adapter nixos --profile server
 smu --provision --provisioning-adapter home-manager -m editor/nvim
 ```
+
+`smu provisioning-adapter capabilities --json` is the stable machine-readable
+contract for choosing between `rcm`, `home-manager`, `nix-darwin`, `nixos`, and
+`hybrid`. It records the adapter mode, engine, scope, host families, Nix
+requirement, and fallback behavior.
 
 Module directories can publish adapter implementations with `module.toml`:
 

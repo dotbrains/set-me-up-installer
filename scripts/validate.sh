@@ -42,6 +42,7 @@ cli_smoke() {
     printf 'id = "ci-shell"\n\n[adapters.home-manager]\npath = "home-manager.nix"\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
     printf '{ ... }:\n\n{\n}\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter validate
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter capabilities --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter coverage --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter parity --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --output "$tmp_home/coverage.md"
