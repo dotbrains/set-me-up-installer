@@ -137,6 +137,9 @@ smu -l --search hyper
 smu -l --search python --all
 ```
 
+For a headless Ubuntu/Debian VPS, use the `vps` setup profile documented in
+[docs/vps.md](docs/vps.md).
+
 ### Interactive picker (fzf)
 
 For a faster workflow, use `-i` / `--interactive` to launch an
@@ -482,11 +485,6 @@ scripts/validate.sh --all
 `SMU_BLUEPRINT` and `SMU_BLUEPRINT_BRANCH` are seeded with the same placeholder
 values the CI workflow uses. Export your own before `flox activate` to test
 against a real blueprint.
-
-## Liability
-
-The creator of this repo is *not responsible* if your machine ends up in a
-state you are not happy with.
 
 ## Contributions
 

@@ -31,6 +31,7 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
 readonly SMU_INSTALLER_REF=${SMU_INSTALLER_REF:-"main"}
 readonly SMU_INSTALLER_URL=${SMU_INSTALLER_URL:-"https://raw.githubusercontent.com/dotbrains/set-me-up-installer/${SMU_INSTALLER_REF}/install.sh"}
+readonly SMU_SUBMODULE_SCOPE=${SMU_SUBMODULE_SCOPE:-"all"}
 
 readonly smu_download="https://github.com/${SMU_BLUEPRINT}"
 
@@ -126,6 +127,45 @@ function has_submodules() {
 
 function has_active_submodules() {
 	git -C "${SMU_HOME_DIR}" config --list | grep -qE '^submodule' 2>/dev/null
+}
+
+function selected_submodule_paths() {
+	local path
+	if [[ "${SMU_SUBMODULE_SCOPE}" = "all" ]]; then
+		git -C "${SMU_HOME_DIR}" config --file .gitmodules --get-regexp 'submodule\..*\.path' | awk '{print $2}'
+		return 0
+	fi
+
+	git -C "${SMU_HOME_DIR}" config --file .gitmodules --get-regexp 'submodule\..*\.path' | awk '{print $2}' |
+		while IFS= read -r path; do
+			case "$path" in
+			docs | set-me-up-installer | dotfiles/utilities | dotfiles/modules/universal)
+				printf "%s\n" "$path"
+				;;
+			dotfiles/modules/debian)
+				[[ "$SMU_OS" = "debian" ]] && printf "%s\n" "$path"
+				;;
+			dotfiles/modules/macos/*)
+				[[ "$SMU_OS" = "MacOS" ]] && printf "%s\n" "$path"
+				;;
+			dotfiles/modules/arch/*)
+				[[ "$SMU_OS" = "arch" ]] && printf "%s\n" "$path"
+				;;
+			esac
+		done
+}
+
+function update_selected_submodules() {
+	local -a paths=()
+	while IFS= read -r path; do
+		[[ -n "$path" ]] && paths+=("$path")
+	done < <(selected_submodule_paths)
+
+	if ((${#paths[@]} == 0)); then
+		return 0
+	fi
+
+	git -C "${SMU_HOME_DIR}" submodule update --init --recursive -- "${paths[@]}"
 }
 
 function has_untracked_changes() {
@@ -299,30 +339,32 @@ function obtain() {
 		else
 			git -C "${SMU_HOME_DIR}" merge --ff-only "origin/${SMU_BLUEPRINT_BRANCH}"
 		fi
-		git -C "${SMU_HOME_DIR}" submodule update --init --recursive
+		update_selected_submodules
 
 		return 0
 	fi
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-	# Otherwise, clone the repository and update submodules
-	git clone --recursive --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
+	# Otherwise, clone the repository and update selected submodules.
+	git clone --branch "${SMU_BLUEPRINT_BRANCH}" "${DOWNLOAD_URL}" "${SMU_HOME_DIR}"
+	update_selected_submodules
 }
 
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	if [[ "$plan_only" = true || "$doctor_only" = true ]]; then
 		if [[ "$json_output" = true ]]; then
-			printf '{"blueprint":{"repo":"%s","branch":"%s","path":"%s","state":"%s","readiness":"%s"},"installer":{"ref":"%s","url":"%s"},"mode":"%s","doctor":%s}\n' \
+			printf '{"blueprint":{"repo":"%s","branch":"%s","path":"%s","state":"%s","readiness":"%s"},"installer":{"ref":"%s","url":"%s"},"mode":"%s","submodule_scope":"%s","doctor":%s}\n' \
 				"$(json_escape "$SMU_BLUEPRINT")" "$(json_escape "$SMU_BLUEPRINT_BRANCH")" \
 				"$(json_escape "$SMU_HOME_DIR")" "$(install_target_state)" "$(install_readiness)" \
 				"$(json_escape "$SMU_INSTALLER_REF")" "$(json_escape "$SMU_INSTALLER_URL")" \
-				"$(update_mode)" "$doctor_only"
+				"$(update_mode)" "$(json_escape "$SMU_SUBMODULE_SCOPE")" "$doctor_only"
 		else
 			printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
 			printf "plan\tinstaller\t%s\t%s\n" "${SMU_INSTALLER_REF}" "${SMU_INSTALLER_URL}"
 			printf "plan\tmode\t%s\n" "$(update_mode)"
+			printf "plan\tsubmodules\t%s\n" "${SMU_SUBMODULE_SCOPE}"
 			if [[ "$doctor_only" = true ]]; then
 				printf "doctor\tstate\t%s\n" "$(install_target_state)"
 				printf "doctor\treadiness\t%s\n" "$(install_readiness)"

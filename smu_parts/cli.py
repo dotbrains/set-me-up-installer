@@ -6,6 +6,7 @@ from .doctors_and_system import *
 from .module_discovery import *
 from .module_lifecycle import *
 from .profile_commands import *
+from .setup_profiles import *
 from .state import *
 from .client_update import *
 
@@ -178,6 +179,7 @@ def main():
     parser.add_argument("--theme", choices=supported_themes(), help="Save the selected set-me-up theme before provisioning")
     parser.add_argument("--prompt", choices=supported_prompts(), help="Save the selected set-me-up prompt profile before provisioning")
     parser.add_argument("--preset", choices=supported_presets(), help="Save the selected set-me-up preset before provisioning")
+    parser.add_argument("--setup-profile", choices=supported_setup_profiles(), help="Provision a named setup path such as 'vps'")
 
     args = parser.parse_args()
 
@@ -209,6 +211,10 @@ def main():
         die(f"'rcm' is not installed. Please run the '{BOLD}base{NORMAL}' module prior to executing '{command}'.")
 
     # --------------------------------------------------------------------------------------
+
+    if args.setup_profile:
+        run_setup_profile(args.setup_profile)
+        return
 
     if args.list_modules:
         list_modules(search=args.search, show_all=args.all)
