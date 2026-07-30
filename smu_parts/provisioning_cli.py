@@ -130,6 +130,13 @@ def handle_provisioning_adapter_command(argv):
     if command == "bootstrap":
         return print_nix_bootstrap_status(json_output=parsed["json_output"])
     if command == "migrate":
+        if "compare" in args:
+            return print_rcm_to_nix_migration_report(
+                modules=_module_args(args),
+                profile=parsed["profile"],
+                target_adapter=_adapter_arg(args, "home-manager"),
+                json_output=parsed["json_output"],
+            )
         if "state" in args:
             return write_migration_state(
                 adapter_id=_adapter_arg(args, configured_profile_provisioning_adapter(parsed["profile"])),

@@ -8,6 +8,7 @@ from . import catalog_packs
 from . import nix_provisioning
 from . import provisioning_adapters
 from . import provisioning_tools
+from . import blueprint_tools
 from . import provisioning_cli
 from . import doctors_and_system
 from . import module_discovery
@@ -30,6 +31,7 @@ PARTS = (
     nix_provisioning,
     provisioning_adapters,
     provisioning_tools,
+    blueprint_tools,
     provisioning_cli,
     doctors_and_system,
     module_discovery,

@@ -45,6 +45,8 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter parity --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --output "$tmp_home/coverage.md"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --check --output "$tmp_home/coverage.md"
+    HOME="$tmp_home" "$python_bin" smu.py blueprint schema --check --output schemas/blueprint.schema.json
+    HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter bootstrap --json
@@ -52,12 +54,20 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter apply --adapter hybrid -m ci-shell --strict --dry-run --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter migrate --adapter home-manager -m ci-shell --output "$tmp_home/migration.md"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter migrate state --adapter home-manager -m ci-shell --output "$tmp_home/migration-state.json"
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter migrate compare --adapter home-manager -m ci-shell --json
     HOME="$tmp_home" "$python_bin" smu.py nix coverage --json
     HOME="$tmp_home" "$python_bin" smu.py nix doctor --profile default --json
     HOME="$tmp_home" "$python_bin" smu.py nix init -m ci-shell --json
     HOME="$tmp_home" "$python_bin" smu.py nix switch -m ci-shell --dry-run --json
+    HOME="$tmp_home" "$python_bin" smu.py nix apply -m ci-shell --dry-run --json
+    HOME="$tmp_home" "$python_bin" smu.py nix migrate compare -m ci-shell --json
     HOME="$tmp_home" "$python_bin" smu.py nix parity --json
     HOME="$tmp_home" "$python_bin" smu.py nix generate-adapter -m ci-shell --output "$tmp_home/generated-home-manager.nix"
+    for blueprint_mode in rcm nix hybrid; do
+        mode_home="$(mktemp -d)"
+        HOME="$mode_home" "$python_bin" smu.py blueprint init --mode "$blueprint_mode" --json
+        HOME="$mode_home" "$python_bin" smu.py provisioning-adapter doctor --json
+    done
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
     HOME="$registry_home" "$python_bin" smu.py catalog registry add local "$registry_dir"

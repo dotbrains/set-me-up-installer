@@ -1,0 +1,54 @@
+{
+  "$id": "https://dotbrains.github.io/set-me-up/schemas/blueprint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "profile": {
+      "type": "object"
+    },
+    "profiles": {
+      "type": "object"
+    },
+    "provisioning": {
+      "additionalProperties": true,
+      "properties": {
+        "adapter": {
+          "enum": [
+            "rcm",
+            "home-manager",
+            "nix-darwin",
+            "nixos",
+            "hybrid"
+          ],
+          "type": "string"
+        },
+        "allow_rcm_fallback": {
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "rcm",
+            "nix",
+            "hybrid"
+          ],
+          "type": "string"
+        },
+        "nix_adapter": {
+          "enum": [
+            "home-manager",
+            "nix-darwin",
+            "nixos"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "adapter"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "set-me-up blueprint configuration",
+  "type": "object"
+}

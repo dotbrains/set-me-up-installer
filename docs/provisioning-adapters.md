@@ -7,10 +7,22 @@ Declare the adapter in `smu.toml` at the blueprint root or under `dotfiles/`:
 
 ```toml
 [provisioning]
+mode = "rcm"
 adapter = "rcm"
 
 [profile.default]
 modules = ["nushell"]
+```
+
+Create that file with the blueprint initializer:
+
+```bash
+smu blueprint init --mode rcm
+smu blueprint init --mode nix --output smu.toml --force
+smu blueprint init --mode hybrid --json
+smu blueprint schema --output schemas/blueprint.schema.json
+smu blueprint schema --check --output schemas/blueprint.schema.json
+smu blueprint compatibility --json
 ```
 
 `rcm` uses thoughtbot's
@@ -47,6 +59,8 @@ smu provisioning-adapter migrate --adapter home-manager \
   --profile default --output migration.md
 smu provisioning-adapter migrate state --adapter home-manager \
   --profile default --output migration-state.json
+smu provisioning-adapter migrate compare --adapter home-manager \
+  --profile default --json
 smu provisioning-adapter generate --adapter home-manager -m zsh
 smu provisioning-adapter scaffold --adapter all -m nushell
 smu nix doctor --profile default --json
@@ -168,6 +182,10 @@ use the same payload to create a migration checklist.
 `smu provisioning-adapter coverage` prints ready/fallback/missing counts for
 each adapter across discovered modules.
 
+`smu blueprint compatibility --json` returns the full module-by-adapter matrix
+using the same states, so blueprint repositories can publish a generated
+compatibility dashboard or use the JSON in CI.
+
 `smu provisioning-adapter parity` compares two adapters, defaulting to `rcm`
 versus `home-manager`, and classifies each module as ready, source-only,
 target-only, or missing.
@@ -186,6 +204,10 @@ off and scaffold commands for missing adapter coverage.
 default --output migration-state.json` writes machine-readable review state for
 each module. Ready modules are marked `accepted`; the rest start as `pending`.
 
+`smu provisioning-adapter migrate compare --adapter home-manager --profile
+default --json` compares the legacy `rcm` path with the target Nix adapter and
+classifies each module as `ported`, `partial`, `blocked`, or `kept-rcm`.
+
 `smu provisioning-adapter generate --adapter home-manager -m zsh` writes a
 starter `home-manager.nix` adapter and updates `module.toml` for the selected
 module.
@@ -201,7 +223,9 @@ smu nix init --profile default
 smu nix coverage
 smu nix plan --profile default
 smu nix switch --profile default --dry-run
+smu nix apply --profile default --dry-run --json
 smu nix migrate --profile default --output migration.md
+smu nix migrate compare --profile default --json
 smu nix parity --profile default --json
 smu nix generate-adapter -m zsh
 ```

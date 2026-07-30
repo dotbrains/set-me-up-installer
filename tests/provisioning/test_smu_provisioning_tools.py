@@ -258,6 +258,63 @@ class TestProvisioningTools(unittest.TestCase):
             with open(os.path.join(module_dir, "module.toml")) as f:
                 self.assertIn("[adapters.home-manager]", f.read())
 
+    def test_blueprint_init_writes_requested_mode(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir):
+            result = smu.blueprint_init(mode="hybrid")
+
+            self.assertEqual(result, 0)
+            with open(os.path.join(tempdir, "smu.toml")) as f:
+                content = f.read()
+            self.assertIn('mode = "hybrid"', content)
+            self.assertIn('adapter = "hybrid"', content)
+            self.assertIn('allow_rcm_fallback = true', content)
+
+    def test_write_blueprint_schema_check_detects_fresh_schema(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            output_path = os.path.join(tempdir, "blueprint.schema.json")
+
+            self.assertEqual(smu.write_blueprint_schema(output_path), 0)
+            self.assertEqual(smu.write_blueprint_schema(output_path, check=True), 0)
+
+    def test_rcm_to_nix_migration_report_classifies_modules(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")), \
+                patch.object(smu, "macOS", False), \
+                patch.object(smu, "debian", False), \
+                patch.object(smu, "arch", False):
+            ported_dir = os.path.join(tempdir, "modules", "universal", "ported")
+            kept_dir = os.path.join(tempdir, "modules", "universal", "kept")
+            os.makedirs(ported_dir)
+            os.makedirs(kept_dir)
+            with open(os.path.join(ported_dir, "module.toml"), "w") as f:
+                f.write('[adapters.rcm]\npath = "."\n[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(ported_dir, "home-manager.nix"), "w"):
+                pass
+            with open(os.path.join(kept_dir, "brewfile"), "w"):
+                pass
+
+            payload = smu.rcm_to_nix_migration_report(modules=["ported", "kept"])
+
+            statuses = {row["module"]: row["status"] for row in payload["files"]}
+            self.assertEqual(statuses["ported"], "ported")
+            self.assertEqual(statuses["kept"], "kept-rcm")
+
+    def test_provisioning_compatibility_matrix_lists_adapter_states(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+
+            payload = smu.provisioning_compatibility_matrix()
+
+            self.assertEqual(payload["modules"][0]["module"], "nushell")
+            self.assertEqual(payload["modules"][0]["home-manager"], "ready")
+
     def test_print_nix_bootstrap_status_reports_known_binaries(self):
         with patch("smu.subprocess.call", side_effect=[0, 1, 1, 1]):
             output = io.StringIO()
