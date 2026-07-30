@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up module manifest",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/-]*$" },
+    "adapters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string" },
+          "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+          "requires": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["id", "adapters"],
+  "additionalProperties": false
+}

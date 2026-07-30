@@ -11,6 +11,7 @@ def _parse_provisioning_args(argv):
         "action": "switch",
         "dry_run": False,
         "strict": False,
+        "output": None,
     }
     index = 0
     while index < len(argv):
@@ -23,7 +24,7 @@ def _parse_provisioning_args(argv):
             parsed["args"].append(arg)
             index += 1
             continue
-        if arg in ("--action", "--search", "--adapter", "--profile"):
+        if arg in ("--action", "--search", "--adapter", "--profile", "--output"):
             if index + 1 >= len(argv):
                 die(f"Usage: smu provisioning-adapter {arg} <value>")
             value = argv[index + 1]
@@ -33,6 +34,8 @@ def _parse_provisioning_args(argv):
                 parsed["search"] = value
             elif arg == "--profile":
                 parsed["profile"] = value
+            elif arg == "--output":
+                parsed["output"] = value
             parsed["args"].extend((arg, value))
             index += 2
             continue
@@ -84,8 +87,20 @@ def handle_provisioning_adapter_command(argv):
             show_all=parsed["show_all"],
         )
         return 0
+    if command == "coverage":
+        return print_provisioning_adapter_coverage(json_output=parsed["json_output"])
     if command == "validate":
         return validate_module_manifests(json_output=parsed["json_output"])
+    if command == "profile":
+        action = args[1] if len(args) > 1 else "validate"
+        if action != "validate":
+            die("Usage: smu provisioning-adapter profile validate [--adapter adapter] [--profile name] [--strict] [--json]")
+        return validate_blueprint_profile(
+            profile=parsed["profile"],
+            adapter_id=_adapter_arg(args, configured_provisioning_adapter()),
+            json_output=parsed["json_output"],
+            strict=parsed["strict"],
+        )
     if command == "audit":
         return provisioning_adapter_audit(
             adapter_id=_adapter_arg(args, configured_provisioning_adapter()),
@@ -96,6 +111,13 @@ def handle_provisioning_adapter_command(argv):
         )
     if command == "bootstrap":
         return print_nix_bootstrap_status(json_output=parsed["json_output"])
+    if command == "migrate":
+        return write_migration_checklist(
+            adapter_id=_adapter_arg(args, configured_provisioning_adapter()),
+            profile=parsed["profile"],
+            modules=_module_args(args),
+            output_path=parsed["output"],
+        )
     if command == "scaffold":
         modules = _module_args(args)
         if len(modules) != 1:
@@ -128,7 +150,24 @@ def handle_provisioning_adapter_command(argv):
             action=parsed["action"],
         )
 
-    die("Usage: smu provisioning-adapter [list|doctor|modules|validate|audit|bootstrap|scaffold|plan|apply] [--json]")
+    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]")
+
+
+def handle_nix_command(argv):
+    command = argv[0] if argv else "doctor"
+    command_args = argv[1:]
+    aliases = {
+        "doctor": ["doctor"],
+        "audit": ["audit", "--adapter", "home-manager"],
+        "coverage": ["coverage"],
+        "bootstrap": ["bootstrap"],
+        "plan": ["plan", "--adapter", "home-manager"],
+        "apply": ["apply", "--adapter", "home-manager"],
+        "migrate": ["migrate", "--adapter", "home-manager"],
+    }
+    if command not in aliases:
+        die("Usage: smu nix [doctor|audit|coverage|bootstrap|plan|apply|migrate]")
+    return handle_provisioning_adapter_command(aliases[command] + command_args)
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

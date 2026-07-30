@@ -33,11 +33,17 @@ Inspect support:
 smu provisioning-adapter list
 smu provisioning-adapter doctor --json
 smu provisioning-adapter modules --json
+smu provisioning-adapter coverage --json
 smu provisioning-adapter validate
+smu provisioning-adapter profile validate --adapter home-manager \
+  --profile default --strict
 smu provisioning-adapter audit --json
 smu provisioning-adapter audit --adapter home-manager --profile default --strict
 smu provisioning-adapter bootstrap --json
+smu provisioning-adapter migrate --adapter home-manager \
+  --profile default --output migration.md
 smu provisioning-adapter scaffold --adapter all -m nushell
+smu nix audit --profile default --json
 smu --diff --provisioning-adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter nix-darwin -m nushell
@@ -64,6 +70,8 @@ path = "."
 
 [adapters.home-manager]
 path = "home-manager.nix"
+risk = "low"
+requires = ["nix"]
 
 [adapters.nixos]
 path = "nixos.nix"
@@ -71,6 +79,10 @@ path = "nixos.nix"
 
 Existing modules without `module.toml` are treated as `rcm` modules when they
 contain a legacy payload: `<module>.sh`, `brewfile`, or `packages`.
+
+The typed schema for module manifests lives at
+[`schemas/module.schema.json`](../schemas/module.schema.json). Validation
+requires `id`, an `[adapters]` table, and a `path` for each adapter entry.
 
 `--diff` resolves the selected provisioning adapter for each requested module.
 For `hybrid`, this is a read-only compatibility plan; apply still requires an
@@ -137,3 +149,23 @@ system policy before running a non-dry-run apply.
 `smu provisioning-adapter audit --adapter home-manager --profile default`
 prints module-by-module readiness and a summary count. In JSON mode, agents can
 use the same payload to create a migration checklist.
+
+`smu provisioning-adapter coverage` prints ready/fallback/missing counts for
+each adapter across discovered modules.
+
+`smu provisioning-adapter migrate --adapter home-manager --profile default
+--output migration.md` writes a markdown checklist with ready modules checked
+off and scaffold commands for missing adapter coverage.
+
+## Nix Aliases
+
+For Home Manager-first usage, `smu nix` aliases the longer adapter commands:
+
+```bash
+smu nix doctor
+smu nix audit --profile default --json
+smu nix coverage
+smu nix plan --profile default
+smu nix apply --profile default --dry-run
+smu nix migrate --profile default --output migration.md
+```

@@ -33,6 +33,8 @@ def main():
             return
         if command in ("provisioning-adapter", "provisioning-adapters"):
             raise SystemExit(handle_provisioning_adapter_command(command_args))
+        if command == "nix":
+            raise SystemExit(handle_nix_command(command_args))
         if command == "theme":
             handle_theme_command(command_args)
             return

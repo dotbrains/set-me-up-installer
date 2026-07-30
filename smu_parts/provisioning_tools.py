@@ -101,6 +101,94 @@ def provisioning_adapter_audit(adapter_id=None, profile=None, modules=None, json
     return 0
 
 
+def provisioning_adapter_coverage():
+    rows = module_provisioning_adapter_report(show_all=True)
+    adapters = list(supported_provisioning_adapters())
+    coverage = {}
+    for adapter_id in adapters:
+        ready = 0
+        fallback = 0
+        missing = 0
+        for row in rows:
+            module = row["name"]
+            resolution = resolve_module_provisioning_adapter(module, adapter_id)
+            if resolution["state"] == "ready":
+                ready += 1
+            elif resolution["state"] == "fallback":
+                fallback += 1
+            else:
+                missing += 1
+        coverage[adapter_id] = {
+            "ready": ready,
+            "fallback": fallback,
+            "missing": missing,
+            "total": len(rows),
+        }
+    return {"modules": len(rows), "coverage": coverage}
+
+
+def print_provisioning_adapter_coverage(json_output=False):
+    payload = provisioning_adapter_coverage()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print("adapter\tready\tfallback\tmissing\ttotal")
+        for adapter_id, row in payload["coverage"].items():
+            print(f"{adapter_id}\t{row['ready']}\t{row['fallback']}\t{row['missing']}\t{row['total']}")
+    return 0
+
+
+def validate_blueprint_profile(profile=None, adapter_id=None, json_output=False, strict=False):
+    adapter_id = adapter_id or configured_provisioning_adapter()
+    modules = list(blueprint_profile_modules(profile))
+    errors = []
+    rows = []
+    if not modules:
+        errors.append(f"profile {profile or 'default'} has no modules")
+    for module in modules:
+        resolution = resolve_module_provisioning_adapter(module, adapter_id)
+        rows.append(resolution)
+        if resolution["state"] == "missing-module":
+            errors.append(f"{module}: missing module")
+        elif strict and resolution["state"] != "ready":
+            errors.append(f"{module}: missing strict adapter coverage for {adapter_id}")
+    payload = {
+        "adapter": adapter_id,
+        "profile": profile or "default",
+        "strict": strict,
+        "errors": errors,
+        "modules": rows,
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        if not errors:
+            print(f"{COL_GREEN}OK{COL_RESET}   profile {payload['profile']} for {adapter_id}")
+    return 1 if errors else 0
+
+
+def write_migration_checklist(adapter_id=None, profile=None, modules=None, output_path=None):
+    adapter_id = adapter_id or configured_provisioning_adapter()
+    output_path = output_path or os.path.join(adapter_state_path, f"{adapter_id}-migration.md")
+    modules = list(modules or blueprint_profile_modules(profile))
+    audit = []
+    for module in modules:
+        audit.append(resolve_module_provisioning_adapter(module, adapter_id))
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write(f"# {adapter_id} migration checklist\n\n")
+        f.write(f"Profile: `{profile or 'default'}`\n\n")
+        for row in audit:
+            checked = "x" if row["state"] == "ready" else " "
+            f.write(f"- [{checked}] `{row['module']}`: {row['state']}\n")
+            if row["state"] != "ready":
+                f.write(f"  - Scaffold: `smu provisioning-adapter scaffold --adapter {adapter_id} -m {row['module']}`\n")
+    print(output_path)
+    return 0
+
+
 def nix_bootstrap_status():
     return {
         "nix": subprocess.call("command -v nix >/dev/null 2>&1", shell=True) == 0,

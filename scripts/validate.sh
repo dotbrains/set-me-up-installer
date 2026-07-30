@@ -37,13 +37,18 @@ cli_smoke() {
 
     HOME="$tmp_home" "$python_bin" smu.py adapter init ci-shell
     mkdir -p "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell"
-    printf '[adapters.home-manager]\npath = "home-manager.nix"\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
+    printf '[profile.default]\nmodules = ["ci-shell"]\n' > "$tmp_home/set-me-up/smu.toml"
+    printf 'id = "ci-shell"\n\n[adapters.home-manager]\npath = "home-manager.nix"\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
     printf '{ ... }:\n\n{\n}\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter validate
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter coverage --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter bootstrap --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter plan flake --adapter home-manager -m ci-shell
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter apply --adapter hybrid -m ci-shell --strict --dry-run --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter migrate --adapter home-manager -m ci-shell --output "$tmp_home/migration.md"
+    HOME="$tmp_home" "$python_bin" smu.py nix coverage --json
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
     HOME="$registry_home" "$python_bin" smu.py catalog registry add local "$registry_dir"
