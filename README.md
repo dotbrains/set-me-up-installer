@@ -43,10 +43,11 @@ to continue when local changes are present. Use `--plan` to preview the target
 repository and branch, or `--force-reset` only when local blueprint changes
 should be discarded.
 
-Use JSON plan output for automation:
+Use JSON output for automation or a read-only install readiness report:
 
 ```bash
 bash <(curl -s -L "$INSTALL_URL") --plan --json
+bash <(curl -s -L "$INSTALL_URL") --doctor --json
 ```
 
 You can change the `smu` home directory by setting an environment variable
