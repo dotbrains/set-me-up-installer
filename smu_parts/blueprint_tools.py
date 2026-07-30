@@ -1,5 +1,9 @@
 from .core import *
-from .blueprint_providers import blueprint_provider_matrix, print_blueprint_provider_matrix
+from .blueprint_providers import (
+    blueprint_provider_matrix,
+    print_blueprint_provider_matrix,
+    print_blueprint_provider_recommendation,
+)
 
 
 BLUEPRINT_MODES = ("rcm", "nix", "hybrid")
@@ -434,11 +438,15 @@ def handle_blueprint_command(argv):
     if command == "providers":
         root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
         return print_blueprint_provider_matrix(root=root, json_output=json_output)
+    if command == "recommend":
+        root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
+        target = _option_value(args, "--target") or (args[0] if args else None)
+        return print_blueprint_provider_recommendation(target=target, root=root, json_output=json_output)
     if command == "compatibility":
         if check or output_path:
             return write_blueprint_compatibility_docs(output_path=output_path, check=check)
         return print_provisioning_compatibility_matrix(json_output=json_output)
-    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|providers|compatibility] [--json]")
+    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|providers|recommend|compatibility] [--json]")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

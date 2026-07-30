@@ -26,6 +26,7 @@ smu blueprint migrate --from rcm --to hybrid --force --json
 smu blueprint schema --output schemas/blueprint.schema.json
 smu blueprint schema --check --output schemas/blueprint.schema.json
 smu blueprint providers --path . --json
+smu blueprint recommend --target ubuntu --path . --json
 smu blueprint ci --path . --check-docs --json
 smu blueprint compatibility --json
 smu blueprint compatibility --output blueprint-compatibility.md
@@ -58,6 +59,10 @@ readiness document without requiring `SMU_HOME_DIR` to point at that checkout.
 Use `smu blueprint providers --path <checkout> --json` to inspect the supported
 provider examples as a machine-readable mode and adapter matrix.
 Each provider row includes the selected adapter capability contract.
+Use `smu blueprint recommend --target <host> --path <checkout> --json` when a
+tool or developer wants the recommended mode, adapter, and provider example for
+a host intent such as `debian`, `ubuntu`, `arch`, `nixos`, `digitalocean`,
+`hetzner`, `macos`, or `rcm-only`.
 
 Inspect support:
 

@@ -93,6 +93,7 @@ cli_smoke() {
     done
     printf 'examples/providers/debian-vps\nexamples/github-actions/nix.yml\n' > "$contract_home/PROVISIONING-COMPATIBILITY.md"
     "$python_bin" smu.py blueprint providers --path "$contract_home" --json
+    "$python_bin" smu.py blueprint recommend --path "$contract_home" --target ubuntu --json
     "$python_bin" smu.py blueprint ci --path "$contract_home" --check-docs --json
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
