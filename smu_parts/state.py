@@ -164,6 +164,10 @@ def default_update_policy():
         "min_interval_seconds": 0,
         "backoff_seconds": 0,
         "history_limit": 20,
+        "channel": "stable",
+        "channels": {"stable": None},
+        "manifest_url": None,
+        "manifest_sha256": None,
     }
 
 
@@ -178,6 +182,10 @@ def update_policy_schema():
         "min_interval_seconds": ("nonnegative-int", 0),
         "backoff_seconds": ("nonnegative-int", 0),
         "history_limit": ("positive-int", 20),
+        "channel": ("string", "stable"),
+        "channels": ("string-map", {"stable": None}),
+        "manifest_url": ("optional-https-url", None),
+        "manifest_sha256": ("optional-sha256", None),
     }
 
 
@@ -198,11 +206,20 @@ def validate_update_policy(policy=None):
             errors.append({"field": key, "message": "must be a boolean"})
         elif kind == "optional-string" and value is not None and not isinstance(value, str):
             errors.append({"field": key, "message": "must be a string or null"})
+        elif kind == "string" and not isinstance(value, str):
+            errors.append({"field": key, "message": "must be a string"})
+        elif kind == "string-map":
+            if not isinstance(value, dict) or not all(isinstance(k, str) and (v is None or isinstance(v, str)) for k, v in value.items()):
+                errors.append({"field": key, "message": "must map strings to strings or null"})
         elif kind == "optional-https-url":
             if value is not None and not isinstance(value, str):
                 errors.append({"field": key, "message": "must be an HTTPS URL or null"})
             elif value and not value.startswith("https://"):
                 errors.append({"field": key, "message": "must use https://"})
+        elif kind == "optional-sha256" and value is not None and not (
+            isinstance(value, str) and re.match(r"^[0-9a-f]{64}$", value)
+        ):
+            errors.append({"field": key, "message": "must be a 64-character lowercase sha256 or null"})
         elif kind == "nonnegative-int" and (not isinstance(value, int) or value < 0):
             errors.append({"field": key, "message": "must be an integer >= 0"})
         elif kind == "positive-int" and (not isinstance(value, int) or value < 1):

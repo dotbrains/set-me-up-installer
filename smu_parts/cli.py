@@ -61,8 +61,13 @@ def main():
             yes = "--yes" in command_args or "-y" in command_args
             ref = _option_value(command_args, "--ref")
             require_signed = "--require-signed" in command_args
+            if "schedule" in command_args:
+                actions = [arg for arg in command_args if arg in ("install", "remove", "status")]
+                raise SystemExit(update_schedule(actions[0] if actions else "status", json_output=json_output))
             if "baseline" in command_args or "--baseline" in command_args:
                 raise SystemExit(client_update_baseline(json_output=json_output))
+            if "preflight" in command_args or "--preflight" in command_args:
+                raise SystemExit(print_client_update_preflight(json_output=json_output, ref=ref))
             if "policy" in command_args or "--policy" in command_args:
                 raise SystemExit(print_update_policy(command_args, json_output=json_output))
             if "doctor" in command_args or "--doctor" in command_args:
@@ -71,6 +76,9 @@ def main():
                 print_client_update_status(json_output=json_output, ref=ref, send_report="--report" in command_args)
                 return
             if "--rollback" in command_args:
+                if "--repos" in command_args:
+                    print(json.dumps({"repositories": rollback_client_update_repositories()}, indent=2, sort_keys=True))
+                    return
                 raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
             raise SystemExit(client_update(
                 dry_run=dry_run,

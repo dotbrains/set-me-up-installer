@@ -10,6 +10,7 @@ from . import module_discovery
 from . import module_lifecycle
 from . import state
 from . import client_update
+from . import update_runtime
 from . import cli
 
 
@@ -24,6 +25,7 @@ PARTS = (
     module_lifecycle,
     state,
     client_update,
+    update_runtime,
     cli,
 )
 

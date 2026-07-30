@@ -23,6 +23,9 @@ class TestSmuUpdatePolicy(unittest.TestCase):
                     "--min-interval-seconds", "3600",
                     "--backoff-seconds", "900",
                     "--history-limit", "3",
+                    "--channel", "beta",
+                    "--manifest-url", "https://updates.example.com/manifest.json",
+                    "--manifest-sha256", "a" * 64,
                     "--json",
                 ]
                 buf = io.StringIO()
@@ -35,17 +38,21 @@ class TestSmuUpdatePolicy(unittest.TestCase):
         self.assertEqual(payload["policy"]["min_interval_seconds"], 3600)
         self.assertEqual(payload["policy"]["backoff_seconds"], 900)
         self.assertEqual(payload["policy"]["history_limit"], 3)
+        self.assertEqual(payload["policy"]["channel"], "beta")
+        self.assertEqual(payload["policy"]["manifest_url"], "https://updates.example.com/manifest.json")
+        self.assertEqual(payload["policy"]["manifest_sha256"], "a" * 64)
 
     def test_policy_validation_rejects_unknown_and_insecure_fields(self):
         errors = smu.validate_update_policy({
             **smu.default_update_policy(),
             "report_url": "http://updates.example.com/smu",
             "history_limit": 0,
+            "manifest_sha256": "bad",
             "extra": True,
         })
 
         fields = {error["field"] for error in errors}
-        self.assertEqual(fields, {"extra", "history_limit", "report_url"})
+        self.assertEqual(fields, {"extra", "history_limit", "manifest_sha256", "report_url"})
 
     def test_update_history_keeps_policy_limit(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -89,6 +96,42 @@ class TestSmuUpdatePolicy(unittest.TestCase):
         payload = json.loads(buf.getvalue())
         self.assertEqual(payload["report_delivery"]["status"], "sent")
         post.assert_called_once()
+
+    def test_preflight_reports_channel_identity_and_manifest(self):
+        policy = {**smu.default_update_policy(), "channel": "beta", "channels": {"beta": "refs/tags/v1"}}
+        with patch.object(smu, "read_update_policy", return_value=policy), \
+                patch.object(smu, "client_update_status", return_value={
+                    "policy_errors": [],
+                    "rate_limit": {"status": "ready", "wait_seconds": 0},
+                }), \
+                patch.object(smu, "fetch_update_manifest", return_value={"status": "disabled"}), \
+                patch.object(smu, "client_identity", return_value={"client_id": "abc"}):
+            report = smu.client_update_preflight()
+
+        self.assertEqual(report["preflight"], "passed")
+        self.assertEqual(report["channel"], "beta")
+        self.assertEqual(report["resolved_ref"], "refs/tags/v1")
+        self.assertEqual(report["client"]["client_id"], "abc")
+
+    def test_schedule_install_writes_payload(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            schedule_path = os.path.join(tempdir, "update-schedule.json")
+            with patch.object(smu, "update_schedule_path", schedule_path), \
+                    patch.object(smu, "read_update_policy", return_value=smu.default_update_policy()):
+                smu.update_schedule("install", json_output=False)
+                with open(schedule_path) as f:
+                    payload = json.load(f)
+
+        self.assertIn("preflight", payload["command"])
+
+    def test_repo_rollback_checks_out_previous_refs(self):
+        with patch.object(smu, "read_update_lock", return_value={
+                "repositories": [{"name": "installer", "path": "/repo", "before": "abc"}],
+        }), patch.object(smu, "subprocess") as subprocess:
+            results = smu.rollback_client_update_repositories()
+
+        self.assertEqual(results[0]["status"], "rolled-back")
+        subprocess.run.assert_called_once_with(["git", "-C", "/repo", "checkout", "abc"], check=True)
 
 
 if __name__ == "__main__":

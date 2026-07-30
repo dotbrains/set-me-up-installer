@@ -35,6 +35,7 @@ def client_update_status(ref=None):
         "update_history_path": update_history_path,
         "last_update": read_update_lock(),
         "history": read_update_history()[-5:],
+        "client": client_identity(),
         "policy": policy,
         "policy_errors": validate_update_policy(),
         "rate_limit": update_rate_limit_status(policy),
@@ -102,6 +103,9 @@ def update_policy_from_args(argv):
     min_interval, has_min_interval = _int_option(argv, "--min-interval-seconds")
     backoff, has_backoff = _int_option(argv, "--backoff-seconds")
     history_limit, has_history_limit = _int_option(argv, "--history-limit")
+    channel, has_channel = _clearable_option(argv, "--channel")
+    manifest_url, has_manifest_url = _clearable_option(argv, "--manifest-url")
+    manifest_sha256, has_manifest_sha256 = _clearable_option(argv, "--manifest-sha256")
     changed = False
     if has_ref:
         policy["ref"] = ref
@@ -120,6 +124,15 @@ def update_policy_from_args(argv):
         changed = True
     if has_history_limit:
         policy["history_limit"] = history_limit
+        changed = True
+    if has_channel:
+        policy["channel"] = channel or "stable"
+        changed = True
+    if has_manifest_url:
+        policy["manifest_url"] = manifest_url
+        changed = True
+    if has_manifest_sha256:
+        policy["manifest_sha256"] = manifest_sha256
         changed = True
     flag_pairs = (
         ("--require-signed", "--no-require-signed", "require_signed"),
@@ -269,7 +282,8 @@ def collapse_materialize_event():
 
 def client_update(dry_run=False, json_output=False, validate=False, self_update_requested=False, ref=None, yes=False, require_signed=False):
     policy = read_update_policy()
-    ref = ref if ref is not None else policy.get("ref")
+    channel_ref, channel = update_channel_ref(policy)
+    ref = ref if ref is not None else channel_ref
     validate = validate or bool(policy.get("validate"))
     require_signed = require_signed or bool(policy.get("require_signed"))
     before = client_update_repository_status()
@@ -285,6 +299,8 @@ def client_update(dry_run=False, json_output=False, validate=False, self_update_
         "self_update": self_update_requested,
         "validate": validate,
         "yes": yes,
+        "client": client_identity(),
+        "channel": channel,
         "before": before,
         "config_drift": drift,
         **plan,
@@ -328,7 +344,10 @@ def client_update(dry_run=False, json_output=False, validate=False, self_update_
     snapshots.extend({"kind": "adapter", **item} for item in collapse_materialize_event())
     exit_code = doctor() if validate else 0
     report["after"] = client_update_repository_status()
-    report["repositories"] = report["after"]
+    report["repositories"] = [
+        {**after, "before": before_item.get("head")}
+        for after, before_item in zip(report["after"], before)
+    ]
     report["generated_config"] = generated_config_fingerprints()
     report["exit_code"] = exit_code
     report["report_delivery"] = post_update_report(report, policy)
