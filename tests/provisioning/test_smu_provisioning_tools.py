@@ -146,6 +146,45 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(payload["summary"]["ready"], 1)
             self.assertEqual(payload["summary"]["missing"], 1)
 
+    def test_provisioning_adapter_parity_reports_source_only_modules(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")), \
+                patch.object(smu, "macOS", False), \
+                patch.object(smu, "debian", False), \
+                patch.object(smu, "arch", False):
+            rcm_dir = os.path.join(tempdir, "modules", "universal", "shell")
+            nix_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(rcm_dir)
+            os.makedirs(nix_dir)
+            with open(os.path.join(rcm_dir, "brewfile"), "w"):
+                pass
+            with open(os.path.join(nix_dir, "module.toml"), "w") as f:
+                f.write('[adapters.rcm]\npath = "."\n[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(nix_dir, "home-manager.nix"), "w"):
+                pass
+
+            parity = smu.provisioning_adapter_parity(modules=["shell", "nushell"])
+
+            self.assertEqual(parity["summary"]["ready"], 1)
+            self.assertEqual(parity["summary"]["source_only"], 1)
+
+    def test_write_provisioning_adapter_docs_writes_coverage_table(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+            output_path = os.path.join(tempdir, "coverage.md")
+
+            result = smu.write_provisioning_adapter_docs(output_path)
+
+            self.assertEqual(result, 0)
+            with open(output_path) as f:
+                self.assertIn("| `home-manager` |", f.read())
+
     def test_print_nix_bootstrap_status_reports_known_binaries(self):
         with patch("smu.subprocess.call", side_effect=[0, 1, 1, 1]):
             output = io.StringIO()

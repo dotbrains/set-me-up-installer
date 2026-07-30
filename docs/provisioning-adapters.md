@@ -34,6 +34,8 @@ smu provisioning-adapter list
 smu provisioning-adapter doctor --json
 smu provisioning-adapter modules --json
 smu provisioning-adapter coverage --json
+smu provisioning-adapter parity --json
+smu provisioning-adapter docs --output provisioning-adapter-coverage.md
 smu provisioning-adapter validate
 smu provisioning-adapter profile validate --adapter home-manager \
   --profile default --strict
@@ -44,6 +46,9 @@ smu provisioning-adapter migrate --adapter home-manager \
   --profile default --output migration.md
 smu provisioning-adapter scaffold --adapter all -m nushell
 smu nix audit --profile default --json
+smu nix init --profile default --json
+smu nix switch --profile default --dry-run --json
+smu nix parity --profile default --json
 smu --diff --provisioning-adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter home-manager -m editor/nvim
 smu provisioning-adapter plan --adapter nix-darwin -m nushell
@@ -72,6 +77,11 @@ path = "."
 path = "home-manager.nix"
 risk = "low"
 requires = ["nix"]
+platforms = ["macos", "debian", "ubuntu", "arch", "linux"]
+requires_root = false
+secrets = false
+services = []
+reboot_required = false
 
 [adapters.nixos]
 path = "nixos.nix"
@@ -153,6 +163,14 @@ use the same payload to create a migration checklist.
 `smu provisioning-adapter coverage` prints ready/fallback/missing counts for
 each adapter across discovered modules.
 
+`smu provisioning-adapter parity` compares two adapters, defaulting to `rcm`
+versus `home-manager`, and classifies each module as ready, source-only,
+target-only, or missing.
+
+`smu provisioning-adapter docs --output provisioning-adapter-coverage.md`
+writes a generated Markdown coverage table. Use it as a checked-in dashboard or
+as a drift check in repository validation.
+
 `smu provisioning-adapter migrate --adapter home-manager --profile default
 --output migration.md` writes a markdown checklist with ready modules checked
 off and scaffold commands for missing adapter coverage.
@@ -164,8 +182,15 @@ For Home Manager-first usage, `smu nix` aliases the longer adapter commands:
 ```bash
 smu nix doctor
 smu nix audit --profile default --json
+smu nix init --profile default
 smu nix coverage
 smu nix plan --profile default
-smu nix apply --profile default --dry-run
+smu nix switch --profile default --dry-run
 smu nix migrate --profile default --output migration.md
+smu nix parity --profile default --json
 ```
+
+`smu nix init` writes the generated Home Manager import file and companion
+flake in the adapter state directory. `smu nix switch` writes the import file
+and runs `home-manager switch`; use `--dry-run` to preview the command without
+executing it.

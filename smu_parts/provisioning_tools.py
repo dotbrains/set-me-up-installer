@@ -65,7 +65,7 @@ def apply_hybrid_modules(modules=None, profile=None, json_output=False, strict=F
 
 
 def provisioning_adapter_audit(adapter_id=None, profile=None, modules=None, json_output=False, strict=False):
-    adapter_id = adapter_id or configured_provisioning_adapter()
+    adapter_id = adapter_id or configured_profile_provisioning_adapter(profile)
     modules = list(modules or blueprint_profile_modules(profile))
     if not modules:
         modules = [row["name"] for row in module_provisioning_adapter_report(show_all=True)]
@@ -127,6 +127,59 @@ def provisioning_adapter_coverage():
     return {"modules": len(rows), "coverage": coverage}
 
 
+def provisioning_adapter_parity(source_adapter="rcm", target_adapter="home-manager", modules=None, profile=None):
+    modules = list(modules or blueprint_profile_modules(profile))
+    if not modules:
+        modules = [row["name"] for row in module_provisioning_adapter_report(show_all=True)]
+    rows = []
+    summary = {"ready": 0, "source_only": 0, "target_only": 0, "missing": 0}
+    for module in modules:
+        source = resolve_module_provisioning_adapter(module, source_adapter)
+        target = resolve_module_provisioning_adapter(module, target_adapter)
+        if source["state"] == "ready" and target["state"] == "ready":
+            state = "ready"
+        elif source["state"] == "ready":
+            state = "source-only"
+        elif target["state"] == "ready":
+            state = "target-only"
+        else:
+            state = "missing"
+        summary[state.replace("-", "_")] += 1
+        rows.append({"module": module, "state": state, "source": source, "target": target})
+    return {
+        "profile": profile or "default",
+        "source_adapter": source_adapter,
+        "target_adapter": target_adapter,
+        "summary": summary,
+        "modules": rows,
+    }
+
+
+def print_provisioning_adapter_parity(source_adapter="rcm", target_adapter="home-manager", modules=None, profile=None, json_output=False):
+    payload = provisioning_adapter_parity(source_adapter, target_adapter, modules, profile)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print("module\tstate\tsource\ttarget")
+        for row in payload["modules"]:
+            print(f"{row['module']}\t{row['state']}\t{row['source']['state']}\t{row['target']['state']}")
+    return 0
+
+
+def write_provisioning_adapter_docs(output_path=None):
+    output_path = output_path or os.path.join(adapter_state_path, "provisioning-adapter-coverage.md")
+    payload = provisioning_adapter_coverage()
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write("# Provisioning Adapter Coverage\n\n")
+        f.write("| Adapter | Ready | Fallback | Missing | Total |\n")
+        f.write("| --- | ---: | ---: | ---: | ---: |\n")
+        for adapter_id, row in payload["coverage"].items():
+            f.write(f"| `{adapter_id}` | {row['ready']} | {row['fallback']} | {row['missing']} | {row['total']} |\n")
+    print(output_path)
+    return 0
+
+
 def print_provisioning_adapter_coverage(json_output=False):
     payload = provisioning_adapter_coverage()
     if json_output:
@@ -139,7 +192,7 @@ def print_provisioning_adapter_coverage(json_output=False):
 
 
 def validate_blueprint_profile(profile=None, adapter_id=None, json_output=False, strict=False):
-    adapter_id = adapter_id or configured_provisioning_adapter()
+    adapter_id = adapter_id or configured_profile_provisioning_adapter(profile)
     modules = list(blueprint_profile_modules(profile))
     errors = []
     rows = []
@@ -170,7 +223,7 @@ def validate_blueprint_profile(profile=None, adapter_id=None, json_output=False,
 
 
 def write_migration_checklist(adapter_id=None, profile=None, modules=None, output_path=None):
-    adapter_id = adapter_id or configured_provisioning_adapter()
+    adapter_id = adapter_id or configured_profile_provisioning_adapter(profile)
     output_path = output_path or os.path.join(adapter_state_path, f"{adapter_id}-migration.md")
     modules = list(modules or blueprint_profile_modules(profile))
     audit = []

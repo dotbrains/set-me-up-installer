@@ -55,17 +55,29 @@ def _manifest_section_value(manifest, section, key):
 
 
 def configured_provisioning_adapter():
+    return configured_profile_provisioning_adapter()
+
+
+def _validate_provisioning_adapter(adapter, path):
+    if adapter not in PROVISIONING_ADAPTERS:
+        die(f"Unsupported provisioning adapter '{adapter}' in {path}.")
+    return adapter
+
+
+def configured_profile_provisioning_adapter(profile=None):
     path = blueprint_config_path()
     if not path:
         return DEFAULT_PROVISIONING_ADAPTER
 
     manifest = smu_contract.read_manifest(path)
+    profile_section = _profile_section(manifest, profile)
+    adapter = profile_section.get("adapter")
+    if adapter:
+        return _validate_provisioning_adapter(adapter, path)
     adapter = _manifest_section_value(manifest, "provisioning", "adapter")
     if not adapter:
         return DEFAULT_PROVISIONING_ADAPTER
-    if adapter not in PROVISIONING_ADAPTERS:
-        die(f"Unsupported provisioning adapter '{adapter}' in {path}.")
-    return adapter
+    return _validate_provisioning_adapter(adapter, path)
 
 
 def blueprint_config():

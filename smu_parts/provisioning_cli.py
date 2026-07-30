@@ -89,6 +89,16 @@ def handle_provisioning_adapter_command(argv):
         return 0
     if command == "coverage":
         return print_provisioning_adapter_coverage(json_output=parsed["json_output"])
+    if command == "parity":
+        return print_provisioning_adapter_parity(
+            source_adapter=_adapter_arg(args, "rcm"),
+            target_adapter=_adapter_arg(args, "home-manager"),
+            modules=_module_args(args),
+            profile=parsed["profile"],
+            json_output=parsed["json_output"],
+        )
+    if command == "docs":
+        return write_provisioning_adapter_docs(output_path=parsed["output"])
     if command == "validate":
         return validate_module_manifests(json_output=parsed["json_output"])
     if command == "profile":
@@ -113,7 +123,7 @@ def handle_provisioning_adapter_command(argv):
         return print_nix_bootstrap_status(json_output=parsed["json_output"])
     if command == "migrate":
         return write_migration_checklist(
-            adapter_id=_adapter_arg(args, configured_provisioning_adapter()),
+            adapter_id=_adapter_arg(args, configured_profile_provisioning_adapter(parsed["profile"])),
             profile=parsed["profile"],
             modules=_module_args(args),
             output_path=parsed["output"],
@@ -136,7 +146,7 @@ def handle_provisioning_adapter_command(argv):
             return write_nix_import_plan(adapter_id, modules, profile=parsed["profile"], json_output=parsed["json_output"])
         return print_nix_import_plan(adapter_id, modules, json_output=parsed["json_output"], profile=parsed["profile"])
     if command == "apply":
-        adapter_id = _adapter_arg(args, configured_provisioning_adapter())
+        adapter_id = _adapter_arg(args, configured_profile_provisioning_adapter(parsed["profile"]))
         modules = _module_args(args) or list(blueprint_profile_modules(parsed["profile"]))
         if not modules:
             die("Usage: smu provisioning-adapter apply --adapter <adapter> [-m module ...|--profile name] [--json]")
@@ -150,7 +160,7 @@ def handle_provisioning_adapter_command(argv):
             action=parsed["action"],
         )
 
-    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]")
+    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|parity|docs|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]")
 
 
 def handle_nix_command(argv):
@@ -158,15 +168,18 @@ def handle_nix_command(argv):
     command_args = argv[1:]
     aliases = {
         "doctor": ["doctor"],
+        "init": ["plan", "flake", "--adapter", "home-manager"],
         "audit": ["audit", "--adapter", "home-manager"],
         "coverage": ["coverage"],
         "bootstrap": ["bootstrap"],
         "plan": ["plan", "--adapter", "home-manager"],
         "apply": ["apply", "--adapter", "home-manager"],
+        "switch": ["apply", "--adapter", "home-manager", "--action", "switch"],
         "migrate": ["migrate", "--adapter", "home-manager"],
+        "parity": ["parity"],
     }
     if command not in aliases:
-        die("Usage: smu nix [doctor|audit|coverage|bootstrap|plan|apply|migrate]")
+        die("Usage: smu nix [doctor|init|audit|coverage|bootstrap|plan|apply|switch|migrate|parity]")
     return handle_provisioning_adapter_command(aliases[command] + command_args)
 
 

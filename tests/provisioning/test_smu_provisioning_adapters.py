@@ -26,6 +26,19 @@ class TestProvisioningAdapters(unittest.TestCase):
 
             self.assertEqual(smu.configured_provisioning_adapter(), "home-manager")
 
+    def test_profile_adapter_overrides_global_adapter(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir):
+            path = os.path.join(tempdir, "smu.toml")
+            with open(path, "w") as f:
+                f.write('[provisioning]\nadapter = "rcm"\n')
+                f.write('[profile.server]\nadapter = "nixos"\nmodules = ["base"]\n')
+
+            self.assertEqual(
+                smu.configured_profile_provisioning_adapter("server"),
+                "nixos",
+            )
+
     def test_reads_blueprint_profile_modules(self):
         with tempfile.TemporaryDirectory() as tempdir, \
                 patch.object(smu, "smu_home_dir", tempdir):

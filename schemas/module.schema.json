@@ -16,6 +16,17 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "platforms": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["macos", "debian", "ubuntu", "arch", "linux", "nixos"] }
+          },
+          "requires_root": { "type": "boolean" },
+          "secrets": { "type": "boolean" },
+          "services": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "reboot_required": { "type": "boolean" },
           "notes": { "type": "string" }
         },
         "additionalProperties": false

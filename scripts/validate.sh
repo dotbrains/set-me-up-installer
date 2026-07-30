@@ -42,6 +42,8 @@ cli_smoke() {
     printf '{ ... }:\n\n{\n}\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter validate
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter coverage --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter parity --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --output "$tmp_home/coverage.md"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter bootstrap --json
@@ -49,6 +51,9 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter apply --adapter hybrid -m ci-shell --strict --dry-run --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter migrate --adapter home-manager -m ci-shell --output "$tmp_home/migration.md"
     HOME="$tmp_home" "$python_bin" smu.py nix coverage --json
+    HOME="$tmp_home" "$python_bin" smu.py nix init -m ci-shell --json
+    HOME="$tmp_home" "$python_bin" smu.py nix switch -m ci-shell --dry-run --json
+    HOME="$tmp_home" "$python_bin" smu.py nix parity --json
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
     HOME="$registry_home" "$python_bin" smu.py catalog registry add local "$registry_dir"

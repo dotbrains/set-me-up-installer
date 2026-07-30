@@ -199,6 +199,35 @@ def write_nix_flake(adapter_id, modules=None, profile=None, output_name=None, js
     return 0
 
 
+def init_nix_profile(adapter_id="home-manager", modules=None, profile=None, json_output=False):
+    plan_result = write_nix_import_plan(adapter_id, modules, profile=profile, json_output=False)
+    if plan_result != 0:
+        return plan_result
+    flake_result = write_nix_flake(adapter_id, modules, profile=profile, json_output=False)
+    if flake_result != 0:
+        return flake_result
+    payload = {
+        "adapter": adapter_id,
+        "profile": profile or "default",
+        "import": nix_import_artifact_path(adapter_id, profile),
+        "flake": os.path.join(nix_import_state_path(adapter_id), "flake.nix"),
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0
+
+
+def switch_nix_profile(adapter_id="home-manager", modules=None, profile=None, json_output=False, dry_run=False):
+    return apply_nix_import_adapter(
+        adapter_id,
+        modules,
+        profile=profile,
+        json_output=json_output,
+        dry_run=dry_run,
+        action="switch",
+    )
+
+
 def home_manager_import_plan(modules=None, profile=None):
     return nix_import_plan("home-manager", modules, profile=profile)
 

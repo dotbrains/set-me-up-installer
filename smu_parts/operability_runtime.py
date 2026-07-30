@@ -56,11 +56,11 @@ HELP_TOPICS = {
         "Generate shell completions for common commands and profile IDs.",
     ],
     "provisioning-adapter": [
-        "smu provisioning-adapter [list|doctor|modules|coverage|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]",
+        "smu provisioning-adapter [list|doctor|modules|coverage|parity|docs|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]",
         "Show, validate, scaffold, plan, or run the selected provisioning engine.",
     ],
     "nix": [
-        "smu nix [doctor|audit|coverage|bootstrap|plan|apply|migrate] [--json]",
+        "smu nix [doctor|init|audit|coverage|bootstrap|plan|apply|switch|migrate|parity] [--json]",
         "Short aliases for Home Manager-oriented provisioning adapter workflows.",
     ],
     "state prune": [
