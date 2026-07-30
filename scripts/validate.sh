@@ -26,7 +26,7 @@ python_checks() {
 }
 
 cli_smoke() {
-    local tmp_home pack_root pack_dir registry_dir registry_home install_home profile_home
+    local tmp_home pack_root pack_dir registry_dir registry_home install_home profile_home contract_home
     tmp_home="$(mktemp -d)"
     pack_root="$(mktemp -d)"
     pack_dir="$pack_root/ci-shell.smu-pack"
@@ -34,6 +34,7 @@ cli_smoke() {
     registry_home="$(mktemp -d)"
     install_home="$(mktemp -d)"
     profile_home="$(mktemp -d)"
+    contract_home="$(mktemp -d)"
 
     HOME="$tmp_home" "$python_bin" smu.py adapter init ci-shell
     mkdir -p "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell"
@@ -76,6 +77,21 @@ cli_smoke() {
     mkdir -p "$migrate_home/set-me-up/dotfiles/modules/universal/ci-shell"
     printf 'id = "ci-shell"\n\n[adapters.rcm]\npath = "."\n' > "$migrate_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
     HOME="$migrate_home" "$python_bin" smu.py blueprint migrate --from rcm --to hybrid --force --json
+    mkdir -p "$contract_home/examples/github-actions"
+    mkdir -p "$contract_home/examples/providers/"{debian-vps,ubuntu-vps,arch-vps,nixos-vps,digitalocean-droplet,hetzner-cloud}
+    printf '[provisioning]\nmode = "rcm"\nadapter = "rcm"\n' > "$contract_home/smu.toml"
+    for workflow in rcm nix hybrid; do
+        printf 'name: %s\n' "$workflow" > "$contract_home/examples/github-actions/$workflow.yml"
+    done
+    for provider in debian-vps ubuntu-vps arch-vps; do
+        printf '[provisioning]\nmode = "nix"\nadapter = "home-manager"\n' > "$contract_home/examples/providers/$provider/smu.toml"
+    done
+    printf '[provisioning]\nmode = "nix"\nadapter = "nixos"\n' > "$contract_home/examples/providers/nixos-vps/smu.toml"
+    for provider in digitalocean-droplet hetzner-cloud; do
+        printf '[provisioning]\nmode = "hybrid"\nadapter = "hybrid"\nnix_adapter = "home-manager"\n' > "$contract_home/examples/providers/$provider/smu.toml"
+    done
+    printf 'examples/providers/debian-vps\nexamples/github-actions/nix.yml\n' > "$contract_home/PROVISIONING-COMPATIBILITY.md"
+    "$python_bin" smu.py blueprint ci --path "$contract_home" --check-docs --json
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
     HOME="$registry_home" "$python_bin" smu.py catalog registry add local "$registry_dir"

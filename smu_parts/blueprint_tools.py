@@ -314,6 +314,93 @@ def write_blueprint_compatibility_docs(output_path=None, check=False):
     return 0
 
 
+def _blueprint_ci_config_paths(root):
+    paths = [os.path.join(root, "smu.toml")]
+    profiles_dir = os.path.join(root, "profiles")
+    if os.path.isdir(profiles_dir):
+        for filename in sorted(os.listdir(profiles_dir)):
+            if filename.endswith(".toml"):
+                paths.append(os.path.join(profiles_dir, filename))
+    for base, dirs, files in os.walk(os.path.join(root, "examples")):
+        if ".git" in base.split(os.sep):
+            dirs[:] = []
+            continue
+        if "smu.toml" in files:
+            paths.append(os.path.join(base, "smu.toml"))
+    return paths
+
+
+def _blueprint_ci_check(name, path, ok, message):
+    return {
+        "name": name,
+        "path": path,
+        "ok": ok,
+        "message": message,
+    }
+
+
+def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
+    root = os.path.abspath(root or smu_home_dir)
+    checks = []
+    errors = []
+    if not os.path.isdir(root):
+        errors.append(f"{root}: blueprint path does not exist")
+    else:
+        for path in _blueprint_ci_config_paths(root):
+            rel = os.path.relpath(path, root)
+            manifest = smu_contract.read_manifest(path)
+            path_errors = _blueprint_mode_errors(manifest)
+            provisioning = manifest.get("provisioning", {})
+            mode = provisioning.get("mode") if isinstance(provisioning, dict) else None
+            adapter = provisioning.get("adapter") if isinstance(provisioning, dict) else None
+            checks.append(_blueprint_ci_check(
+                "mode-adapter",
+                rel,
+                not path_errors,
+                f"{mode or '<missing>'}/{adapter or '<missing>'}",
+            ))
+            errors.extend(f"{rel}: {error}" for error in path_errors)
+        for workflow in ("rcm.yml", "nix.yml", "hybrid.yml"):
+            rel = os.path.join("examples", "github-actions", workflow)
+            exists = os.path.exists(os.path.join(root, rel))
+            checks.append(_blueprint_ci_check("github-actions-example", rel, exists, "present" if exists else "missing"))
+            if not exists:
+                errors.append(f"{rel}: missing")
+        for provider in ("debian-vps", "ubuntu-vps", "arch-vps", "nixos-vps", "digitalocean-droplet", "hetzner-cloud"):
+            rel = os.path.join("examples", "providers", provider, "smu.toml")
+            exists = os.path.exists(os.path.join(root, rel))
+            checks.append(_blueprint_ci_check("provider-example", rel, exists, "present" if exists else "missing"))
+            if not exists:
+                errors.append(f"{rel}: missing")
+        if check_docs:
+            rel = "PROVISIONING-COMPATIBILITY.md"
+            doc_path = os.path.join(root, rel)
+            exists = os.path.exists(doc_path)
+            current = ""
+            if exists:
+                with open(doc_path) as f:
+                    current = f.read()
+            doc_ok = exists and "examples/providers/debian-vps" in current and "examples/github-actions/nix.yml" in current
+            checks.append(_blueprint_ci_check("readiness-doc", rel, doc_ok, "present" if doc_ok else "missing or stale"))
+            if not doc_ok:
+                errors.append(f"{rel}: missing or stale")
+    payload = {
+        "path": root,
+        "valid": not errors,
+        "errors": errors,
+        "checks": checks,
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for check in checks:
+            label = f"{COL_GREEN}OK{COL_RESET}" if check["ok"] else f"{COL_RED}FAIL{COL_RESET}"
+            print(f"{label} {check['name']}\t{check['path']}\t{check['message']}")
+        if not errors:
+            print(f"{COL_GREEN}OK{COL_RESET}   blueprint CI contract")
+    return 0 if not errors else 1
+
+
 def handle_blueprint_command(argv):
     command = argv[0] if argv else "schema"
     args = argv[1:]
@@ -338,11 +425,14 @@ def handle_blueprint_command(argv):
         )
     if command == "schema":
         return write_blueprint_schema(output_path=output_path, check=check)
+    if command == "ci":
+        root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
+        return blueprint_ci_contract(root=root, json_output=json_output, check_docs=check or "--check-docs" in args)
     if command == "compatibility":
         if check or output_path:
             return write_blueprint_compatibility_docs(output_path=output_path, check=check)
         return print_provisioning_compatibility_matrix(json_output=json_output)
-    die("Usage: smu blueprint [init|doctor|migrate|schema|compatibility] [--json]")
+    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|compatibility] [--json]")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

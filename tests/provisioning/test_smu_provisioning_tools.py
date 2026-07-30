@@ -361,6 +361,48 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(smu.write_blueprint_compatibility_docs(output_path), 0)
             self.assertEqual(smu.write_blueprint_compatibility_docs(output_path, check=True), 0)
 
+    def test_blueprint_ci_contract_validates_checkout(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            os.makedirs(os.path.join(tempdir, "examples", "github-actions"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "debian-vps"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "ubuntu-vps"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "arch-vps"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "nixos-vps"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "digitalocean-droplet"))
+            os.makedirs(os.path.join(tempdir, "examples", "providers", "hetzner-cloud"))
+            with open(os.path.join(tempdir, "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "rcm"\nadapter = "rcm"\n')
+            for workflow in ("rcm.yml", "nix.yml", "hybrid.yml"):
+                with open(os.path.join(tempdir, "examples", "github-actions", workflow), "w"):
+                    pass
+            for provider in ("debian-vps", "ubuntu-vps", "arch-vps"):
+                with open(os.path.join(tempdir, "examples", "providers", provider, "smu.toml"), "w") as f:
+                    f.write('[provisioning]\nmode = "nix"\nadapter = "home-manager"\n')
+            with open(os.path.join(tempdir, "examples", "providers", "nixos-vps", "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "nix"\nadapter = "nixos"\n')
+            for provider in ("digitalocean-droplet", "hetzner-cloud"):
+                with open(os.path.join(tempdir, "examples", "providers", provider, "smu.toml"), "w") as f:
+                    f.write('[provisioning]\nmode = "hybrid"\nadapter = "hybrid"\nnix_adapter = "home-manager"\n')
+            with open(os.path.join(tempdir, "PROVISIONING-COMPATIBILITY.md"), "w") as f:
+                f.write("examples/providers/debian-vps\nexamples/github-actions/nix.yml\n")
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                result = smu.blueprint_ci_contract(root=tempdir, json_output=True, check_docs=True)
+
+            payload = json.loads(output.getvalue())
+            self.assertEqual(result, 0)
+            self.assertTrue(payload["valid"])
+
+    def test_blueprint_ci_contract_rejects_drift(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            with open(os.path.join(tempdir, "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "rcm"\nadapter = "home-manager"\n')
+
+            result = smu.blueprint_ci_contract(root=tempdir, check_docs=True)
+
+            self.assertEqual(result, 1)
+
     def test_print_nix_bootstrap_status_reports_known_binaries(self):
         with patch("smu.subprocess.call", side_effect=[0, 1, 1, 1]):
             output = io.StringIO()
