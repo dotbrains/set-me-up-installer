@@ -315,6 +315,52 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertEqual(payload["modules"][0]["module"], "nushell")
             self.assertEqual(payload["modules"][0]["home-manager"], "ready")
 
+    def test_blueprint_doctor_rejects_mode_adapter_drift(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir):
+            with open(os.path.join(tempdir, "smu.toml"), "w") as f:
+                f.write('[provisioning]\nmode = "rcm"\nadapter = "home-manager"\n')
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                result = smu.blueprint_doctor(json_output=True, strict=True)
+
+            payload = json.loads(output.getvalue())
+            self.assertEqual(result, 1)
+            self.assertFalse(payload["valid"])
+            self.assertIn("mode 'rcm' requires adapter 'rcm'", payload["errors"][0])
+
+    def test_blueprint_migrate_writes_target_mode(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir), \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "shell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "brewfile"), "w"):
+                pass
+
+            result = smu.blueprint_migrate(target_mode="hybrid", force=True)
+
+            self.assertEqual(result, 0)
+            with open(os.path.join(tempdir, "smu.toml")) as f:
+                content = f.read()
+            self.assertIn('mode = "hybrid"', content)
+            self.assertIn('adapter = "hybrid"', content)
+
+    def test_blueprint_compatibility_docs_check_detects_fresh_docs(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")):
+            module_dir = os.path.join(tempdir, "modules", "universal", "nushell")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('[adapters.home-manager]\npath = "home-manager.nix"\n')
+            with open(os.path.join(module_dir, "home-manager.nix"), "w"):
+                pass
+            output_path = os.path.join(tempdir, "compatibility.md")
+
+            self.assertEqual(smu.write_blueprint_compatibility_docs(output_path), 0)
+            self.assertEqual(smu.write_blueprint_compatibility_docs(output_path, check=True), 0)
+
     def test_print_nix_bootstrap_status_reports_known_binaries(self):
         with patch("smu.subprocess.call", side_effect=[0, 1, 1, 1]):
             output = io.StringIO()

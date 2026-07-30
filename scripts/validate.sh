@@ -37,7 +37,7 @@ cli_smoke() {
 
     HOME="$tmp_home" "$python_bin" smu.py adapter init ci-shell
     mkdir -p "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell"
-    printf '[profile.default]\nmodules = ["ci-shell"]\n' > "$tmp_home/set-me-up/smu.toml"
+    printf '[provisioning]\nmode = "nix"\nadapter = "home-manager"\n\n[profile.default]\nmodules = ["ci-shell"]\n' > "$tmp_home/set-me-up/smu.toml"
     printf 'id = "ci-shell"\n\n[adapters.home-manager]\npath = "home-manager.nix"\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
     printf '{ ... }:\n\n{\n}\n' > "$tmp_home/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter validate
@@ -47,6 +47,9 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --check --output "$tmp_home/coverage.md"
     HOME="$tmp_home" "$python_bin" smu.py blueprint schema --check --output schemas/blueprint.schema.json
     HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --json
+    HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --output "$tmp_home/compatibility.md"
+    HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --check --output "$tmp_home/compatibility.md"
+    HOME="$tmp_home" "$python_bin" smu.py blueprint doctor --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter bootstrap --json
@@ -67,7 +70,12 @@ cli_smoke() {
         mode_home="$(mktemp -d)"
         HOME="$mode_home" "$python_bin" smu.py blueprint init --mode "$blueprint_mode" --json
         HOME="$mode_home" "$python_bin" smu.py provisioning-adapter doctor --json
+        HOME="$mode_home" "$python_bin" smu.py blueprint doctor --strict --json
     done
+    migrate_home="$(mktemp -d)"
+    mkdir -p "$migrate_home/set-me-up/dotfiles/modules/universal/ci-shell"
+    printf 'id = "ci-shell"\n\n[adapters.rcm]\npath = "."\n' > "$migrate_home/set-me-up/dotfiles/modules/universal/ci-shell/module.toml"
+    HOME="$migrate_home" "$python_bin" smu.py blueprint migrate --from rcm --to hybrid --force --json
     HOME="$tmp_home" "$python_bin" smu.py catalog package ci-shell --output "$pack_dir"
     "$python_bin" smu.py catalog publish "$pack_dir" --registry "$registry_dir"
     HOME="$registry_home" "$python_bin" smu.py catalog registry add local "$registry_dir"

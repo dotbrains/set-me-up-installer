@@ -7,6 +7,7 @@ BLUEPRINT_MODE_ADAPTERS = {
     "nix": "home-manager",
     "hybrid": "hybrid",
 }
+BLUEPRINT_NIX_ADAPTERS = ("home-manager", "nix-darwin", "nixos")
 
 
 def _blueprint_mode_config(mode):
@@ -52,6 +53,76 @@ def blueprint_init(mode="rcm", output_path=None, force=False, json_output=False)
     return 0
 
 
+def _blueprint_mode_errors(manifest, path=None):
+    errors = []
+    provisioning = manifest.get("provisioning", {})
+    if not isinstance(provisioning, dict):
+        return ["[provisioning] must be a table"]
+    mode = provisioning.get("mode")
+    adapter = provisioning.get("adapter")
+    nix_adapter = provisioning.get("nix_adapter")
+    if not mode:
+        errors.append("[provisioning].mode is required")
+    elif mode not in BLUEPRINT_MODES:
+        errors.append(f"unsupported provisioning mode '{mode}'")
+    if not adapter:
+        errors.append("[provisioning].adapter is required")
+    elif adapter not in supported_provisioning_adapters():
+        errors.append(f"unsupported provisioning adapter '{adapter}'")
+    if mode == "rcm" and adapter and adapter != "rcm":
+        errors.append("mode 'rcm' requires adapter 'rcm'")
+    if mode == "nix" and adapter and adapter not in BLUEPRINT_NIX_ADAPTERS:
+        errors.append("mode 'nix' requires adapter 'home-manager', 'nix-darwin', or 'nixos'")
+    if mode == "hybrid" and adapter and adapter != "hybrid":
+        errors.append("mode 'hybrid' requires adapter 'hybrid'")
+    if mode == "hybrid" and nix_adapter and nix_adapter not in BLUEPRINT_NIX_ADAPTERS:
+        errors.append("hybrid nix_adapter must be 'home-manager', 'nix-darwin', or 'nixos'")
+    for section_name in ("profile", "profiles"):
+        profiles = manifest.get(section_name, {})
+        if not isinstance(profiles, dict):
+            continue
+        for profile_name, profile_config in profiles.items():
+            if not isinstance(profile_config, dict):
+                continue
+            profile_adapter = profile_config.get("adapter")
+            if profile_adapter and profile_adapter not in supported_provisioning_adapters():
+                errors.append(f"profile {profile_name} uses unsupported adapter '{profile_adapter}'")
+            if mode == "rcm" and profile_adapter and profile_adapter != "rcm":
+                errors.append(f"profile {profile_name} cannot override rcm mode with '{profile_adapter}'")
+    if path:
+        return [f"{path}: {error}" for error in errors]
+    return errors
+
+
+def blueprint_doctor(json_output=False, strict=False):
+    path = blueprint_config_path()
+    manifest = blueprint_config()
+    errors = []
+    if not path:
+        errors.append("no blueprint config found")
+    else:
+        errors.extend(_blueprint_mode_errors(manifest, path=path))
+    provisioning = manifest.get("provisioning", {}) if isinstance(manifest, dict) else {}
+    mode = provisioning.get("mode") if isinstance(provisioning, dict) else None
+    adapter = provisioning.get("adapter") if isinstance(provisioning, dict) else None
+    payload = {
+        "path": path,
+        "mode": mode,
+        "adapter": adapter,
+        "valid": not errors,
+        "errors": errors,
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        if errors:
+            for error in errors:
+                print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        else:
+            print(f"{COL_GREEN}OK{COL_RESET}   blueprint {mode} mode uses {adapter}")
+    return 1 if errors and strict else 0
+
+
 def blueprint_mode_schema():
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -75,6 +146,38 @@ def blueprint_mode_schema():
         },
         "additionalProperties": True,
     }
+
+
+def blueprint_migrate(source_mode="rcm", target_mode="nix", output_path=None, force=False, json_output=False):
+    if source_mode != "rcm":
+        die("Blueprint migration currently supports --from rcm.")
+    if target_mode not in ("nix", "hybrid"):
+        die("Blueprint migration currently supports --to nix or --to hybrid.")
+    path = output_path or blueprint_config_path() or os.path.join(smu_home_dir, "smu.toml")
+    if os.path.exists(path) and not force:
+        die(f"Blueprint config already exists: {path}. Use --force to overwrite.")
+    result = blueprint_init(mode=target_mode, output_path=path, force=True, json_output=False)
+    if result != 0:
+        return result
+    report = rcm_to_nix_migration_report(target_adapter="home-manager")
+    payload = {
+        "from": source_mode,
+        "to": target_mode,
+        "path": path,
+        "report": report,
+        "next_commands": [
+            "smu blueprint doctor --strict",
+            "smu nix doctor --profile default --json",
+            "smu nix migrate compare --profile default --json",
+        ],
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(path)
+        print("next\tsmu blueprint doctor --strict")
+        print("next\tsmu nix migrate compare --profile default --json")
+    return 0
 
 
 def write_blueprint_schema(output_path=None, check=False):
@@ -174,6 +277,43 @@ def print_provisioning_compatibility_matrix(json_output=False):
     return 0
 
 
+def render_blueprint_compatibility_docs():
+    payload = provisioning_compatibility_matrix()
+    lines = [
+        "# Blueprint Provisioning Compatibility",
+        "",
+        "| Module | Bucket | " + " | ".join(f"`{adapter_id}`" for adapter_id in payload["adapters"]) + " |",
+        "| --- | --- | " + " | ".join("---" for _adapter_id in payload["adapters"]) + " |",
+    ]
+    for row in payload["modules"]:
+        values = [f"`{row['module']}`", row["bucket"]]
+        values.extend(f"`{row[adapter_id]}`" for adapter_id in payload["adapters"])
+        lines.append("| " + " | ".join(values) + " |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_blueprint_compatibility_docs(output_path=None, check=False):
+    output_path = output_path or os.path.join(adapter_state_path, "blueprint-compatibility.md")
+    expected = render_blueprint_compatibility_docs()
+    if check:
+        if not os.path.exists(output_path):
+            print(f"{COL_RED}FAIL{COL_RESET} missing blueprint compatibility docs: {output_path}")
+            return 1
+        with open(output_path) as f:
+            current = f.read()
+        if current != expected:
+            print(f"{COL_RED}FAIL{COL_RESET} stale blueprint compatibility docs: {output_path}")
+            return 1
+        print(f"{COL_GREEN}OK{COL_RESET}   blueprint compatibility docs {output_path}")
+        return 0
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write(expected)
+    print(output_path)
+    return 0
+
+
 def handle_blueprint_command(argv):
     command = argv[0] if argv else "schema"
     args = argv[1:]
@@ -184,11 +324,25 @@ def handle_blueprint_command(argv):
     if command == "init":
         mode = _option_value(args, "--mode") or "rcm"
         return blueprint_init(mode=mode, output_path=output_path, force=force, json_output=json_output)
+    if command == "doctor":
+        return blueprint_doctor(json_output=json_output, strict="--strict" in args)
+    if command == "migrate":
+        source_mode = _option_value(args, "--from") or "rcm"
+        target_mode = _option_value(args, "--to") or "nix"
+        return blueprint_migrate(
+            source_mode=source_mode,
+            target_mode=target_mode,
+            output_path=output_path,
+            force=force,
+            json_output=json_output,
+        )
     if command == "schema":
         return write_blueprint_schema(output_path=output_path, check=check)
     if command == "compatibility":
+        if check or output_path:
+            return write_blueprint_compatibility_docs(output_path=output_path, check=check)
         return print_provisioning_compatibility_matrix(json_output=json_output)
-    die("Usage: smu blueprint [init --mode rcm|nix|hybrid|schema|compatibility] [--json]")
+    die("Usage: smu blueprint [init|doctor|migrate|schema|compatibility] [--json]")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

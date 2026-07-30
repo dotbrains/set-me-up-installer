@@ -20,9 +20,14 @@ Create that file with the blueprint initializer:
 smu blueprint init --mode rcm
 smu blueprint init --mode nix --output smu.toml --force
 smu blueprint init --mode hybrid --json
+smu blueprint doctor --strict --json
+smu blueprint migrate --from rcm --to nix --force --json
+smu blueprint migrate --from rcm --to hybrid --force --json
 smu blueprint schema --output schemas/blueprint.schema.json
 smu blueprint schema --check --output schemas/blueprint.schema.json
 smu blueprint compatibility --json
+smu blueprint compatibility --output blueprint-compatibility.md
+smu blueprint compatibility --check --output blueprint-compatibility.md
 ```
 
 `rcm` uses thoughtbot's
@@ -38,6 +43,11 @@ Nix-oriented adapter IDs:
 
 All listed adapters are apply-capable. `hybrid` applies modules with the
 configured Nix adapter when possible and falls back to `rcm` for legacy modules.
+
+`smu blueprint doctor --strict` enforces that `provisioning.mode` and
+`provisioning.adapter` agree. `mode = "rcm"` requires `adapter = "rcm"`,
+`mode = "nix"` requires a Nix-family adapter, and `mode = "hybrid"` requires
+`adapter = "hybrid"`.
 
 Inspect support:
 
@@ -186,6 +196,10 @@ each adapter across discovered modules.
 using the same states, so blueprint repositories can publish a generated
 compatibility dashboard or use the JSON in CI.
 
+`smu blueprint compatibility --output blueprint-compatibility.md` writes a
+generated Markdown matrix. Add `--check` to fail when the checked-in matrix is
+missing or stale.
+
 `smu provisioning-adapter parity` compares two adapters, defaulting to `rcm`
 versus `home-manager`, and classifies each module as ready, source-only,
 target-only, or missing.
@@ -207,6 +221,10 @@ each module. Ready modules are marked `accepted`; the rest start as `pending`.
 `smu provisioning-adapter migrate compare --adapter home-manager --profile
 default --json` compares the legacy `rcm` path with the target Nix adapter and
 classifies each module as `ported`, `partial`, `blocked`, or `kept-rcm`.
+
+`smu blueprint migrate --from rcm --to nix|hybrid` rewrites the blueprint
+configuration for the target mode and prints the next validation commands. Use
+`--force` when intentionally replacing an existing `smu.toml`.
 
 `smu provisioning-adapter generate --adapter home-manager -m zsh` writes a
 starter `home-manager.nix` adapter and updates `module.toml` for the selected
