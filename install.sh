@@ -29,6 +29,8 @@ readonly SMU_IGNORED_PATHS="${SMU_IGNORED_PATHS:-""}"
 
 # Where to install set-me-up
 readonly SMU_HOME_DIR=${SMU_HOME_DIR:-"${HOME}/set-me-up"}
+readonly SMU_INSTALLER_REF=${SMU_INSTALLER_REF:-"main"}
+readonly SMU_INSTALLER_URL=${SMU_INSTALLER_URL:-"https://raw.githubusercontent.com/dotbrains/set-me-up-installer/${SMU_INSTALLER_REF}/install.sh"}
 
 readonly smu_download="https://github.com/${SMU_BLUEPRINT}"
 
@@ -263,6 +265,7 @@ function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	if [[ "$plan_only" = true ]]; then
 		printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
+		printf "plan\tinstaller\t%s\t%s\n" "${SMU_INSTALLER_REF}" "${SMU_INSTALLER_URL}"
 		printf "plan\tmode\t%s\n" "$([[ "$force_reset" = true ]] && printf "force-reset" || printf "ff-only")"
 		return 0
 	fi

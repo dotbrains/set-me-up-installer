@@ -265,6 +265,7 @@ smu update installer       # fast-forward the bundled installer checkout
 smu update modules         # update blueprint submodules
 smu update --all           # run the full update pipeline
 smu update --all --dry-run # preview the full update pipeline
+smu update doctor --json   # check blueprint and installer update readiness
 ```
 
 Blueprint and installer updates refuse to continue when local changes are
@@ -331,6 +332,7 @@ smu update --report --json
 smu update baseline
 smu update policy --set-ref stable --require-signed --validate --json
 smu update doctor --json
+smu update policy doctor --json
 smu update --yes --json --validate
 smu update --ref stable --validate
 smu update --ref stable --require-signed --validate

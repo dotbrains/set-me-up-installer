@@ -261,11 +261,26 @@ class TestSmuState(unittest.TestCase):
         self.assertEqual(policy["ref"], None)
         write_policy.assert_not_called()
 
-    def test_update_doctor_reports_policy_health(self):
+    def test_update_policy_doctor_reports_policy_health(self):
         with patch.object(smu, "update_policy_doctor", return_value={
                 "policy": {},
                 "report": {},
                 "checks": [{"name": "config_drift", "status": "passed"}],
+        }), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "update", "policy", "doctor", "--json"]
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as raised:
+                    smu.main()
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(json.loads(buf.getvalue())["checks"][0]["status"], "passed")
+
+    def test_update_doctor_reports_repository_health(self):
+        with patch.object(smu, "repository_update_doctor", return_value={
+                "repositories": [{"name": "blueprint", "update_status": "current", "dirty": False}],
+                "submodules": {"gitmodules": True},
         }), \
                 patch.object(smu, "sys") as mock_sys:
             mock_sys.argv = ["smu.py", "update", "doctor", "--json"]
@@ -275,7 +290,7 @@ class TestSmuState(unittest.TestCase):
                     smu.main()
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertEqual(json.loads(buf.getvalue())["checks"][0]["status"], "passed")
+        self.assertEqual(json.loads(buf.getvalue())["repositories"][0]["name"], "blueprint")
 
     def test_config_drift_report_detects_changed_generated_file(self):
         with tempfile.TemporaryDirectory() as tempdir:

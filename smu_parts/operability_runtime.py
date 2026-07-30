@@ -35,6 +35,10 @@ HELP_TOPICS = {
         "smu update preflight --json",
         "Run read-only update checks for policy, channel, manifest, drift, and rate limits.",
     ],
+    "update doctor": [
+        "smu update doctor [--json]",
+        "Report blueprint and installer update readiness, dirty state, and sync status.",
+    ],
     "update schedule": [
         "smu update schedule [install|remove|status] [--json]",
         "Write scheduler payloads plus launchd/systemd user-service files.",

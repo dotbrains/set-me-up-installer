@@ -73,6 +73,42 @@ def update_installer_repository(force_reset=False):
     return update_git_repository_ff_only(installer_root, "installer", force_reset=force_reset)
 
 
+def repository_update_doctor():
+    repositories = []
+    for repo in [
+        {"name": "blueprint", "path": smu_home_dir},
+        {"name": "installer", "path": installer_root},
+    ]:
+        status = git_upstream_sync(repo["path"])
+        dirty = git_has_worktree_changes(repo["path"])
+        repositories.append({
+            **repo,
+            **status,
+            "dirty": dirty,
+            "head": git_head(repo["path"]),
+            "update_status": "blocked" if dirty else status["status"],
+            "force_reset_required": dirty,
+        })
+    return {
+        "repositories": repositories,
+        "submodules": {
+            "path": smu_home_dir,
+            "gitmodules": os.path.exists(os.path.join(smu_home_dir, ".gitmodules")),
+        },
+    }
+
+
+def print_repository_update_doctor(json_output=False):
+    payload = repository_update_doctor()
+    failed = any(repo["update_status"] in ("blocked", "diverged", "detached", "unknown") for repo in payload["repositories"])
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for repo in payload["repositories"]:
+            print(f"{repo['update_status']}\t{repo['name']}\tdirty={str(repo['dirty']).lower()}\tbranch={repo.get('branch') or '-'}")
+    return 1 if failed else 0
+
+
 def print_repository_update_results(results, json_output=False):
     exit_code = 0 if all(item["status"] in ("updated", "reset") for item in results) else 1
     if json_output:

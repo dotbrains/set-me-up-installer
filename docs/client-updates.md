@@ -15,6 +15,7 @@ smu update policy --report-url https://updates.example.com/smu
 smu update policy --manifest-url https://updates.example.com/manifest.json
 smu update policy --min-interval-seconds 3600 --backoff-seconds 900
 smu update doctor --json
+smu update policy doctor --json
 smu update schedule install --json
 smu update schedule status
 smu update --yes --json --validate
@@ -61,9 +62,13 @@ Use `smu update baseline` after upgrading an existing machine to a version that
 supports update locks. It records the current generated config fingerprints
 without pulling or rewriting config, clearing first-run drift.
 
-Use `smu update doctor --json` before enabling unattended updates. It checks
-lockfile, policy schema, drift, schedule, rate-limit readiness, report hook,
-and signature health.
+Use `smu update doctor --json` to check blueprint and installer update
+readiness. It reports current branch, sync state, dirty state, and whether
+`--force-reset` would be required.
+
+Use `smu update policy doctor --json` before enabling unattended updates. It
+checks lockfile, policy schema, drift, schedule, rate-limit readiness, report
+hook, and signature health.
 
 When `report_url` is configured, `smu update --report --json` and completed
 updates POST their JSON payload to that endpoint. Report delivery failures are

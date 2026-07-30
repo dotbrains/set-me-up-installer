@@ -175,6 +175,20 @@ class TestSmuUpdatePolicy(unittest.TestCase):
         self.assertEqual(payload["repositories"][0]["status"], "reset")
         locked.assert_called_once()
 
+    def test_repository_update_doctor_reports_dirty_repo(self):
+        with patch.object(smu, "git_upstream_sync", return_value={
+                "branch": "main",
+                "status": "current",
+                "ahead": 0,
+                "behind": 0,
+        }), patch.object(smu, "git_has_worktree_changes", side_effect=[True, False]), \
+                patch.object(smu, "git_head", return_value="abc"), \
+                patch.object(smu.os.path, "exists", return_value=True):
+            payload = smu.repository_update_doctor()
+
+        self.assertEqual(payload["repositories"][0]["update_status"], "blocked")
+        self.assertTrue(payload["repositories"][0]["force_reset_required"])
+
 
 if __name__ == "__main__":
     unittest.main()

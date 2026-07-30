@@ -20,6 +20,14 @@ class TestSmuOperabilityRuntime(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("smu update preflight", buf.getvalue())
 
+    def test_help_topic_prints_update_doctor_usage(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = smu.print_help_topic("update doctor")
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("smu update doctor", buf.getvalue())
+
     def test_contract_show_prints_json_contract(self):
         with patch.object(smu, "json_contracts", return_value={"doctor": {"updates": {"preflight": "passed"}}}):
             buf = io.StringIO()

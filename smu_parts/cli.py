@@ -121,9 +121,11 @@ def main():
             if "preflight" in command_args or "--preflight" in command_args:
                 raise SystemExit(print_client_update_preflight(json_output=json_output, ref=ref))
             if "policy" in command_args or "--policy" in command_args:
+                if "doctor" in command_args or "--doctor" in command_args:
+                    raise SystemExit(print_update_policy_doctor(json_output=json_output))
                 raise SystemExit(print_update_policy(command_args, json_output=json_output))
             if "doctor" in command_args or "--doctor" in command_args:
-                raise SystemExit(print_update_policy_doctor(json_output=json_output))
+                raise SystemExit(print_repository_update_doctor(json_output=json_output))
             if "--check" in command_args or "--report" in command_args:
                 print_client_update_status(json_output=json_output, ref=ref, send_report="--report" in command_args)
                 return
