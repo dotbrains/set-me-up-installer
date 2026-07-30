@@ -52,6 +52,7 @@ skip_confirmation=false
 force_reset=false
 plan_only=false
 json_output=false
+doctor_only=false
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -86,6 +87,7 @@ function parse_arguments() {
 		--no-header) show_header=false ;;
 		--force-reset) force_reset=true ;;
 		--plan) plan_only=true ;;
+		--doctor) doctor_only=true ;;
 		--json) json_output=true ;;
 		--theme)
 			shift
@@ -164,6 +166,38 @@ function json_escape() {
 
 function update_mode() {
 	[[ "$force_reset" = true ]] && printf "force-reset" || printf "ff-only"
+}
+
+function install_target_state() {
+	if [[ ! -e "${SMU_HOME_DIR}" ]]; then
+		printf "missing"
+	elif is_git_repo; then
+		if has_worktree_changes; then
+			printf "dirty"
+		else
+			printf "clean"
+		fi
+	else
+		printf "not-git"
+	fi
+}
+
+function install_readiness() {
+	case "$(install_target_state)" in
+	missing | clean)
+		printf "ready"
+		;;
+	dirty)
+		if [[ "$force_reset" = true ]]; then
+			printf "ready-force-reset"
+		else
+			printf "blocked-dirty"
+		fi
+		;;
+	not-git)
+		printf "blocked-not-git"
+		;;
+	esac
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -278,16 +312,21 @@ function obtain() {
 
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
-	if [[ "$plan_only" = true ]]; then
+	if [[ "$plan_only" = true || "$doctor_only" = true ]]; then
 		if [[ "$json_output" = true ]]; then
-			printf '{"blueprint":{"repo":"%s","branch":"%s","path":"%s"},"installer":{"ref":"%s","url":"%s"},"mode":"%s"}\n' \
+			printf '{"blueprint":{"repo":"%s","branch":"%s","path":"%s","state":"%s","readiness":"%s"},"installer":{"ref":"%s","url":"%s"},"mode":"%s","doctor":%s}\n' \
 				"$(json_escape "$SMU_BLUEPRINT")" "$(json_escape "$SMU_BLUEPRINT_BRANCH")" \
-				"$(json_escape "$SMU_HOME_DIR")" "$(json_escape "$SMU_INSTALLER_REF")" \
-				"$(json_escape "$SMU_INSTALLER_URL")" "$(update_mode)"
+				"$(json_escape "$SMU_HOME_DIR")" "$(install_target_state)" "$(install_readiness)" \
+				"$(json_escape "$SMU_INSTALLER_REF")" "$(json_escape "$SMU_INSTALLER_URL")" \
+				"$(update_mode)" "$doctor_only"
 		else
 			printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
 			printf "plan\tinstaller\t%s\t%s\n" "${SMU_INSTALLER_REF}" "${SMU_INSTALLER_URL}"
 			printf "plan\tmode\t%s\n" "$(update_mode)"
+			if [[ "$doctor_only" = true ]]; then
+				printf "doctor\tstate\t%s\n" "$(install_target_state)"
+				printf "doctor\treadiness\t%s\n" "$(install_readiness)"
+			fi
 		fi
 		return 0
 	fi
