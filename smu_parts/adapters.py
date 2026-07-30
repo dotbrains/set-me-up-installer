@@ -184,11 +184,20 @@ def materialize_adapters(theme=None, prompt=None, dry_run=False, force=False):
             "before": file_snapshot(target),
         })
         if mode == "symlink":
-            if os.path.lexists(target):
-                os.unlink(target)
-            os.symlink(source, target)
+            tmp_target = os.path.join(os.path.dirname(target), f".{os.path.basename(target)}.tmp")
+            if os.path.lexists(tmp_target):
+                os.unlink(tmp_target)
+            os.symlink(source, tmp_target)
+            os.replace(tmp_target, target)
         elif mode == "copy":
-            shutil.copy2(source, target)
+            fd, tmp_target = tempfile.mkstemp(prefix=f".{os.path.basename(target)}.", dir=os.path.dirname(target))
+            os.close(fd)
+            try:
+                shutil.copy2(source, tmp_target)
+                os.replace(tmp_target, target)
+            finally:
+                if os.path.exists(tmp_target):
+                    os.unlink(tmp_target)
         else:
             die(f"Unsupported adapter materialization mode '{mode}' for {entry['name']}")
 

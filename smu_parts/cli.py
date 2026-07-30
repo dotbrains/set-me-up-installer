@@ -17,14 +17,14 @@ def main():
         if command in ("help", "--help"):
             raise SystemExit(print_help_topic(command_args))
         if command in ("init", "bootstrap"):
-            raise SystemExit(bootstrap(command_args))
+            raise SystemExit(locked_call(command, bootstrap, command_args))
         if command == "completion":
             raise SystemExit(completion_command(command_args))
         if command == "contract":
             raise SystemExit(contract_command(command_args))
         if command == "state":
             if command_args and command_args[0] == "prune":
-                raise SystemExit(state_prune(command_args[1:]))
+                raise SystemExit(locked_call("state prune", state_prune, command_args[1:]))
             die("Usage: smu state prune [--dry-run] [--json]")
         if command == "profile":
             handle_profile_command(command_args)
@@ -41,9 +41,13 @@ def main():
         if command == "catalog":
             if command_args and command_args[0] == "trust":
                 raise SystemExit(catalog_trust_command(command_args[1:], json_output="--json" in command_args))
+            if command_args and command_args[0] in ("install", "migrate", "publish"):
+                return locked_call(f"catalog {command_args[0]}", handle_catalog_command, command_args)
             handle_catalog_command(command_args)
             return
         if command == "adapter":
+            if command_args and command_args[0] == "materialize":
+                return locked_call("adapter materialize", handle_adapter_command, command_args)
             handle_adapter_command(command_args)
             return
         if command == "doctor":
@@ -81,9 +85,12 @@ def main():
             require_signed = "--require-signed" in command_args
             if "schedule" in command_args:
                 actions = [arg for arg in command_args if arg in ("install", "remove", "status")]
-                raise SystemExit(update_schedule(actions[0] if actions else "status", json_output=json_output))
+                action_name = actions[0] if actions else "status"
+                if action_name in ("install", "remove"):
+                    raise SystemExit(locked_call(f"update schedule {action_name}", update_schedule, action_name, json_output=json_output))
+                raise SystemExit(update_schedule(action_name, json_output=json_output))
             if "baseline" in command_args or "--baseline" in command_args:
-                raise SystemExit(client_update_baseline(json_output=json_output))
+                raise SystemExit(locked_call("update baseline", client_update_baseline, json_output=json_output))
             if "manifest" in command_args:
                 raise SystemExit(update_manifest_command(command_args, json_output=json_output))
             if "preflight" in command_args or "--preflight" in command_args:
@@ -100,7 +107,7 @@ def main():
                     print(json.dumps({"repositories": rollback_client_update_repositories()}, indent=2, sort_keys=True))
                     return
                 raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
-            raise SystemExit(client_update(
+            raise SystemExit(locked_call("update", client_update,
                 dry_run=dry_run,
                 json_output=json_output,
                 validate=validate,
@@ -197,7 +204,7 @@ def main():
         return
 
     if args.client_update:
-        raise SystemExit(client_update(
+        raise SystemExit(locked_call("client-update", client_update,
             validate=True,
             self_update_requested=args.client_update_self,
             ref=args.client_update_ref,

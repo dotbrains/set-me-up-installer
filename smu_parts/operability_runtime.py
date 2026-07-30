@@ -1,6 +1,27 @@
 from .product_runtime import *
 
 
+@contextlib.contextmanager
+def runtime_lock(operation):
+    os.makedirs(config_dir, exist_ok=True)
+    with open(runtime_lock_path, "w") as lock_file:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            die(f"Another smu operation is running: {operation}")
+        lock_file.write(f"{operation}\t{_utc_timestamp()}\n")
+        lock_file.flush()
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def locked_call(operation, callback, *args, **kwargs):
+    with runtime_lock(operation):
+        return callback(*args, **kwargs)
+
+
 HELP_TOPICS = {
     "bootstrap": [
         "smu bootstrap [--dry-run] [--json] [--theme id] [--prompt id] [--preset id] [--force]",

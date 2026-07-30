@@ -22,6 +22,11 @@ Existing targets are accepted when they are already the managed symlink or have
 the same content as the source. Other targets stop the write so user-managed
 config is not silently overwritten.
 
+Mutating runtime commands use `~/.config/set-me-up/runtime.lock` so concurrent
+shells or agents cannot write profile, adapter, catalog, update, or prune state
+at the same time. Adapter copy and symlink writes are staged and swapped into
+place to avoid partially-written targets.
+
 Catalog trust policy is stored in `~/.config/set-me-up/catalog-trust.json`:
 
 ```bash

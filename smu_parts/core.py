@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import fcntl
 import platform
 import re
 import subprocess
@@ -14,6 +15,7 @@ import os
 import shlex
 import shutil
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,6 +51,7 @@ preset_catalog_path = os.path.join(catalogs_path, "presets")
 catalog_registries_path = os.path.join(config_dir, "registries.toml")
 catalog_registry_lock_path = os.path.join(config_dir, "registry.lock")
 catalog_trust_path = os.path.join(config_dir, "catalog-trust.json")
+runtime_lock_path = os.path.join(config_dir, "runtime.lock")
 update_lock_path = os.path.join(config_dir, "update.lock")
 update_policy_path = os.path.join(config_dir, "update-policy.json")
 update_history_path = os.path.join(config_dir, "update-history.json")
