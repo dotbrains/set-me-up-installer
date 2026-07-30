@@ -47,6 +47,8 @@ show_header=true
 # Initialize the flag to "false" for skipping the confirmation prompt (if '--skip-confirm' is passed)
 # By default, the confirmation prompt will be shown.
 skip_confirmation=false
+force_reset=false
+plan_only=false
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -79,6 +81,8 @@ function parse_arguments() {
 		--skip-confirm) skip_confirmation=true ;;
 			# If '--no-header' is found, set the flag to "false"
 		--no-header) show_header=false ;;
+		--force-reset) force_reset=true ;;
+		--plan) plan_only=true ;;
 		--theme)
 			shift
 			SMU_THEME="${1:-$SMU_THEME}"
@@ -139,6 +143,10 @@ function is_git_repo_out_of_date() {
 
 function is_dir_empty() {
 	[ -z "$(ls -A "$1")" ]
+}
+
+function has_worktree_changes() {
+	[[ -n "$(git -C "${SMU_HOME_DIR}" status --porcelain 2>/dev/null)" ]]
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -230,9 +238,16 @@ function obtain() {
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 	if [[ -d "${SMU_HOME_DIR}/.git" ]]; then
-		# If the directory exists and is a Git repository, pull the latest changes and update submodules
+		if [[ "$force_reset" != true ]] && has_worktree_changes; then
+			error "Existing blueprint checkout has local changes. Commit, stash, or rerun with --force-reset to discard them."
+		fi
+
 		git -C "${SMU_HOME_DIR}" fetch --quiet
-		git -C "${SMU_HOME_DIR}" reset --hard "origin/${SMU_BLUEPRINT_BRANCH}"
+		if [[ "$force_reset" = true ]]; then
+			git -C "${SMU_HOME_DIR}" reset --hard "origin/${SMU_BLUEPRINT_BRANCH}"
+		else
+			git -C "${SMU_HOME_DIR}" merge --ff-only "origin/${SMU_BLUEPRINT_BRANCH}"
+		fi
 		git -C "${SMU_HOME_DIR}" submodule update --init --recursive
 
 		return 0
@@ -246,6 +261,11 @@ function obtain() {
 
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
+	if [[ "$plan_only" = true ]]; then
+		printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
+		printf "plan\tmode\t%s\n" "$([[ "$force_reset" = true ]] && printf "force-reset" || printf "ff-only")"
+		return 0
+	fi
 	confirm
 
 	mkcd "${SMU_HOME_DIR}"

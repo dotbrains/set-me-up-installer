@@ -138,6 +138,43 @@ class TestSmuUpdatePolicy(unittest.TestCase):
         self.assertEqual(results[0]["status"], "rolled-back")
         subprocess.run.assert_called_once_with(["git", "-C", "/repo", "checkout", "abc"], check=True)
 
+    def test_blueprint_update_blocks_dirty_worktree_without_force(self):
+        with patch.object(smu, "git_head", return_value="abc"), \
+                patch.object(smu, "git_branch", return_value="main"), \
+                patch.object(smu, "git_has_worktree_changes", return_value=True):
+            result = smu.update_git_repository_ff_only("/repo", "blueprint")
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["error"], "local-changes")
+
+    def test_blueprint_update_uses_ff_only_by_default(self):
+        with patch.object(smu, "git_head", side_effect=["abc", "def"]), \
+                patch.object(smu, "git_branch", return_value="main"), \
+                patch.object(smu, "git_has_worktree_changes", return_value=False), \
+                patch.object(smu, "subprocess") as subprocess:
+            result = smu.update_git_repository_ff_only("/repo", "blueprint")
+
+        self.assertEqual(result["status"], "updated")
+        subprocess.run.assert_any_call(["git", "-C", "/repo", "merge", "--ff-only", "origin/main"], check=True)
+
+    def test_update_blueprint_command_routes_from_cli(self):
+        with patch.object(smu, "locked_call", side_effect=lambda _name, callback, **kwargs: callback(**kwargs)) as locked, \
+                patch.object(smu, "update_blueprint", return_value={
+                    "name": "blueprint",
+                    "path": "/repo",
+                    "status": "reset",
+                }), \
+                patch.object(smu, "sys") as mock_sys:
+            mock_sys.argv = ["smu.py", "update", "blueprint", "--force-reset", "--json"]
+            buf = io.StringIO()
+            with redirect_stdout(buf), self.assertRaises(SystemExit) as raised:
+                smu.main()
+
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(payload["repositories"][0]["status"], "reset")
+        locked.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,8 @@
 ![preview](.github/preview.png)
 
 This is the universal installer script used to install `set-me-up` (`smu`) on a
-Mac, *debian*, or *arch* based machine.
+Mac, *debian*, or *arch* based machine. Users normally install a blueprint
+repository, and the blueprint bootstrap delegates here.
 
 ## Obtaining `set-me-up` installer
 
@@ -29,6 +30,18 @@ understand [what it does](../install.sh). Seriously, **DON'T**!)
 INSTALL_URL="https://raw.githubusercontent.com/dotbrains/set-me-up-installer/main/install.sh"
 bash <(curl -s -L "$INSTALL_URL")
 ```
+
+Blueprint bootstraps set `SMU_BLUEPRINT` and `SMU_BLUEPRINT_BRANCH` before
+calling this installer:
+
+```bash
+bash <(curl -s -L https://raw.githubusercontent.com/<OWNER>/<BLUEPRINT>/<BRANCH>/dotfiles/modules/install.sh)
+```
+
+On an existing checkout, the installer fast-forwards the blueprint and refuses
+to continue when local changes are present. Use `--plan` to preview the target
+repository and branch, or `--force-reset` only when local blueprint changes
+should be discarded.
 
 You can change the `smu` home directory by setting an environment variable
 called `SMU_HOME_DIR`. Keep the variable declared or the `smu` scripts are
@@ -241,6 +254,22 @@ smu profile resolve
 smu profile doctor
 smu adapter doctor
 ```
+
+## Updating an installed blueprint
+
+Use `smu update` for routine updates after the first bootstrap:
+
+```bash
+smu update blueprint       # fast-forward the installed blueprint
+smu update installer       # fast-forward the bundled installer checkout
+smu update modules         # update blueprint submodules
+smu update --all           # run the full update pipeline
+smu update --all --dry-run # preview the full update pipeline
+```
+
+Blueprint and installer updates refuse to continue when local changes are
+present. Commit or stash local work first, or pass `--force-reset` only when
+those local changes should be discarded.
 
 ## Auditing what's installed
 

@@ -10,6 +10,7 @@ from . import module_discovery
 from . import module_lifecycle
 from . import state
 from . import client_update
+from . import repository_update
 from . import update_runtime
 from . import product_runtime
 from . import operability_runtime
@@ -27,6 +28,7 @@ PARTS = (
     module_lifecycle,
     state,
     client_update,
+    repository_update,
     update_runtime,
     product_runtime,
     operability_runtime,

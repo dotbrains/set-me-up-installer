@@ -8,7 +8,7 @@ from .state import *
 
 def client_update_repositories():
     return [
-        {"name": "smu_home", "path": smu_home_dir},
+        {"name": "blueprint", "path": smu_home_dir},
         {"name": "installer", "path": installer_root},
     ]
 

@@ -80,9 +80,34 @@ def main():
             json_output = "--json" in command_args
             validate = "--validate" in command_args
             self_update_requested = "--self" in command_args
+            force_reset = "--force-reset" in command_args
             yes = "--yes" in command_args or "-y" in command_args
             ref = _option_value(command_args, "--ref")
             require_signed = "--require-signed" in command_args
+            if command_args and command_args[0] == "blueprint":
+                raise SystemExit(locked_call("update blueprint", update_blueprint_command,
+                    json_output=json_output,
+                    force_reset=force_reset,
+                    dry_run=dry_run,
+                ))
+            if command_args and command_args[0] == "installer":
+                raise SystemExit(locked_call("update installer", update_installer_command,
+                    json_output=json_output,
+                    force_reset=force_reset,
+                    dry_run=dry_run,
+                ))
+            if command_args and command_args[0] == "modules":
+                raise SystemExit(locked_call("update modules", update_modules_command,
+                    json_output=json_output,
+                    dry_run=dry_run,
+                ))
+            if "--all" in command_args:
+                raise SystemExit(locked_call("update all", update_all_command,
+                    json_output=json_output,
+                    force_reset=force_reset,
+                    dry_run=dry_run,
+                    validate=validate,
+                ))
             if "schedule" in command_args:
                 actions = [arg for arg in command_args if arg in ("install", "remove", "status")]
                 action_name = actions[0] if actions else "status"
