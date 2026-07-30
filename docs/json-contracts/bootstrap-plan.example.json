@@ -1,0 +1,15 @@
+{
+  "actions": [
+    "set-profile",
+    "write-resolved-profile",
+    "materialize-adapters",
+    "baseline"
+  ],
+  "adapter_conflicts": {
+    "conflicted": false,
+    "items": []
+  },
+  "preset": "default",
+  "prompt": "starship",
+  "theme": "gruvbox"
+}

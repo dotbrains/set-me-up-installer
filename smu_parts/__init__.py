@@ -12,6 +12,7 @@ from . import state
 from . import client_update
 from . import update_runtime
 from . import product_runtime
+from . import operability_runtime
 from . import cli
 
 
@@ -28,6 +29,7 @@ PARTS = (
     client_update,
     update_runtime,
     product_runtime,
+    operability_runtime,
     cli,
 )
 

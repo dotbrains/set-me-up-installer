@@ -1,0 +1,32 @@
+{
+  "adapters": {
+    "conflicted": false,
+    "items": []
+  },
+  "catalogs": {
+    "errors": [],
+    "path": "~/.config/set-me-up/catalogs",
+    "trust": {
+      "trusted_publishers": {},
+      "trusted_registries": {}
+    }
+  },
+  "preset": {
+    "id": "default",
+    "valid": true
+  },
+  "prompt": {
+    "id": "starship",
+    "valid": true
+  },
+  "theme": {
+    "id": "gruvbox",
+    "valid": true
+  },
+  "updates": {
+    "manifest": {
+      "status": "disabled"
+    },
+    "preflight": "passed"
+  }
+}

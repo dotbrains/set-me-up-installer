@@ -1,0 +1,13 @@
+{
+  "adapters": [],
+  "ledger": {
+    "entries": 0,
+    "last": null,
+    "path": "~/.config/set-me-up/state/ledger.json"
+  },
+  "modules": [],
+  "updates": {
+    "history_entries": 0,
+    "policy_errors": []
+  }
+}

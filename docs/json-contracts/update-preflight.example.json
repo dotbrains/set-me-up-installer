@@ -1,0 +1,18 @@
+{
+  "client": {
+    "client_id": "example",
+    "hostname": null,
+    "machine": "arm64",
+    "platform": "darwin",
+    "version": "1.0.0"
+  },
+  "manifest": {
+    "status": "disabled"
+  },
+  "preflight": "passed",
+  "rate_limit": {
+    "status": "ready",
+    "wait_seconds": 0
+  },
+  "resolved_ref": null
+}

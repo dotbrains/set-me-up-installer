@@ -14,8 +14,18 @@ def main():
     if len(sys.argv) > 1:
         command = sys.argv[1]
         command_args = sys.argv[2:]
+        if command in ("help", "--help"):
+            raise SystemExit(print_help_topic(command_args))
         if command in ("init", "bootstrap"):
             raise SystemExit(bootstrap(command_args))
+        if command == "completion":
+            raise SystemExit(completion_command(command_args))
+        if command == "contract":
+            raise SystemExit(contract_command(command_args))
+        if command == "state":
+            if command_args and command_args[0] == "prune":
+                raise SystemExit(state_prune(command_args[1:]))
+            die("Usage: smu state prune [--dry-run] [--json]")
         if command == "profile":
             handle_profile_command(command_args)
             return
@@ -74,6 +84,8 @@ def main():
                 raise SystemExit(update_schedule(actions[0] if actions else "status", json_output=json_output))
             if "baseline" in command_args or "--baseline" in command_args:
                 raise SystemExit(client_update_baseline(json_output=json_output))
+            if "manifest" in command_args:
+                raise SystemExit(update_manifest_command(command_args, json_output=json_output))
             if "preflight" in command_args or "--preflight" in command_args:
                 raise SystemExit(print_client_update_preflight(json_output=json_output, ref=ref))
             if "policy" in command_args or "--policy" in command_args:
