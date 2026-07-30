@@ -5,6 +5,9 @@ from . import profile_commands
 from . import catalog_registry
 from . import adapters
 from . import catalog_packs
+from . import nix_provisioning
+from . import provisioning_adapters
+from . import provisioning_tools
 from . import doctors_and_system
 from . import module_discovery
 from . import module_lifecycle
@@ -23,6 +26,9 @@ PARTS = (
     catalog_registry,
     adapters,
     catalog_packs,
+    nix_provisioning,
+    provisioning_adapters,
+    provisioning_tools,
     doctors_and_system,
     module_discovery,
     module_lifecycle,

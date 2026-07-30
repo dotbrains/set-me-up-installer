@@ -1,6 +1,10 @@
 from .core import *
 
 
+MODULE_MANIFEST = "module.toml"
+LEGACY_MODULE_MARKERS = ("script", "brewfile", "packages")
+
+
 def _current_os_bucket():
     """Return the modules/<bucket> name matching the current OS, or None."""
     if macOS:
@@ -15,9 +19,10 @@ def _current_os_bucket():
 def discover_modules():
     """Walk the modules directory and return {bucket: [(name, kind), ...]}.
 
-    A module is any directory containing '<basename>.sh', 'brewfile', or 'packages'.
-    `name` is the path relative to the bucket (e.g. 'productivity-tools/hyperkey'),
-    which is the exact form accepted by `-m`. `kind` is 'script', 'brewfile', or 'packages'.
+    A module is any directory containing '<basename>.sh', 'brewfile',
+    'packages', or 'module.toml'. `name` is the path relative to the bucket
+    (e.g. 'productivity-tools/hyperkey'), which is the exact form accepted by
+    `-m`. `kind` is 'script', 'brewfile', 'packages', or 'manifest'.
     """
     if not os.path.isdir(module_path):
         return {}
@@ -36,20 +41,45 @@ def discover_modules():
             has_script = f"{basename}.sh" in filenames
             has_brewfile = "brewfile" in filenames
             has_packages = "packages" in filenames
-            if has_script or has_brewfile or has_packages:
+            has_manifest = MODULE_MANIFEST in filenames
+            if has_script or has_brewfile or has_packages or has_manifest:
                 rel = os.path.relpath(dirpath, bucket_dir)
                 if has_script:
                     kind = "script"
                 elif has_brewfile:
                     kind = "brewfile"
-                else:
+                elif has_packages:
                     kind = "packages"
+                else:
+                    kind = "manifest"
                 modules.append((rel, kind))
 
         if modules:
             buckets[bucket] = sorted(modules)
 
     return buckets
+
+
+def module_manifest_path_for_dir(module_dir):
+    path = os.path.join(module_dir, MODULE_MANIFEST)
+    return path if os.path.exists(path) else None
+
+
+def read_module_manifest_for_dir(module_dir):
+    path = module_manifest_path_for_dir(module_dir)
+    if not path:
+        return {}
+    return smu_contract.read_manifest(path)
+
+
+def module_manifest_adapters(module_dir):
+    manifest = read_module_manifest_for_dir(module_dir)
+    adapters = manifest.get("adapters", {})
+    return adapters if isinstance(adapters, dict) else {}
+
+
+def module_adapter_ids(module_dir):
+    return tuple(sorted(module_manifest_adapters(module_dir).keys()))
 
 
 def list_modules(search=None, show_all=False):

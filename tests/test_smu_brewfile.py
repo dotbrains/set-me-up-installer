@@ -63,6 +63,16 @@ class TestBrewfileModuleProvisioning(unittest.TestCase):
 
         self.assertIs(was_provisioned, False)
 
+    def test_provision_module_skips_manifest_without_rcm_payload(self):
+        with patch("smu.get_module_path", return_value="/tmp/module/module.toml"), \
+                patch("smu.subprocess.call", return_value=0), \
+                patch("smu.subprocess.run") as mock_run, \
+                patch("smu.os.chdir"):
+            was_provisioned = smu.provision_module("editor/nvim")
+
+        self.assertFalse(was_provisioned)
+        mock_run.assert_not_called()
+
 
 class TestPackagesModuleResolution(unittest.TestCase):
     def test_get_module_path_returns_os_specific_packages_when_shell_script_missing(self):

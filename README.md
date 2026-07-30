@@ -235,6 +235,9 @@ adapters such as Starship, lazygit, fish, and Alacritty are updated
 immediately. Shells and dotfiles also read `SMU_THEME` / `SMU_PROMPT` directly,
 so new terminals pick up the saved profile.
 
+Provisioning adapter docs live in [Provisioning Adapters](docs/provisioning-adapters.md).
+`rcm` is current; Nix-oriented adapter IDs are reserved for the Nix path.
+
 Users can keep machine-local choices outside the managed repo by creating
 override files in `~/.config/set-me-up/`:
 

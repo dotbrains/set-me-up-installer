@@ -293,6 +293,7 @@ def get_module_path(module_name):
             script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
             brewfile_path = os.path.join(module_dir, "brewfile")
             packages_path = os.path.join(module_dir, "packages")
+            manifest_path = os.path.join(module_dir, MODULE_MANIFEST)
 
             if os.path.exists(script_path):
                 return script_path
@@ -300,6 +301,8 @@ def get_module_path(module_name):
                 return brewfile_path
             if os.path.exists(packages_path):
                 return packages_path
+            if os.path.exists(manifest_path):
+                return manifest_path
             return None
 
         # Universal module path
@@ -308,6 +311,7 @@ def get_module_path(module_name):
         script_path = os.path.join(module_dir, f"{module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
         packages_path = os.path.join(module_dir, "packages")
+        manifest_path = os.path.join(module_dir, MODULE_MANIFEST)
 
         if os.path.exists(script_path):
             return script_path
@@ -315,6 +319,8 @@ def get_module_path(module_name):
             return brewfile_path
         if os.path.exists(packages_path):
             return packages_path
+        if os.path.exists(manifest_path):
+            return manifest_path
         return None
 
     # If we are trying to get the 'base' module, then return the path to the 'base' directory
@@ -325,6 +331,7 @@ def get_module_path(module_name):
     direct_script_path = os.path.join(direct_module_dir, f"{module_name}.sh")
     direct_brewfile_path = os.path.join(direct_module_dir, "brewfile")
     direct_packages_path = os.path.join(direct_module_dir, "packages")
+    direct_manifest_path = os.path.join(direct_module_dir, MODULE_MANIFEST)
 
     if os.path.exists(direct_script_path):
         return direct_script_path
@@ -332,6 +339,8 @@ def get_module_path(module_name):
         return direct_brewfile_path
     if os.path.exists(direct_packages_path):
         return direct_packages_path
+    if os.path.exists(direct_manifest_path):
+        return direct_manifest_path
 
     # Determine the OS of the module by checking if the module is part of an OS-specific directory
     # e.g., modules/macos/fonts/fonts.sh
@@ -363,11 +372,13 @@ def get_module_path(module_name):
         script_path = os.path.join(module_dir, f"{extracted_module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
         packages_path = os.path.join(module_dir, "packages")
+        manifest_path = os.path.join(module_dir, MODULE_MANIFEST)
     else:
         module_dir = os.path.join(module_path, smu_os, module_name)
         script_path = os.path.join(module_dir, f"{module_name}.sh")
         brewfile_path = os.path.join(module_dir, "brewfile")
         packages_path = os.path.join(module_dir, "packages")
+        manifest_path = os.path.join(module_dir, MODULE_MANIFEST)
 
     if os.path.exists(script_path):
         return script_path
@@ -375,6 +386,8 @@ def get_module_path(module_name):
         return brewfile_path
     if os.path.exists(packages_path):
         return packages_path
+    if os.path.exists(manifest_path):
+        return manifest_path
     return obtain_universal_module_path(module_name)
 
 
@@ -411,6 +424,10 @@ def provision_module(module_name):
             shell=True,
         )
         return True
+
+    if os.path.basename(script_path) == MODULE_MANIFEST:
+        warn(f"'{script_path}' declares adapter metadata but no rcm payload, skipping.")
+        return False
 
     # Execute before.sh if exists
     before_script = os.path.join(script_dir, "before.sh")

@@ -73,6 +73,20 @@ class TestSmuContract(unittest.TestCase):
             self.assertEqual(manifest["packs"]["work"]["name"], "Work")
             self.assertEqual(manifest["packs"]["work"]["source"], "packs/work.smu-pack")
 
+    def test_read_manifest_parses_string_arrays(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "manifest.toml")
+            with open(path, "w") as f:
+                f.write('[profile.default]\n')
+                f.write('modules = ["nushell", "editor/nvim"]\n')
+
+            manifest = smu_contract.read_manifest(path)
+
+        self.assertEqual(
+            manifest["profile"]["default"]["modules"],
+            ["nushell", "editor/nvim"],
+        )
+
     def test_read_manifest_preserves_quoted_numeric_strings(self):
         with tempfile.TemporaryDirectory() as tempdir:
             path = os.path.join(tempdir, "index.toml")

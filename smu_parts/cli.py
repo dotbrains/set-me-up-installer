@@ -6,6 +6,7 @@ from .doctors_and_system import *
 from .module_discovery import *
 from .module_lifecycle import *
 from .profile_commands import *
+from .provisioning_adapters import *
 from .setup_profiles import *
 from .state import *
 from .client_update import *
@@ -30,6 +31,8 @@ def main():
         if command == "profile":
             handle_profile_command(command_args)
             return
+        if command in ("provisioning-adapter", "provisioning-adapters"):
+            raise SystemExit(handle_provisioning_adapter_command(command_args))
         if command == "theme":
             handle_theme_command(command_args)
             return
@@ -180,6 +183,7 @@ def main():
     parser.add_argument("--prompt", choices=supported_prompts(), help="Save the selected set-me-up prompt profile before provisioning")
     parser.add_argument("--preset", choices=supported_presets(), help="Save the selected set-me-up preset before provisioning")
     parser.add_argument("--setup-profile", choices=supported_setup_profiles(), help="Provision a named setup path such as 'vps'")
+    parser.add_argument("--provisioning-adapter", choices=supported_provisioning_adapters(), help="Override the blueprint provisioning adapter for this run")
 
     args = parser.parse_args()
 
@@ -213,6 +217,7 @@ def main():
     # --------------------------------------------------------------------------------------
 
     if args.setup_profile:
+        require_rcm_provisioning_adapter(args.provisioning_adapter)
         run_setup_profile(args.setup_profile)
         return
 
@@ -231,7 +236,10 @@ def main():
     if args.diff:
         plan = []
         if args.modules:
-            plan.extend(module_change_plan(args.modules))
+            plan.extend(provisioning_module_change_plan(
+                args.modules,
+                adapter_id=args.provisioning_adapter,
+            ))
         plan.extend(adapter_change_plan(materializable_adapters()))
         print_diff_plan(plan)
         return
@@ -290,30 +298,39 @@ def main():
     elif args.update_submodules:
         update_submodules()
     elif args.base:
+        require_rcm_provisioning_adapter(args.provisioning_adapter)
         provision_module("base")
     elif args.provision:
+        adapter_id = require_available_provisioning_adapter(args.provisioning_adapter)
         modules = list(args.modules)
 
         # If the 'base' module is not in the module list, add it to the beginning.
-        if args.base and "base" not in modules:
+        if adapter_id == DEFAULT_PROVISIONING_ADAPTER and args.base and "base" not in modules:
             modules.insert(0, "base")
 
         # If 'no-base' is specified, remove the 'base' module from the module list.
         if args.no_base and "base" in modules:
             modules.remove("base")
 
-        provision_modules_batch(modules)
+        if adapter_id == DEFAULT_PROVISIONING_ADAPTER:
+            provision_modules_batch(modules)
+            return
+        raise SystemExit(apply_provisioning_adapter_modules(adapter_id, modules))
     elif args.interactive:
         modules = interactive_select_modules(search=args.search, show_all=args.all)
         if not modules:
             return
 
-        if args.base and "base" not in modules:
+        adapter_id = require_available_provisioning_adapter(args.provisioning_adapter)
+        if adapter_id == DEFAULT_PROVISIONING_ADAPTER and args.base and "base" not in modules:
             modules.insert(0, "base")
         if args.no_base and "base" in modules:
             modules.remove("base")
 
-        provision_modules_batch(modules)
+        if adapter_id == DEFAULT_PROVISIONING_ADAPTER:
+            provision_modules_batch(modules)
+            return
+        raise SystemExit(apply_provisioning_adapter_modules(adapter_id, modules))
     elif args.modules:
         # Handle the case where modules are specified without --provision
         print("Modules specified, but --provision flag is not set.", file=sys.stderr)

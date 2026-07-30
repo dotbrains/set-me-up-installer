@@ -428,7 +428,14 @@ def print_diff_plan(plan):
     for item in plan:
         if "module" in item:
             detail = f"\t{item['detail']}" if item.get("detail") else ""
-            print(f"{item['change']}\tmodule\t{item['module']}\t{item['state']}{detail}")
+            adapter = item.get("resolved_adapter") or item.get("provisioning_adapter")
+            adapter_state = item.get("adapter_state")
+            adapter_detail = ""
+            if adapter:
+                adapter_detail = f"\tadapter={adapter}"
+            if adapter_state and adapter_state != "ready":
+                adapter_detail = f"{adapter_detail}\tadapter_state={adapter_state}"
+            print(f"{item['change']}\tmodule\t{item['module']}\t{item['state']}{adapter_detail}{detail}")
         else:
             print(f"{item['change']}\tadapter\t{item['mode']}\t{item['source']}\t{item['target']}")
 

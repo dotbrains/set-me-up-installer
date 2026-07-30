@@ -14,6 +14,14 @@ SUPPORTED_SCHEMA_VERSION = 1
 
 def parse_value(value):
     value = value.strip()
+    if value.startswith("[") and value.endswith("]"):
+        items = []
+        raw_items = value[1:-1].split(",")
+        for item in raw_items:
+            item = item.strip()
+            if item:
+                items.append(parse_value(item))
+        return items
     quoted = (
         (value.startswith('"') and value.endswith('"'))
         or (value.startswith("'") and value.endswith("'"))

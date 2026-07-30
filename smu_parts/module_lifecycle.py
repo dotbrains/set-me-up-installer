@@ -244,7 +244,12 @@ def module_status_report(search=None, show_all=False, verbose=False):
             mods = [(name, kind) for name, kind in mods if needle in name.lower()]
         for name, kind in mods:
             state, detail = module_status(name)
+            script_path = get_module_path(name)
             item = {"bucket": bucket, "name": name, "kind": kind, "state": state}
+            if script_path:
+                adapter_ids = module_adapter_ids(os.path.dirname(script_path))
+                if adapter_ids:
+                    item["adapters"] = list(adapter_ids)
             if verbose and detail:
                 item["detail"] = detail
             report.append(item)

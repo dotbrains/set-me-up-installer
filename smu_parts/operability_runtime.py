@@ -55,6 +55,10 @@ HELP_TOPICS = {
         "smu completion [bash|zsh|fish]",
         "Generate shell completions for common commands and profile IDs.",
     ],
+    "provisioning-adapter": [
+        "smu provisioning-adapter [list|doctor|modules|validate|audit|scaffold|plan|apply] [--json]",
+        "Show, validate, scaffold, plan, or run the selected provisioning engine.",
+    ],
     "state prune": [
         "smu state prune [--dry-run] [--json]",
         "Remove stale runtime cache and generated scheduler files.",

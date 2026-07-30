@@ -10,10 +10,10 @@ from unittest.mock import patch
 import smu
 
 
-def _touch(path):
+def _touch(path, content=""):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w"):
-        pass
+    with open(path, "w") as f:
+        f.write(content)
 
 
 def _build_fixture(modules_dir):
@@ -32,6 +32,8 @@ def _build_fixture(modules_dir):
     # universal: nested group with script + a top-level brewfile module
     _touch(os.path.join(modules_dir, "universal", "python", "pip", "pip.sh"))
     _touch(os.path.join(modules_dir, "universal", "shell", "brewfile"))
+    _touch(os.path.join(modules_dir, "universal", "editor", "nvim", "module.toml"),
+           '[adapters.rcm]\npath = "."\n[adapters.home-manager]\npath = "home-manager.nix"\n')
 
     # noise — a stray file that should not register as a module
     _touch(os.path.join(modules_dir, "universal", "README.md"))
@@ -52,6 +54,17 @@ class TestDiscoverModules(unittest.TestCase):
             self.assertIn(("browsers/chrome", "packages"), buckets["debian"])
             self.assertIn(("python/pip", "script"), buckets["universal"])
             self.assertIn(("shell", "brewfile"), buckets["universal"])
+            self.assertIn(("editor/nvim", "manifest"), buckets["universal"])
+
+    def test_module_manifest_adapters_reads_declared_adapter_ids(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            module_dir = os.path.join(tempdir, "modules", "universal", "editor", "nvim")
+            _touch(os.path.join(module_dir, "module.toml"),
+                   '[adapters.rcm]\npath = "."\n[adapters.home-manager]\npath = "home-manager.nix"\n')
+
+            adapter_ids = smu.module_adapter_ids(module_dir)
+
+            self.assertEqual(adapter_ids, ("home-manager", "rcm"))
 
     def test_returns_empty_when_modules_dir_missing(self):
         with tempfile.TemporaryDirectory() as tempdir:
