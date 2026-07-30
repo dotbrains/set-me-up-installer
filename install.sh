@@ -301,6 +301,9 @@ function setup() {
 
 	success "'${bold}set-me-up${normal}' has been successfully installed on your system."
 	write_profile
+	printf "\nNext checks:\n"
+	printf "  smu update doctor --json\n"
+	printf "  smu update --plan\n"
 	echo -e "\nFor more information, visit: [https://github.com/$SMU_BLUEPRINT/tree/$SMU_BLUEPRINT_BRANCH]\n"
 }
 

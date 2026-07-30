@@ -55,6 +55,7 @@ cli_smoke() {
     HOME="$profile_home" "$python_bin" smu.py adapter list
     HOME="$profile_home" "$python_bin" smu.py adapter materialize --dry-run
     tests/test_install_plan.sh
+    tests/test_install_guidance.sh
 }
 
 shell_checks() {
