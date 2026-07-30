@@ -64,6 +64,7 @@ class TestSmuSafetyRuntime(unittest.TestCase):
             ["bootstrap"],
             ["catalog", "trust"],
             ["update", "preflight"],
+            ["update", "doctor"],
             ["update", "schedule"],
             ["rollback"],
             ["contracts"],
@@ -76,6 +77,12 @@ class TestSmuSafetyRuntime(unittest.TestCase):
             with redirect_stdout(buf):
                 self.assertEqual(smu.print_help_topic(topic), 0)
             self.assertIn("smu", buf.getvalue())
+
+    def test_contracts_include_update_doctor(self):
+        with patch.object(smu, "repository_update_doctor", return_value={"repositories": []}), \
+                patch.object(smu, "status_report", return_value={}), \
+                patch.object(smu, "client_update_preflight", return_value={}):
+            self.assertIn("update-doctor", smu.json_contracts())
 
 
 if __name__ == "__main__":

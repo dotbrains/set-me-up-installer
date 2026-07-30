@@ -1,0 +1,32 @@
+{
+  "repositories": [
+    {
+      "ahead": 0,
+      "behind": 0,
+      "branch": "main",
+      "dirty": false,
+      "force_reset_required": false,
+      "head": "example",
+      "name": "blueprint",
+      "path": "/home/user/set-me-up",
+      "status": "current",
+      "update_status": "current"
+    },
+    {
+      "ahead": 0,
+      "behind": 0,
+      "branch": "main",
+      "dirty": false,
+      "force_reset_required": false,
+      "head": "example",
+      "name": "installer",
+      "path": "/home/user/set-me-up/set-me-up-installer",
+      "status": "current",
+      "update_status": "current"
+    }
+  ],
+  "submodules": {
+    "gitmodules": true,
+    "path": "/home/user/set-me-up"
+  }
+}

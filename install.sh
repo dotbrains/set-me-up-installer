@@ -51,6 +51,7 @@ show_header=true
 skip_confirmation=false
 force_reset=false
 plan_only=false
+json_output=false
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -85,6 +86,7 @@ function parse_arguments() {
 		--no-header) show_header=false ;;
 		--force-reset) force_reset=true ;;
 		--plan) plan_only=true ;;
+		--json) json_output=true ;;
 		--theme)
 			shift
 			SMU_THEME="${1:-$SMU_THEME}"
@@ -149,6 +151,19 @@ function is_dir_empty() {
 
 function has_worktree_changes() {
 	[[ -n "$(git -C "${SMU_HOME_DIR}" status --porcelain 2>/dev/null)" ]]
+}
+
+function json_escape() {
+	local value="$1"
+
+	value="${value//\\/\\\\}"
+	value="${value//\"/\\\"}"
+	value="${value//$'\n'/\\n}"
+	printf "%s" "$value"
+}
+
+function update_mode() {
+	[[ "$force_reset" = true ]] && printf "force-reset" || printf "ff-only"
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -264,9 +279,16 @@ function obtain() {
 function setup() {
 	warn "This script will download '${bold}${SMU_BLUEPRINT:-set-me-up}${normal}' on branch '${bold}${SMU_BLUEPRINT_BRANCH}${normal}' to ${bold}${SMU_HOME_DIR}${normal}"
 	if [[ "$plan_only" = true ]]; then
-		printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
-		printf "plan\tinstaller\t%s\t%s\n" "${SMU_INSTALLER_REF}" "${SMU_INSTALLER_URL}"
-		printf "plan\tmode\t%s\n" "$([[ "$force_reset" = true ]] && printf "force-reset" || printf "ff-only")"
+		if [[ "$json_output" = true ]]; then
+			printf '{"blueprint":{"repo":"%s","branch":"%s","path":"%s"},"installer":{"ref":"%s","url":"%s"},"mode":"%s"}\n' \
+				"$(json_escape "$SMU_BLUEPRINT")" "$(json_escape "$SMU_BLUEPRINT_BRANCH")" \
+				"$(json_escape "$SMU_HOME_DIR")" "$(json_escape "$SMU_INSTALLER_REF")" \
+				"$(json_escape "$SMU_INSTALLER_URL")" "$(update_mode)"
+		else
+			printf "plan\tblueprint\t%s\t%s\t%s\n" "${SMU_BLUEPRINT}" "${SMU_BLUEPRINT_BRANCH}" "${SMU_HOME_DIR}"
+			printf "plan\tinstaller\t%s\t%s\n" "${SMU_INSTALLER_REF}" "${SMU_INSTALLER_URL}"
+			printf "plan\tmode\t%s\n" "$(update_mode)"
+		fi
 		return 0
 	fi
 	confirm

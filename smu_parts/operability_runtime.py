@@ -92,6 +92,7 @@ def json_contracts():
             "updates": {"preflight": "passed", "manifest": {"status": "disabled"}},
         },
         "status": status_report(),
+        "update-doctor": repository_update_doctor(),
         "update-preflight": client_update_preflight(),
     }
 
