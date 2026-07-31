@@ -373,8 +373,8 @@ class TestProvisioningTools(unittest.TestCase):
             with open(os.path.join(tempdir, "smu.toml"), "w") as f:
                 f.write('[provisioning]\nmode = "rcm"\nadapter = "rcm"\n')
             for workflow in ("rcm.yml", "nix.yml", "hybrid.yml"):
-                with open(os.path.join(tempdir, "examples", "github-actions", workflow), "w"):
-                    pass
+                with open(os.path.join(tempdir, "examples", "github-actions", workflow), "w") as f:
+                    f.write("run: smu provisioning-adapter preflight --json\n")
             for provider in ("debian-vps", "ubuntu-vps", "arch-vps"):
                 with open(os.path.join(tempdir, "examples", "providers", provider, "smu.toml"), "w") as f:
                     f.write('[provisioning]\nmode = "nix"\nadapter = "home-manager"\n')
@@ -393,6 +393,8 @@ class TestProvisioningTools(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(result, 0)
             self.assertTrue(payload["valid"])
+            self.assertEqual(payload["readiness"]["preflight"], "passed")
+            self.assertEqual(payload["readiness"]["summary"]["workflow_preflight"], 3)
 
     def test_blueprint_provider_matrix_reports_expected_modes(self):
         with tempfile.TemporaryDirectory() as tempdir:

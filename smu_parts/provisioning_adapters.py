@@ -2,6 +2,15 @@ from .core import *
 
 
 DEFAULT_PROVISIONING_ADAPTER = "rcm"
+PROVISIONING_ADAPTER_CONTRACT_VERSION = 1
+PROVISIONING_ADAPTER_AUTHORING_CONTRACT = {
+    "version": PROVISIONING_ADAPTER_CONTRACT_VERSION,
+    "blueprint_keys": ["provisioning.mode", "provisioning.adapter", "provisioning.nix_adapter"],
+    "module_manifest_table": "adapters",
+    "module_adapter_required_keys": ["path"],
+    "preflight_command": "smu provisioning-adapter preflight --adapter <adapter> --profile <profile> --json",
+    "ci_command": "smu blueprint ci --path <blueprint> --check-docs --json",
+}
 
 PROVISIONING_ADAPTERS = {
     "rcm": {
@@ -207,7 +216,10 @@ def provisioning_adapter_capabilities():
         entry = {"id": adapter_id}
         entry.update(adapter)
         adapters.append(entry)
-    return {"adapters": adapters}
+    return {
+        "contract": PROVISIONING_ADAPTER_AUTHORING_CONTRACT,
+        "adapters": adapters,
+    }
 
 
 def print_provisioning_adapter_capabilities(json_output=False):

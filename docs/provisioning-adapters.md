@@ -62,6 +62,9 @@ readiness document without requiring `SMU_HOME_DIR` to point at that checkout.
 Use `smu blueprint providers --path <checkout> --json` to inspect the supported
 provider examples as a machine-readable mode and adapter matrix.
 Each provider row includes the selected adapter capability contract.
+The `smu blueprint ci` JSON payload also reports `readiness.preflight` and
+`readiness.summary.workflow_preflight`, which release tooling can use to prove
+copyable workflows still run provisioning preflight before apply.
 Use `smu blueprint recommend --target <host> --path <checkout> --json` when a
 tool or developer wants the recommended mode, adapter, and provider example for
 a host intent such as `debian`, `ubuntu`, `arch`, `nixos`, `digitalocean`,
@@ -125,7 +128,12 @@ smu --provision --provisioning-adapter home-manager -m editor/nvim
 `smu provisioning-adapter capabilities --json` is the stable machine-readable
 contract for choosing between `rcm`, `home-manager`, `nix-darwin`, `nixos`, and
 `hybrid`. It records the adapter mode, engine, scope, host families, Nix
-requirement, and fallback behavior.
+requirement, fallback behavior, and the adapter authoring contract version.
+
+The top-level `contract` object is the developer-facing schema for modular
+blueprints. It names the `smu.toml` selection keys, the `module.toml` adapter
+table, required adapter implementation fields, and the read-only CI/preflight
+commands expected before apply.
 
 `smu provisioning-adapter preflight --adapter <adapter> --profile <profile>
 --json` is the read-only gate to run before apply. It validates host support,

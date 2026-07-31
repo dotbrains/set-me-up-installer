@@ -350,10 +350,18 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
     root = os.path.abspath(root or smu_home_dir)
     checks = []
     errors = []
+    summary = {
+        "configs": 0,
+        "provider_examples": 0,
+        "workflow_examples": 0,
+        "workflow_preflight": 0,
+        "readiness_docs": 0,
+    }
     if not os.path.isdir(root):
         errors.append(f"{root}: blueprint path does not exist")
     else:
         for path in _blueprint_ci_config_paths(root):
+            summary["configs"] += 1
             rel = os.path.relpath(path, root)
             manifest = smu_contract.read_manifest(path)
             path_errors = _blueprint_mode_errors(manifest)
@@ -369,10 +377,22 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
             errors.extend(f"{rel}: {error}" for error in path_errors)
         for workflow in ("rcm.yml", "nix.yml", "hybrid.yml"):
             rel = os.path.join("examples", "github-actions", workflow)
-            exists = os.path.exists(os.path.join(root, rel))
+            path = os.path.join(root, rel)
+            exists = os.path.exists(path)
             checks.append(_blueprint_ci_check("github-actions-example", rel, exists, "present" if exists else "missing"))
             if not exists:
                 errors.append(f"{rel}: missing")
+                continue
+            summary["workflow_examples"] += 1
+            with open(path) as f:
+                workflow_text = f.read()
+            has_preflight = "provisioning-adapter preflight" in workflow_text
+            message = "preflight" if has_preflight else "missing preflight"
+            checks.append(_blueprint_ci_check("github-actions-preflight", rel, has_preflight, message))
+            if has_preflight:
+                summary["workflow_preflight"] += 1
+            else:
+                errors.append(f"{rel}: missing preflight")
         provider_matrix = blueprint_provider_matrix(root)
         for provider in provider_matrix["providers"]:
             message = (
@@ -380,6 +400,8 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
                 f"{provider['adapter'] or '<missing>'}"
             )
             checks.append(_blueprint_ci_check("provider-example", provider["path"], provider["valid"], message))
+            if provider["valid"]:
+                summary["provider_examples"] += 1
         errors.extend(provider_matrix["errors"])
         if check_docs:
             rel = "PROVISIONING-COMPATIBILITY.md"
@@ -391,12 +413,18 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
                     current = f.read()
             doc_ok = exists and "examples/providers/debian-vps" in current and "examples/github-actions/nix.yml" in current
             checks.append(_blueprint_ci_check("readiness-doc", rel, doc_ok, "present" if doc_ok else "missing or stale"))
+            if doc_ok:
+                summary["readiness_docs"] += 1
             if not doc_ok:
                 errors.append(f"{rel}: missing or stale")
     payload = {
         "path": root,
         "valid": not errors,
         "errors": errors,
+        "readiness": {
+            "preflight": "passed" if not errors else "failed",
+            "summary": summary,
+        },
         "checks": checks,
     }
     if json_output:

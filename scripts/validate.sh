@@ -84,7 +84,8 @@ cli_smoke() {
     mkdir -p "$contract_home/examples/providers/"{debian-vps,ubuntu-vps,arch-vps,nixos-vps,digitalocean-droplet,hetzner-cloud}
     printf '[provisioning]\nmode = "rcm"\nadapter = "rcm"\n' > "$contract_home/smu.toml"
     for workflow in rcm nix hybrid; do
-        printf 'name: %s\n' "$workflow" > "$contract_home/examples/github-actions/$workflow.yml"
+        printf 'name: %s\njobs:\n  validate:\n    steps:\n      - run: smu provisioning-adapter preflight --json\n' \
+            "$workflow" > "$contract_home/examples/github-actions/$workflow.yml"
     done
     for provider in debian-vps ubuntu-vps arch-vps; do
         printf '[provisioning]\nmode = "nix"\nadapter = "home-manager"\n' > "$contract_home/examples/providers/$provider/smu.toml"

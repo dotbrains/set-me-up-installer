@@ -103,6 +103,10 @@ class TestProvisioningAdapters(unittest.TestCase):
         payload = json.loads(output.getvalue())
         by_id = {item["id"]: item for item in payload["adapters"]}
         self.assertEqual(result, 0)
+        self.assertEqual(payload["contract"]["version"], 1)
+        self.assertIn("provisioning.adapter", payload["contract"]["blueprint_keys"])
+        self.assertEqual(payload["contract"]["module_manifest_table"], "adapters")
+        self.assertIn("preflight", payload["contract"]["preflight_command"])
         self.assertFalse(by_id["rcm"]["requires_nix"])
         self.assertEqual(by_id["home-manager"]["mode"], "nix")
         self.assertEqual(by_id["nixos"]["scope"], "system")
