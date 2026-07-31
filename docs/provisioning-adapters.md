@@ -29,6 +29,7 @@ smu blueprint providers --path . --json
 smu blueprint recommend --target ubuntu --path . --json
 smu blueprint recommend --target ubuntu --path . --dry-run
 smu blueprint recommend --target ubuntu --path . --write --output smu.toml
+smu blueprint recommend --target ubuntu --path . --validate --json
 smu blueprint ci --path . --check-docs --json
 smu blueprint compatibility --json
 smu blueprint compatibility --output blueprint-compatibility.md
@@ -67,6 +68,8 @@ a host intent such as `debian`, `ubuntu`, `arch`, `nixos`, `digitalocean`,
 `hetzner`, `macos`, or `rcm-only`.
 Add `--dry-run` to preview the generated `smu.toml`, or `--write --output
 smu.toml` to create it. Existing files require `--force`.
+Use `--validate` to verify an existing starter config still matches the
+recommendation for that target.
 
 Inspect support:
 

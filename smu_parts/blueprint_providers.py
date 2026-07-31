@@ -277,4 +277,47 @@ def write_blueprint_recommendation_config(
     return 0
 
 
+def validate_blueprint_recommendation_config(target=None, root=None, input_path=None, json_output=False):
+    root = os.path.abspath(root or smu_home_dir)
+    input_path = input_path or os.path.join(root, "smu.toml")
+    payload = blueprint_provider_recommendation(target=target, root=root)
+    errors = list(payload["errors"])
+    manifest = smu_contract.read_manifest(input_path) if os.path.exists(input_path) else {}
+    provisioning = manifest.get("provisioning", {})
+    if not os.path.exists(input_path):
+        errors.append(f"{input_path}: missing")
+    elif not isinstance(provisioning, dict):
+        errors.append(f"{input_path}: [provisioning] must be a table")
+    if payload["valid"] and isinstance(provisioning, dict):
+        recommendation = payload["recommendation"]
+        expected = {
+            "mode": recommendation["mode"],
+            "adapter": recommendation["adapter"],
+            "nix_adapter": recommendation.get("nix_adapter"),
+        }
+        for key, value in expected.items():
+            current = provisioning.get(key)
+            if value and current != value:
+                errors.append(f"{input_path}: expected {key} {value}")
+            if key == "nix_adapter" and not value and current:
+                errors.append(f"{input_path}: nix_adapter is not expected for {target}")
+        if recommendation["mode"] == "hybrid" and provisioning.get("allow_rcm_fallback") is not True:
+            errors.append(f"{input_path}: hybrid recommendations require allow_rcm_fallback = true")
+    result = {
+        "target": target,
+        "path": input_path,
+        "valid": not errors,
+        "errors": errors,
+        "recommendation": payload.get("recommendation"),
+    }
+    if json_output:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    elif errors:
+        for error in errors:
+            print(f"{COL_RED}FAIL{COL_RESET} {error}")
+    else:
+        print(f"{COL_GREEN}OK{COL_RESET}   recommendation config {input_path}")
+    return 0 if result["valid"] else 1
+
+
 __all__ = [name for name in globals() if not name.startswith("__")]

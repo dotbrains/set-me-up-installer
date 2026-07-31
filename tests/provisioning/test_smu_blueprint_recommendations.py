@@ -7,6 +7,17 @@ import unittest
 import smu
 
 
+def write_provider_example(root, provider, mode, adapter, nix_adapter=None):
+    provider_dir = os.path.join(root, "examples", "providers", provider)
+    os.makedirs(provider_dir)
+    with open(os.path.join(provider_dir, "smu.toml"), "w") as f:
+        f.write("[provisioning]\n")
+        f.write(f'mode = "{mode}"\n')
+        f.write(f'adapter = "{adapter}"\n')
+        if nix_adapter:
+            f.write(f'nix_adapter = "{nix_adapter}"\n')
+
+
 class TestBlueprintRecommendations(unittest.TestCase):
     def test_blueprint_provider_recommendation_uses_provider_matrix(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -76,6 +87,49 @@ class TestBlueprintRecommendations(unittest.TestCase):
             self.assertEqual(result, 1)
             with open(output_path) as f:
                 self.assertEqual(f.read(), "existing")
+
+    def test_validate_recommendation_config_accepts_generated_targets(self):
+        for target in ("rcm-only", "ubuntu", "nixos", "macos", "digitalocean"):
+            with self.subTest(target=target):
+                with tempfile.TemporaryDirectory() as tempdir:
+                    if target == "ubuntu":
+                        write_provider_example(tempdir, "ubuntu-vps", "nix", "home-manager")
+                    if target == "nixos":
+                        write_provider_example(tempdir, "nixos-vps", "nix", "nixos")
+                    if target == "digitalocean":
+                        write_provider_example(tempdir, "digitalocean-droplet", "hybrid", "hybrid", "home-manager")
+                    output_path = os.path.join(tempdir, "smu.toml")
+                    self.assertEqual(
+                        smu.write_blueprint_recommendation_config(
+                            target=target,
+                            root=tempdir,
+                            output_path=output_path,
+                            json_output=False,
+                        ),
+                        0,
+                    )
+
+                    result = smu.validate_blueprint_recommendation_config(
+                        target=target,
+                        root=tempdir,
+                        input_path=output_path,
+                    )
+
+                    self.assertEqual(result, 0)
+
+    def test_validate_recommendation_config_rejects_drift(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            output_path = os.path.join(tempdir, "smu.toml")
+            with open(output_path, "w") as f:
+                f.write('[provisioning]\nmode = "rcm"\nadapter = "rcm"\n')
+
+            result = smu.validate_blueprint_recommendation_config(
+                target="ubuntu",
+                root=tempdir,
+                input_path=output_path,
+            )
+
+            self.assertEqual(result, 1)
 
 
 if __name__ == "__main__":

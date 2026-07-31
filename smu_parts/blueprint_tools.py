@@ -3,6 +3,7 @@ from .blueprint_providers import (
     blueprint_provider_matrix,
     print_blueprint_provider_matrix,
     print_blueprint_provider_recommendation,
+    validate_blueprint_recommendation_config,
     write_blueprint_recommendation_config,
 )
 
@@ -442,6 +443,13 @@ def handle_blueprint_command(argv):
     if command == "recommend":
         root = _option_value(args, "--path") or _option_value(args, "--root") or smu_home_dir
         target = _option_value(args, "--target") or (args[0] if args else None)
+        if "--validate" in args:
+            return validate_blueprint_recommendation_config(
+                target=target,
+                root=root,
+                input_path=output_path,
+                json_output=json_output,
+            )
         if "--write" in args or "--dry-run" in args:
             return write_blueprint_recommendation_config(
                 target=target,
