@@ -68,6 +68,39 @@ class TestSmuOperabilityRuntime(unittest.TestCase):
         self.assertEqual(payload["readiness"]["preflight"], "passed")
         self.assertEqual(payload["readiness"]["summary"]["workflow_preflight"], 3)
 
+    def test_contract_validate_accepts_runtime_contract(self):
+        with patch.object(smu, "status_report", return_value={}), \
+                patch.object(smu, "repository_update_doctor", return_value={}), \
+                patch.object(smu, "client_update_preflight", return_value={}):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                exit_code = smu.contract_command(["validate", "provisioning-preflight"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("valid\tprovisioning-preflight", buf.getvalue())
+
+    def test_contract_validate_reads_stdin_and_reports_json_errors(self):
+        stdin = io.StringIO(json.dumps({
+            "readiness": {
+                "preflight": "passed",
+                "summary": {
+                    "provider_examples": 6,
+                    "workflow_preflight": 2,
+                },
+            },
+        }))
+        buf = io.StringIO()
+        with patch("sys.stdin", stdin), redirect_stdout(buf):
+            exit_code = smu.contract_command(["validate", "blueprint-ci-readiness", "--path", "-", "--json"])
+
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["valid"])
+        self.assertIn(
+            "blueprint-ci-readiness.readiness.summary.workflow_preflight must be 3",
+            payload["errors"],
+        )
+
     def test_update_manifest_command_writes_output(self):
         with tempfile.TemporaryDirectory() as tempdir:
             output = os.path.join(tempdir, "manifest.json")

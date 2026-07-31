@@ -127,6 +127,49 @@ class TestSmuContract(unittest.TestCase):
         self.assertIn("prompts: Bad_Prompt adapter bash mode must be one of copy, symlink", errors)
         self.assertIn("prompts: Bad_Prompt adapter fish has mode without source", errors)
 
+    def test_json_contract_errors_accept_provisioning_capabilities_shape(self):
+        errors = smu_contract.json_contract_errors("provisioning-capabilities", {
+            "contract": {
+                "version": 1,
+                "blueprint_keys": [
+                    "provisioning.mode",
+                    "provisioning.adapter",
+                    "provisioning.nix_adapter",
+                ],
+                "module_manifest_table": "adapters",
+                "module_adapter_required_keys": ["path"],
+            },
+            "adapters": [
+                {"id": "rcm"},
+                {"id": "home-manager"},
+                {"id": "nix-darwin"},
+                {"id": "nixos"},
+                {"id": "hybrid"},
+            ],
+        })
+
+        self.assertEqual(errors, [])
+
+    def test_json_contract_errors_reject_blueprint_readiness_drift(self):
+        errors = smu_contract.json_contract_errors("blueprint-ci-readiness", {
+            "readiness": {
+                "preflight": "passed",
+                "summary": {
+                    "provider_examples": 5,
+                    "workflow_preflight": 2,
+                },
+            },
+        })
+
+        self.assertIn(
+            "blueprint-ci-readiness.readiness.summary.workflow_preflight must be 3",
+            errors,
+        )
+        self.assertIn(
+            "blueprint-ci-readiness.readiness.summary.provider_examples must be 6",
+            errors,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,6 +10,13 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 ADAPTER_MODES = ("copy", "symlink")
 SCHEMA_VERSION_KEY = "schema_version"
 SUPPORTED_SCHEMA_VERSION = 1
+PROVISIONING_CONTRACT_VERSION = 1
+PROVISIONING_BLUEPRINT_KEYS = (
+    "provisioning.mode",
+    "provisioning.adapter",
+    "provisioning.nix_adapter",
+)
+PROVISIONING_ADAPTER_IDS = ("rcm", "home-manager", "nix-darwin", "nixos", "hybrid")
 
 
 def parse_value(value):
@@ -279,3 +286,93 @@ def manifest_authoring_errors(label, manifests, require_schema_version=False):
     errors.extend(schema_version_errors(label, manifests, require_schema_version))
     errors.extend(adapter_authoring_errors(label, manifests))
     return errors
+
+
+def _require_object(errors, payload, key, label):
+    value = payload.get(key) if isinstance(payload, dict) else None
+    if not isinstance(value, dict):
+        errors.append(f"{label}.{key} must be an object")
+        return {}
+    return value
+
+
+def _require_list(errors, payload, key, label):
+    value = payload.get(key) if isinstance(payload, dict) else None
+    if not isinstance(value, list):
+        errors.append(f"{label}.{key} must be an array")
+        return []
+    return value
+
+
+def provisioning_preflight_contract_errors(payload):
+    errors = []
+    if not isinstance(payload, dict):
+        return ["provisioning-preflight must be an object"]
+
+    required = {"adapter", "action", "host_supported", "can_apply", "preflight", "plan", "errors"}
+    for key in sorted(required - set(payload)):
+        errors.append(f"provisioning-preflight missing {key}")
+
+    if "preflight" in payload and not isinstance(payload["preflight"], str):
+        errors.append("provisioning-preflight.preflight must be a string")
+    plan = _require_object(errors, payload, "plan", "provisioning-preflight")
+    _require_list(errors, plan, "commands", "provisioning-preflight.plan")
+    _require_list(errors, payload, "errors", "provisioning-preflight")
+    return errors
+
+
+def provisioning_capabilities_contract_errors(payload):
+    errors = []
+    if not isinstance(payload, dict):
+        return ["provisioning-capabilities must be an object"]
+
+    contract = _require_object(errors, payload, "contract", "provisioning-capabilities")
+    if contract.get("version") != PROVISIONING_CONTRACT_VERSION:
+        errors.append("provisioning-capabilities.contract.version must be 1")
+    for key in PROVISIONING_BLUEPRINT_KEYS:
+        if key not in contract.get("blueprint_keys", []):
+            errors.append(f"provisioning-capabilities.contract.blueprint_keys missing {key}")
+    if contract.get("module_manifest_table") != "adapters":
+        errors.append("provisioning-capabilities.contract.module_manifest_table must be adapters")
+    if "path" not in contract.get("module_adapter_required_keys", []):
+        errors.append("provisioning-capabilities.contract.module_adapter_required_keys missing path")
+
+    adapters = {
+        adapter.get("id"): adapter
+        for adapter in _require_list(errors, payload, "adapters", "provisioning-capabilities")
+        if isinstance(adapter, dict)
+    }
+    for adapter_id in PROVISIONING_ADAPTER_IDS:
+        if adapter_id not in adapters:
+            errors.append(f"provisioning-capabilities.adapters missing {adapter_id}")
+    return errors
+
+
+def blueprint_ci_readiness_contract_errors(payload):
+    errors = []
+    if not isinstance(payload, dict):
+        return ["blueprint-ci-readiness must be an object"]
+
+    readiness = _require_object(errors, payload, "readiness", "blueprint-ci-readiness")
+    summary = _require_object(errors, readiness, "summary", "blueprint-ci-readiness.readiness")
+    if readiness.get("preflight") != "passed":
+        errors.append("blueprint-ci-readiness.readiness.preflight must be passed")
+    if summary.get("workflow_preflight") != 3:
+        errors.append("blueprint-ci-readiness.readiness.summary.workflow_preflight must be 3")
+    if summary.get("provider_examples") != 6:
+        errors.append("blueprint-ci-readiness.readiness.summary.provider_examples must be 6")
+    return errors
+
+
+JSON_CONTRACT_VALIDATORS = {
+    "provisioning-preflight": provisioning_preflight_contract_errors,
+    "provisioning-capabilities": provisioning_capabilities_contract_errors,
+    "blueprint-ci-readiness": blueprint_ci_readiness_contract_errors,
+}
+
+
+def json_contract_errors(name, payload):
+    validator = JSON_CONTRACT_VALIDATORS.get(name)
+    if not validator:
+        return [f"unknown JSON contract: {name}"]
+    return validator(payload)

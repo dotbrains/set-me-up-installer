@@ -21,12 +21,17 @@ Write or inspect JSON contract examples for automation:
 ```bash
 smu contract list
 smu contract show doctor
+smu contract validate provisioning-capabilities
+smu contract validate blueprint-ci-readiness --path - --json
 smu contract write
 ```
 
 Contracts are written to `docs/json-contracts/` and cover bootstrap planning,
 catalog trust, doctor health, status, update preflight, provisioning preflight,
-adapter capabilities, and blueprint CI readiness payloads.
+adapter capabilities, and blueprint CI readiness payloads. The provisioning
+preflight, adapter capabilities, and blueprint CI readiness contracts have
+stdlib-only validators in `scripts/smu_contract.py` so release tooling can
+reject schema drift without installing extra dependencies.
 
 Publish an update manifest for pinned rollouts:
 
