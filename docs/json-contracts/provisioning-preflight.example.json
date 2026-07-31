@@ -1,0 +1,42 @@
+{
+  "action": "switch",
+  "adapter": "home-manager",
+  "can_apply": true,
+  "capability": {
+    "engine": "home-manager",
+    "mode": "nix",
+    "requires_nix": true,
+    "scope": "user",
+    "supports_fallback": false
+  },
+  "errors": [],
+  "host_supported": true,
+  "modules": [
+    "example"
+  ],
+  "plan": {
+    "artifacts": [
+      "~/.config/set-me-up/adapters/home-manager/default.nix"
+    ],
+    "commands": [
+      [
+        "home-manager",
+        "switch",
+        "-f",
+        "~/.config/set-me-up/adapters/home-manager/default.nix"
+      ]
+    ],
+    "errors": [],
+    "kind": "nix",
+    "missing": [],
+    "modules": [
+      {
+        "module": "example",
+        "path": "home-manager.nix"
+      }
+    ]
+  },
+  "preflight": "passed",
+  "profile": "default",
+  "strict": false
+}

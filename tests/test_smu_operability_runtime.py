@@ -37,6 +37,16 @@ class TestSmuOperabilityRuntime(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(buf.getvalue())["updates"]["preflight"], "passed")
 
+    def test_contracts_include_provisioning_preflight_shape(self):
+        with patch.object(smu, "status_report", return_value={}), \
+                patch.object(smu, "repository_update_doctor", return_value={}), \
+                patch.object(smu, "client_update_preflight", return_value={}):
+            payload = smu.json_contracts()["provisioning-preflight"]
+
+        self.assertEqual(payload["preflight"], "passed")
+        self.assertEqual(payload["plan"]["kind"], "nix")
+        self.assertIn("commands", payload["plan"])
+
     def test_update_manifest_command_writes_output(self):
         with tempfile.TemporaryDirectory() as tempdir:
             output = os.path.join(tempdir, "manifest.json")
