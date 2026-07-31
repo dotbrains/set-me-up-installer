@@ -30,6 +30,7 @@ class TestBlueprintRecommendations(unittest.TestCase):
             self.assertTrue(payload["valid"])
             self.assertEqual(payload["recommendation"]["provider"], "ubuntu-vps")
             self.assertEqual(payload["recommendation"]["adapter"], "home-manager")
+            self.assertEqual(payload["recommendation"]["host_family"], "ubuntu")
             self.assertTrue(payload["recommendation"]["capability"]["requires_nix"])
 
     def test_blueprint_provider_recommendation_supports_rcm_only(self):
@@ -130,6 +131,25 @@ class TestBlueprintRecommendations(unittest.TestCase):
             )
 
             self.assertEqual(result, 1)
+
+    def test_adapter_compatibility_rejects_wrong_target_family(self):
+        errors = smu.blueprint_adapter_compatibility_errors(
+            "nix",
+            "nixos",
+            host_family="ubuntu",
+        )
+
+        self.assertIn("adapter 'nixos' does not support host family 'ubuntu'", errors)
+
+    def test_adapter_compatibility_rejects_hybrid_nix_adapter_family(self):
+        errors = smu.blueprint_adapter_compatibility_errors(
+            "hybrid",
+            "hybrid",
+            nix_adapter="nix-darwin",
+            host_family="linux",
+        )
+
+        self.assertIn("hybrid nix_adapter 'nix-darwin' does not support host family 'linux'", errors)
 
 
 if __name__ == "__main__":

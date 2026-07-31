@@ -69,7 +69,10 @@ a host intent such as `debian`, `ubuntu`, `arch`, `nixos`, `digitalocean`,
 Add `--dry-run` to preview the generated `smu.toml`, or `--write --output
 smu.toml` to create it. Existing files require `--force`.
 Use `--validate` to verify an existing starter config still matches the
-recommendation for that target.
+recommendation for that target. Validation also checks the adapter capability
+contract so unsupported target shapes, such as `adapter = "nixos"` for Ubuntu
+or `nix_adapter = "nix-darwin"` for Linux hybrid hosts, fail before an apply
+path is selected.
 
 Inspect support:
 

@@ -5,36 +5,42 @@ from .provisioning_adapters import PROVISIONING_ADAPTERS
 BLUEPRINT_PROVIDER_EXAMPLES = {
     "debian-vps": {
         "platform": "Debian VPS",
+        "host_family": "debian",
         "mode": "nix",
         "adapter": "home-manager",
         "nix_adapter": None,
     },
     "ubuntu-vps": {
         "platform": "Ubuntu VPS",
+        "host_family": "ubuntu",
         "mode": "nix",
         "adapter": "home-manager",
         "nix_adapter": None,
     },
     "arch-vps": {
         "platform": "Arch VPS",
+        "host_family": "arch",
         "mode": "nix",
         "adapter": "home-manager",
         "nix_adapter": None,
     },
     "nixos-vps": {
         "platform": "NixOS VPS",
+        "host_family": "nixos",
         "mode": "nix",
         "adapter": "nixos",
         "nix_adapter": None,
     },
     "digitalocean-droplet": {
         "platform": "DigitalOcean Droplet",
+        "host_family": "linux",
         "mode": "hybrid",
         "adapter": "hybrid",
         "nix_adapter": "home-manager",
     },
     "hetzner-cloud": {
         "platform": "Hetzner Cloud",
+        "host_family": "linux",
         "mode": "hybrid",
         "adapter": "hybrid",
         "nix_adapter": "home-manager",
@@ -57,18 +63,21 @@ BLUEPRINT_PROVIDER_ALIASES = {
 }
 BLUEPRINT_HOST_RECOMMENDATIONS = {
     "macos": {
+        "host_family": "macos",
         "mode": "nix",
         "adapter": "nix-darwin",
         "provider": None,
         "reason": "macOS system-level Nix provisioning uses nix-darwin.",
     },
     "rcm": {
+        "host_family": "linux",
         "mode": "rcm",
         "adapter": "rcm",
         "provider": None,
         "reason": "rcm keeps the traditional thoughtbot dotfile flow.",
     },
     "rcm-only": {
+        "host_family": "linux",
         "mode": "rcm",
         "adapter": "rcm",
         "provider": None,
@@ -103,11 +112,14 @@ def blueprint_provider_matrix(root=None):
             provider_errors.append(f"expected nix_adapter {expected['nix_adapter']}")
         if exists and not expected["nix_adapter"] and nix_adapter:
             provider_errors.append("nix_adapter is only valid for hybrid examples")
+        if exists:
+            provider_errors.extend(_blueprint_provider_compatibility_errors(expected, mode, adapter, nix_adapter))
         capability = PROVISIONING_ADAPTERS.get(adapter or expected["adapter"], {})
         errors.extend(f"{rel}: {error}" for error in provider_errors)
         providers.append({
             "id": provider,
             "platform": expected["platform"],
+            "host_family": expected["host_family"],
             "path": rel,
             "mode": mode,
             "adapter": adapter,
@@ -146,6 +158,42 @@ def _provider_by_id(root):
     return {provider["id"]: provider for provider in blueprint_provider_matrix(root=root)["providers"]}
 
 
+def blueprint_adapter_compatibility_errors(mode, adapter, nix_adapter=None, host_family=None):
+    errors = []
+    if mode not in ("rcm", "nix", "hybrid"):
+        errors.append(f"unsupported provisioning mode '{mode}'")
+        return errors
+    capability = PROVISIONING_ADAPTERS.get(adapter)
+    if not capability:
+        errors.append(f"unsupported provisioning adapter '{adapter}'")
+        return errors
+    if capability["mode"] != mode:
+        errors.append(f"adapter '{adapter}' is for mode '{capability['mode']}', not '{mode}'")
+    if host_family and host_family not in capability["host_families"]:
+        errors.append(f"adapter '{adapter}' does not support host family '{host_family}'")
+    if mode == "hybrid":
+        if adapter != "hybrid":
+            errors.append("hybrid mode requires adapter 'hybrid'")
+        if nix_adapter not in ("home-manager", "nix-darwin", "nixos"):
+            errors.append("hybrid mode requires nix_adapter 'home-manager', 'nix-darwin', or 'nixos'")
+        else:
+            nix_capability = PROVISIONING_ADAPTERS[nix_adapter]
+            if host_family and host_family not in nix_capability["host_families"]:
+                errors.append(f"hybrid nix_adapter '{nix_adapter}' does not support host family '{host_family}'")
+    elif nix_adapter:
+        errors.append("nix_adapter is only valid for hybrid mode")
+    return errors
+
+
+def _blueprint_provider_compatibility_errors(expected, mode, adapter, nix_adapter):
+    return blueprint_adapter_compatibility_errors(
+        mode,
+        adapter,
+        nix_adapter,
+        expected.get("host_family"),
+    )
+
+
 def blueprint_provider_recommendation(target=None, root=None):
     root = os.path.abspath(root or smu_home_dir)
     normalized = (target or "").strip().lower().replace("_", "-")
@@ -168,6 +216,7 @@ def blueprint_provider_recommendation(target=None, root=None):
                 "mode": provider["mode"] if provider else None,
                 "adapter": provider["adapter"] if provider else None,
                 "nix_adapter": provider["nix_adapter"] if provider else None,
+                "host_family": provider["host_family"] if provider else None,
                 "provider": provider_id,
                 "path": provider["path"] if provider else None,
                 "capability": provider["capability"] if provider else {},
@@ -301,6 +350,14 @@ def validate_blueprint_recommendation_config(target=None, root=None, input_path=
                 errors.append(f"{input_path}: expected {key} {value}")
             if key == "nix_adapter" and not value and current:
                 errors.append(f"{input_path}: nix_adapter is not expected for {target}")
+        errors.extend(
+            f"{input_path}: {error}" for error in blueprint_adapter_compatibility_errors(
+                provisioning.get("mode"),
+                provisioning.get("adapter"),
+                provisioning.get("nix_adapter"),
+                recommendation.get("host_family"),
+            )
+        )
         if recommendation["mode"] == "hybrid" and provisioning.get("allow_rcm_fallback") is not True:
             errors.append(f"{input_path}: hybrid recommendations require allow_rcm_fallback = true")
     result = {
