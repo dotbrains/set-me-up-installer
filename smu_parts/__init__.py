@@ -8,6 +8,7 @@ from . import catalog_packs
 from . import nix_provisioning
 from . import provisioning_adapters
 from . import provisioning_tools
+from . import provisioning_preflight
 from . import blueprint_providers
 from . import blueprint_tools
 from . import provisioning_cli
@@ -32,6 +33,7 @@ PARTS = (
     nix_provisioning,
     provisioning_adapters,
     provisioning_tools,
+    provisioning_preflight,
     blueprint_providers,
     blueprint_tools,
     provisioning_cli,

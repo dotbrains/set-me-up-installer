@@ -54,6 +54,8 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py blueprint doctor --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter preflight --adapter home-manager -m ci-shell --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter preflight --adapter hybrid -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter bootstrap --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter plan flake --adapter home-manager -m ci-shell
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter apply --adapter hybrid -m ci-shell --strict --dry-run --json

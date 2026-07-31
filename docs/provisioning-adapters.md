@@ -90,6 +90,8 @@ smu provisioning-adapter profile validate --adapter home-manager \
   --profile default --strict
 smu provisioning-adapter audit --json
 smu provisioning-adapter audit --adapter home-manager --profile default --strict
+smu provisioning-adapter preflight --adapter home-manager --profile default --json
+smu provisioning-adapter preflight --adapter hybrid --profile default --strict --json
 smu provisioning-adapter bootstrap --json
 smu provisioning-adapter migrate --adapter home-manager \
   --profile default --output migration.md
@@ -124,6 +126,12 @@ smu --provision --provisioning-adapter home-manager -m editor/nvim
 contract for choosing between `rcm`, `home-manager`, `nix-darwin`, `nixos`, and
 `hybrid`. It records the adapter mode, engine, scope, host families, Nix
 requirement, and fallback behavior.
+
+`smu provisioning-adapter preflight --adapter <adapter> --profile <profile>
+--json` is the read-only gate to run before apply. It validates host support,
+selected modules, adapter coverage, hybrid fallback decisions, generated
+artifact paths, and intended apply commands without writing files or invoking
+`rcm`, Home Manager, nix-darwin, or `nixos-rebuild`.
 
 Module directories can publish adapter implementations with `module.toml`:
 

@@ -129,6 +129,15 @@ def handle_provisioning_adapter_command(argv):
             json_output=parsed["json_output"],
             strict=parsed["strict"],
         )
+    if command == "preflight":
+        return provisioning_adapter_preflight(
+            adapter_id=_adapter_arg(args, configured_profile_provisioning_adapter(parsed["profile"])),
+            profile=parsed["profile"],
+            modules=_module_args(args),
+            json_output=parsed["json_output"],
+            strict=parsed["strict"],
+            action=parsed["action"],
+        )
     if command == "bootstrap":
         return print_nix_bootstrap_status(json_output=parsed["json_output"])
     if command == "migrate":
@@ -192,7 +201,7 @@ def handle_provisioning_adapter_command(argv):
             action=parsed["action"],
         )
 
-    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|capabilities|parity|docs|validate|profile|audit|bootstrap|migrate|scaffold|plan|apply] [--json]")
+    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|capabilities|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]")
 
 
 def handle_nix_command(argv):
