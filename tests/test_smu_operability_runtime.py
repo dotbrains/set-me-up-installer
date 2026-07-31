@@ -47,6 +47,27 @@ class TestSmuOperabilityRuntime(unittest.TestCase):
         self.assertEqual(payload["plan"]["kind"], "nix")
         self.assertIn("commands", payload["plan"])
 
+    def test_contracts_include_adapter_capabilities_shape(self):
+        with patch.object(smu, "status_report", return_value={}), \
+                patch.object(smu, "repository_update_doctor", return_value={}), \
+                patch.object(smu, "client_update_preflight", return_value={}):
+            payload = smu.json_contracts()["provisioning-capabilities"]
+
+        self.assertEqual(payload["contract"]["version"], 1)
+        self.assertIn("provisioning.adapter", payload["contract"]["blueprint_keys"])
+        self.assertIn("path", payload["contract"]["module_adapter_required_keys"])
+        self.assertEqual(payload["adapters"][0]["id"], "rcm")
+
+    def test_contracts_include_blueprint_readiness_shape(self):
+        with patch.object(smu, "status_report", return_value={}), \
+                patch.object(smu, "repository_update_doctor", return_value={}), \
+                patch.object(smu, "client_update_preflight", return_value={}):
+            payload = smu.json_contracts()["blueprint-ci-readiness"]
+
+        self.assertTrue(payload["valid"])
+        self.assertEqual(payload["readiness"]["preflight"], "passed")
+        self.assertEqual(payload["readiness"]["summary"]["workflow_preflight"], 3)
+
     def test_update_manifest_command_writes_output(self):
         with tempfile.TemporaryDirectory() as tempdir:
             output = os.path.join(tempdir, "manifest.json")

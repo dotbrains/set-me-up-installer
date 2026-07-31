@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "message": "preflight",
+      "name": "github-actions-preflight",
+      "ok": true,
+      "path": "examples/github-actions/nix.yml"
+    }
+  ],
+  "errors": [],
+  "path": "/home/user/set-me-up",
+  "readiness": {
+    "preflight": "passed",
+    "summary": {
+      "configs": 7,
+      "provider_examples": 6,
+      "readiness_docs": 1,
+      "workflow_examples": 3,
+      "workflow_preflight": 3
+    }
+  },
+  "valid": true
+}

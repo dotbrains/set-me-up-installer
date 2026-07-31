@@ -1,0 +1,100 @@
+{
+  "adapters": [
+    {
+      "engine": "rcm",
+      "host_families": [
+        "macos",
+        "debian",
+        "ubuntu",
+        "arch",
+        "linux"
+      ],
+      "id": "rcm",
+      "mode": "rcm",
+      "requires_nix": false,
+      "scope": "user",
+      "status": "available",
+      "summary": "Current rcm-based dotfile and module provisioning",
+      "supports_fallback": false,
+      "uses_nix": false
+    },
+    {
+      "engine": "home-manager",
+      "host_families": [
+        "macos",
+        "debian",
+        "ubuntu",
+        "arch",
+        "linux"
+      ],
+      "id": "home-manager",
+      "mode": "nix",
+      "requires_nix": true,
+      "scope": "user",
+      "status": "available",
+      "summary": "Nix package manager plus Home Manager user provisioning",
+      "supports_fallback": false,
+      "uses_nix": true
+    },
+    {
+      "engine": "nix-darwin",
+      "host_families": [
+        "macos"
+      ],
+      "id": "nix-darwin",
+      "mode": "nix",
+      "requires_nix": true,
+      "scope": "system",
+      "status": "available",
+      "summary": "macOS provisioning through nix-darwin",
+      "supports_fallback": false,
+      "uses_nix": true
+    },
+    {
+      "engine": "nixos",
+      "host_families": [
+        "nixos"
+      ],
+      "id": "nixos",
+      "mode": "nix",
+      "requires_nix": true,
+      "scope": "system",
+      "status": "available",
+      "summary": "Full NixOS host provisioning",
+      "supports_fallback": false,
+      "uses_nix": true
+    },
+    {
+      "engine": "home-manager",
+      "host_families": [
+        "macos",
+        "debian",
+        "ubuntu",
+        "arch",
+        "linux"
+      ],
+      "id": "hybrid",
+      "mode": "hybrid",
+      "requires_nix": true,
+      "scope": "user",
+      "status": "available",
+      "summary": "Nix-first provisioning with rcm fallback",
+      "supports_fallback": true,
+      "uses_nix": true
+    }
+  ],
+  "contract": {
+    "blueprint_keys": [
+      "provisioning.mode",
+      "provisioning.adapter",
+      "provisioning.nix_adapter"
+    ],
+    "ci_command": "smu blueprint ci --path <blueprint> --check-docs --json",
+    "module_adapter_required_keys": [
+      "path"
+    ],
+    "module_manifest_table": "adapters",
+    "preflight_command": "smu provisioning-adapter preflight --adapter <adapter> --profile <profile> --json",
+    "version": 1
+  }
+}

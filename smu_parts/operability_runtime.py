@@ -125,6 +125,30 @@ def json_contracts():
             },
             "errors": [],
         },
+        "provisioning-capabilities": provisioning_adapter_capabilities(),
+        "blueprint-ci-readiness": {
+            "path": "/home/user/set-me-up",
+            "valid": True,
+            "errors": [],
+            "readiness": {
+                "preflight": "passed",
+                "summary": {
+                    "configs": 7,
+                    "provider_examples": 6,
+                    "workflow_examples": 3,
+                    "workflow_preflight": 3,
+                    "readiness_docs": 1,
+                },
+            },
+            "checks": [
+                {
+                    "name": "github-actions-preflight",
+                    "path": "examples/github-actions/nix.yml",
+                    "ok": True,
+                    "message": "preflight",
+                }
+            ],
+        },
         "status": status_report(),
         "update-doctor": repository_update_doctor(),
         "update-preflight": client_update_preflight(),
