@@ -212,4 +212,69 @@ def print_blueprint_provider_recommendation(target=None, root=None, json_output=
     return 0 if payload["valid"] else 1
 
 
+def blueprint_recommendation_config(recommendation):
+    lines = [
+        "[provisioning]",
+        f'mode = "{recommendation["mode"]}"',
+        f'adapter = "{recommendation["adapter"]}"',
+    ]
+    if recommendation.get("nix_adapter"):
+        lines.append(f'nix_adapter = "{recommendation["nix_adapter"]}"')
+    if recommendation["mode"] == "hybrid":
+        lines.append("allow_rcm_fallback = true")
+    lines.extend([
+        "",
+        "[profile.default]",
+        'modules = ["example"]',
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def write_blueprint_recommendation_config(
+    target=None,
+    root=None,
+    output_path=None,
+    force=False,
+    dry_run=False,
+    json_output=False,
+):
+    payload = blueprint_provider_recommendation(target=target, root=root)
+    if not payload["valid"]:
+        if json_output:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            for error in payload["errors"]:
+                print(f"{COL_RED}FAIL{COL_RESET} {error}")
+        return 1
+    output_path = output_path or os.path.join(os.path.abspath(root or smu_home_dir), "smu.toml")
+    config = blueprint_recommendation_config(payload["recommendation"])
+    result = dict(payload)
+    result.update({
+        "output": output_path,
+        "content": config,
+        "written": False,
+    })
+    if not dry_run:
+        if os.path.exists(output_path) and not force:
+            result["valid"] = False
+            result["errors"] = [f"Blueprint config already exists: {output_path}. Use --force to overwrite."]
+            if json_output:
+                print(json.dumps(result, indent=2, sort_keys=True))
+            else:
+                print(f"{COL_RED}FAIL{COL_RESET} {result['errors'][0]}")
+            return 1
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(config)
+        result["written"] = True
+    if json_output:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    elif dry_run:
+        print(config, end="")
+    else:
+        print(output_path)
+    return 0
+
+
 __all__ = [name for name in globals() if not name.startswith("__")]

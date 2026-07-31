@@ -27,6 +27,8 @@ smu blueprint schema --output schemas/blueprint.schema.json
 smu blueprint schema --check --output schemas/blueprint.schema.json
 smu blueprint providers --path . --json
 smu blueprint recommend --target ubuntu --path . --json
+smu blueprint recommend --target ubuntu --path . --dry-run
+smu blueprint recommend --target ubuntu --path . --write --output smu.toml
 smu blueprint ci --path . --check-docs --json
 smu blueprint compatibility --json
 smu blueprint compatibility --output blueprint-compatibility.md
@@ -63,6 +65,8 @@ Use `smu blueprint recommend --target <host> --path <checkout> --json` when a
 tool or developer wants the recommended mode, adapter, and provider example for
 a host intent such as `debian`, `ubuntu`, `arch`, `nixos`, `digitalocean`,
 `hetzner`, `macos`, or `rcm-only`.
+Add `--dry-run` to preview the generated `smu.toml`, or `--write --output
+smu.toml` to create it. Existing files require `--force`.
 
 Inspect support:
 

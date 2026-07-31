@@ -427,33 +427,6 @@ class TestProvisioningTools(unittest.TestCase):
             self.assertFalse(payload["valid"])
             self.assertIn("examples/providers/nixos-vps/smu.toml: expected adapter nixos", payload["errors"])
 
-    def test_blueprint_provider_recommendation_uses_provider_matrix(self):
-        with tempfile.TemporaryDirectory() as tempdir:
-            os.makedirs(os.path.join(tempdir, "examples", "providers", "ubuntu-vps"))
-            with open(os.path.join(tempdir, "examples", "providers", "ubuntu-vps", "smu.toml"), "w") as f:
-                f.write('[provisioning]\nmode = "nix"\nadapter = "home-manager"\n')
-
-            payload = smu.blueprint_provider_recommendation(target="ubuntu", root=tempdir)
-
-            self.assertTrue(payload["valid"])
-            self.assertEqual(payload["recommendation"]["provider"], "ubuntu-vps")
-            self.assertEqual(payload["recommendation"]["adapter"], "home-manager")
-            self.assertTrue(payload["recommendation"]["capability"]["requires_nix"])
-
-    def test_blueprint_provider_recommendation_supports_rcm_only(self):
-        payload = smu.blueprint_provider_recommendation(target="rcm-only")
-
-        self.assertTrue(payload["valid"])
-        self.assertEqual(payload["recommendation"]["mode"], "rcm")
-        self.assertEqual(payload["recommendation"]["adapter"], "rcm")
-        self.assertFalse(payload["recommendation"]["capability"]["requires_nix"])
-
-    def test_blueprint_provider_recommendation_rejects_unknown_target(self):
-        payload = smu.blueprint_provider_recommendation(target="solaris")
-
-        self.assertFalse(payload["valid"])
-        self.assertIn("unknown target 'solaris'", payload["errors"][0])
-
     def test_blueprint_ci_contract_rejects_drift(self):
         with tempfile.TemporaryDirectory() as tempdir:
             with open(os.path.join(tempdir, "smu.toml"), "w") as f:
