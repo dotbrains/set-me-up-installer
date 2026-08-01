@@ -74,6 +74,16 @@ is_setup_profile_command() {
 	[[ "${1:-}" = "--setup-profile" ]]
 }
 
+is_python_smu_command() {
+	case "${1:-}" in
+		adapter|blueprint|bootstrap|contract|doctor|help|home-manager|hm|init|nix|operability|preset|profile|prompt|provisioning-adapter|provisioning-adapters|rollback|state|status|theme|update|vps)
+			return 0
+			;;
+	esac
+
+	return 1
+}
+
 run_python_smu() {
 	if [ ! -f "${smu_home_dir}/set-me-up-installer/smu.py" ]; then
 		error "'smu.py' does not exist."
@@ -105,9 +115,9 @@ main() {
 
 	printf "\n"
 
-	if is_setup_profile_command "$@"; then
+	if is_setup_profile_command "$@" || is_python_smu_command "$@"; then
 		if ! cmd_exists "python3"; then
-			error "'python3' is required to run setup profiles."
+			error "'python3' is required to run this set-me-up command."
 			exit 1
 		fi
 		run_python_smu "$@"
