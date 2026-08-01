@@ -1,0 +1,64 @@
+{
+  "$id": "https://dotbrains.github.io/set-me-up/schemas/dotfiles-compatibility.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "adapter": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checks": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contract": {
+      "properties": {
+        "name": {
+          "const": "dotfiles-compatibility"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "errors": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "path": {
+      "type": "string"
+    },
+    "readiness": {
+      "type": "object"
+    },
+    "valid": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "contract",
+    "valid",
+    "checks",
+    "readiness"
+  ],
+  "title": "set-me-up dotfiles compatibility contract",
+  "type": "object"
+}

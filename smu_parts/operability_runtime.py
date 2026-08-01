@@ -51,6 +51,10 @@ HELP_TOPICS = {
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
         "Print, write, or validate stable JSON payloads for agent and fleet integrations.",
     ],
+    "vps": [
+        "smu vps [init|doctor] [--target ubuntu|debian|arch|nixos] [--mode rcm|nix|hybrid] [--repo path] [--json]",
+        "Plan first-run VPS commands or validate a dotfiles repo for headless setup.",
+    ],
     "completion": [
         "smu completion [bash|zsh|fish]",
         "Generate shell completions for common commands and profile IDs.",
@@ -148,6 +152,32 @@ def json_contracts():
                     "message": "preflight",
                 }
             ],
+        },
+        "dotfiles-compatibility": {
+            "contract": {"name": "dotfiles-compatibility", "version": 1},
+            "path": "/path/to/dotfiles",
+            "valid": True,
+            "mode": "hybrid",
+            "adapter": "hybrid",
+            "readiness": {
+                "install_shim": True,
+                "smu_blueprint": True,
+                "platform_scope": True,
+                "root_config": True,
+                "rcm_ready": False,
+                "nix_ready": False,
+                "hybrid_ready": True,
+                "vps_ready": True,
+                "ci_contract": True,
+            },
+            "checks": [
+                {"name": "install-shim", "ok": True},
+                {"name": "smu-blueprint", "ok": True},
+                {"name": "platform-scope", "ok": True},
+                {"name": "root-smu-toml", "ok": True},
+                {"name": "ci-contract", "ok": True},
+            ],
+            "errors": [],
         },
         "status": status_report(),
         "update-doctor": repository_update_doctor(),

@@ -11,6 +11,7 @@ from . import provisioning_tools
 from . import provisioning_preflight
 from . import blueprint_providers
 from . import blueprint_tools
+from . import vps_tools
 from . import provisioning_cli
 from . import doctors_and_system
 from . import module_discovery
@@ -36,6 +37,7 @@ PARTS = (
     provisioning_preflight,
     blueprint_providers,
     blueprint_tools,
+    vps_tools,
     provisioning_cli,
     doctors_and_system,
     module_discovery,

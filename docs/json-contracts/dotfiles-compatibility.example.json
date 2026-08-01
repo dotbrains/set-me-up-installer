@@ -1,0 +1,44 @@
+{
+  "adapter": "hybrid",
+  "checks": [
+    {
+      "name": "install-shim",
+      "ok": true
+    },
+    {
+      "name": "smu-blueprint",
+      "ok": true
+    },
+    {
+      "name": "platform-scope",
+      "ok": true
+    },
+    {
+      "name": "root-smu-toml",
+      "ok": true
+    },
+    {
+      "name": "ci-contract",
+      "ok": true
+    }
+  ],
+  "contract": {
+    "name": "dotfiles-compatibility",
+    "version": 1
+  },
+  "errors": [],
+  "mode": "hybrid",
+  "path": "/path/to/dotfiles",
+  "readiness": {
+    "ci_contract": true,
+    "hybrid_ready": true,
+    "install_shim": true,
+    "nix_ready": false,
+    "platform_scope": true,
+    "rcm_ready": false,
+    "root_config": true,
+    "smu_blueprint": true,
+    "vps_ready": true
+  },
+  "valid": true
+}

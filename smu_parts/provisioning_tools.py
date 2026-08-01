@@ -123,8 +123,19 @@ def provisioning_adapter_coverage():
             "fallback": fallback,
             "missing": missing,
             "total": len(rows),
+            "ready_percent": round((ready / len(rows)) * 100, 2) if rows else 0,
         }
-    return {"modules": len(rows), "coverage": coverage}
+    nix_ready = sum(1 for row in rows if resolve_module_provisioning_adapter(row["name"], "home-manager")["state"] == "ready")
+    return {
+        "modules": len(rows),
+        "coverage": coverage,
+        "nix_ready": {
+            "adapter": "home-manager",
+            "ready": nix_ready,
+            "total": len(rows),
+            "percent": round((nix_ready / len(rows)) * 100, 2) if rows else 0,
+        },
+    }
 
 
 def provisioning_adapter_parity(source_adapter="rcm", target_adapter="home-manager", modules=None, profile=None):
@@ -216,10 +227,10 @@ def write_provisioning_adapter_docs(output_path=None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w") as f:
         f.write("# Provisioning Adapter Coverage\n\n")
-        f.write("| Adapter | Ready | Fallback | Missing | Total |\n")
-        f.write("| --- | ---: | ---: | ---: | ---: |\n")
+        f.write("| Adapter | Ready | Fallback | Missing | Total | Ready % |\n")
+        f.write("| --- | ---: | ---: | ---: | ---: | ---: |\n")
         for adapter_id, row in payload["coverage"].items():
-            f.write(f"| `{adapter_id}` | {row['ready']} | {row['fallback']} | {row['missing']} | {row['total']} |\n")
+            f.write(f"| `{adapter_id}` | {row['ready']} | {row['fallback']} | {row['missing']} | {row['total']} | {row['ready_percent']} |\n")
     print(output_path)
     return 0
 
@@ -232,10 +243,10 @@ def check_provisioning_adapter_docs(output_path=None):
     payload = provisioning_adapter_coverage()
     expected = io.StringIO()
     expected.write("# Provisioning Adapter Coverage\n\n")
-    expected.write("| Adapter | Ready | Fallback | Missing | Total |\n")
-    expected.write("| --- | ---: | ---: | ---: | ---: |\n")
+    expected.write("| Adapter | Ready | Fallback | Missing | Total | Ready % |\n")
+    expected.write("| --- | ---: | ---: | ---: | ---: | ---: |\n")
     for adapter_id, row in payload["coverage"].items():
-        expected.write(f"| `{adapter_id}` | {row['ready']} | {row['fallback']} | {row['missing']} | {row['total']} |\n")
+        expected.write(f"| `{adapter_id}` | {row['ready']} | {row['fallback']} | {row['missing']} | {row['total']} | {row['ready_percent']} |\n")
     with open(output_path) as f:
         current = f.read()
     if current != expected.getvalue():
@@ -285,9 +296,9 @@ def print_provisioning_adapter_coverage(json_output=False):
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        print("adapter\tready\tfallback\tmissing\ttotal")
+        print("adapter\tready\tfallback\tmissing\ttotal\tready_percent")
         for adapter_id, row in payload["coverage"].items():
-            print(f"{adapter_id}\t{row['ready']}\t{row['fallback']}\t{row['missing']}\t{row['total']}")
+            print(f"{adapter_id}\t{row['ready']}\t{row['fallback']}\t{row['missing']}\t{row['total']}\t{row['ready_percent']}")
     return 0
 
 

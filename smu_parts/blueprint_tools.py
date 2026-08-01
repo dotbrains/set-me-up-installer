@@ -437,7 +437,6 @@ def blueprint_ci_contract(root=None, json_output=False, check_docs=False):
             print(f"{COL_GREEN}OK{COL_RESET}   blueprint CI contract")
     return 0 if not errors else 1
 
-
 def handle_blueprint_command(argv):
     command = argv[0] if argv else "schema"
     args = argv[1:]
@@ -460,6 +459,8 @@ def handle_blueprint_command(argv):
             force=force,
             json_output=json_output,
         )
+    if command == "migrate-dotfiles":
+        return migrate_dotfiles_command(args, force=force, json_output=json_output)
     if command == "schema":
         return write_blueprint_schema(output_path=output_path, check=check)
     if command == "ci":
@@ -492,7 +493,8 @@ def handle_blueprint_command(argv):
         if check or output_path:
             return write_blueprint_compatibility_docs(output_path=output_path, check=check)
         return print_provisioning_compatibility_matrix(json_output=json_output)
-    die("Usage: smu blueprint [init|doctor|migrate|schema|ci|providers|recommend|compatibility] [--json]")
-
+    if command == "dotfiles-contract":
+        return dotfiles_contract_command(args, check=check, output_path=output_path, json_output=json_output)
+    die("Usage: smu blueprint [init|doctor|migrate|migrate-dotfiles|schema|ci|providers|recommend|compatibility|dotfiles-contract]")
 
 __all__ = [name for name in globals() if not name.startswith("__")]

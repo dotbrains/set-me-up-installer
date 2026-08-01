@@ -35,6 +35,8 @@ def main():
             raise SystemExit(handle_provisioning_adapter_command(command_args))
         if command == "blueprint":
             raise SystemExit(handle_blueprint_command(command_args))
+        if command == "vps":
+            raise SystemExit(handle_vps_command(command_args))
         if command == "nix":
             raise SystemExit(handle_nix_command(command_args))
         if command == "theme":

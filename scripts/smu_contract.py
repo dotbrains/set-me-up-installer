@@ -22,6 +22,7 @@ JSON_SCHEMA_CONTRACTS = (
     "provisioning-preflight",
     "provisioning-capabilities",
     "blueprint-ci-readiness",
+    "dotfiles-compatibility",
 )
 
 
@@ -438,10 +439,32 @@ def blueprint_ci_readiness_contract_errors(payload):
     return errors
 
 
+def dotfiles_compatibility_contract_errors(payload):
+    errors = json_contract_schema_errors("dotfiles-compatibility", payload)
+    if not isinstance(payload, dict):
+        return errors
+
+    contract = _require_object(errors, payload, "contract", "dotfiles-compatibility")
+    if contract.get("name") != "dotfiles-compatibility":
+        errors.append("dotfiles-compatibility.contract.name must be dotfiles-compatibility")
+    if contract.get("version") != 1:
+        errors.append("dotfiles-compatibility.contract.version must be 1")
+    readiness = _require_object(errors, payload, "readiness", "dotfiles-compatibility")
+    for key in ("install_shim", "smu_blueprint", "platform_scope", "root_config", "ci_contract"):
+        if readiness.get(key) is not True:
+            errors.append(f"dotfiles-compatibility.readiness.{key} must be true")
+    if not any(readiness.get(key) for key in ("rcm_ready", "nix_ready", "hybrid_ready")):
+        errors.append("dotfiles-compatibility.readiness must include rcm, nix, or hybrid readiness")
+    _require_list(errors, payload, "checks", "dotfiles-compatibility")
+    _require_list(errors, payload, "errors", "dotfiles-compatibility")
+    return errors
+
+
 JSON_CONTRACT_VALIDATORS = {
     "provisioning-preflight": provisioning_preflight_contract_errors,
     "provisioning-capabilities": provisioning_capabilities_contract_errors,
     "blueprint-ci-readiness": blueprint_ci_readiness_contract_errors,
+    "dotfiles-compatibility": dotfiles_compatibility_contract_errors,
 }
 
 
