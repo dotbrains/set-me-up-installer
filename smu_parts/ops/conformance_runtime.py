@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 def blueprint_conformance(root=None):

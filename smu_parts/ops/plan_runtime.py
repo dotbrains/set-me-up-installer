@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 def _plan_modules(argv):

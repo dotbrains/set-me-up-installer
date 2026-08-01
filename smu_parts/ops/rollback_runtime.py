@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 def rollback_guarantee_for_event(event):

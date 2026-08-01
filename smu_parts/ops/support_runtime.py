@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 REDACT_KEYS = re.compile(r"(token|secret|password|credential|api[_-]?key)", re.IGNORECASE)

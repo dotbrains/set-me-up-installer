@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 SECRET_NAME_PATTERNS = (".env", "secret", "secrets", "credential", "credentials", "id_rsa", "id_ed25519")

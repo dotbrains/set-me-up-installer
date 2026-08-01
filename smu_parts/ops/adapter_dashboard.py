@@ -1,4 +1,4 @@
-from .core import *
+from ..core import *
 
 
 def provisioning_adapter_dashboard(adapter_id="home-manager", profile=None, modules=None):
