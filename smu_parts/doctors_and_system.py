@@ -124,6 +124,52 @@ def doctor():
 
     return 1 if failed else 0
 
+def strict_doctor_payload():
+    modules = list(blueprint_profile_modules(None))
+    checks = [
+        {"name": "secrets", "payload": secrets_scan(smu_home_dir)},
+        {"name": "rollback", "payload": rollback_doctor_payload()},
+        {"name": "trust", "payload": trust_report(modules)},
+        {
+            "name": "provisioning-preflight",
+            "payload": provisioning_adapter_preflight_payload(
+                adapter_id=configured_profile_provisioning_adapter(None),
+                profile=None,
+                modules=modules,
+                strict=False,
+            ),
+        },
+        {"name": "update-policy", "payload": repository_update_doctor()},
+        {"name": "conformance", "payload": blueprint_conformance(smu_home_dir)},
+    ]
+    results = []
+    for check in checks:
+        payload = check["payload"]
+        ok = True
+        if isinstance(payload, int):
+            ok = payload == 0
+        elif isinstance(payload, dict):
+            if "ok" in payload:
+                ok = bool(payload["ok"])
+            elif "ready" in payload:
+                ok = bool(payload["ready"])
+            elif "preflight" in payload:
+                ok = payload["preflight"] == "passed"
+            elif "errors" in payload:
+                ok = not payload["errors"]
+        results.append({"name": check["name"], "ok": ok, "payload": payload})
+    return {"strict": True, "ok": all(item["ok"] for item in results), "checks": results}
+
+
+def print_strict_doctor(json_output=False):
+    payload = strict_doctor_payload()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for check in payload["checks"]:
+            print(f"{COL_GREEN if check['ok'] else COL_RED}{'OK' if check['ok'] else 'FAIL'}{COL_RESET}\t{check['name']}")
+    return 0 if payload["ok"] else 1
+
 def prompt_doctor(prompt):
     profiles = {entry["id"]: entry for entry in prompt_profiles() if entry.get("id")}
     if prompt not in profiles:

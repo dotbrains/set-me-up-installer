@@ -44,6 +44,8 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter validate
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter capabilities --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter coverage --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter dashboard --json
+    HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter issue --output "$tmp_home/adapter-issue.md"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter parity --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --output "$tmp_home/coverage.md"
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter docs --check --output "$tmp_home/coverage.md"
@@ -52,6 +54,17 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --output "$tmp_home/compatibility.md"
     HOME="$tmp_home" "$python_bin" smu.py blueprint compatibility --check --output "$tmp_home/compatibility.md"
     HOME="$tmp_home" "$python_bin" smu.py blueprint doctor --strict --json
+    HOME="$tmp_home" "$python_bin" smu.py plan --machine vps
+    HOME="$tmp_home" "$python_bin" smu.py plan --machine vps --json
+    HOME="$tmp_home" "$python_bin" smu.py secrets doctor --json
+    HOME="$tmp_home" "$python_bin" smu.py trust doctor --json
+    HOME="$tmp_home" "$python_bin" smu.py doctor --strict --json || true
+    HOME="$tmp_home" "$python_bin" smu.py support bundle --redact --output "$tmp_home/support.json"
+    HOME="$tmp_home" "$python_bin" smu.py conformance --repo "$tmp_home/set-me-up" --markdown --output "$tmp_home/conformance.md" || true
+    for contract in plan secrets-doctor trust-doctor support-bundle conformance; do
+        "$python_bin" smu.py contract schema "$contract" >/dev/null
+        "$python_bin" smu.py contract validate "$contract" --json
+    done
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter profile validate --adapter home-manager --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter audit --adapter home-manager -m ci-shell --strict --json
     HOME="$tmp_home" "$python_bin" smu.py provisioning-adapter preflight --adapter home-manager -m ci-shell --json
@@ -118,6 +131,7 @@ cli_smoke() {
     HOME="$profile_home" "$python_bin" smu.py profile doctor
     HOME="$profile_home" "$python_bin" smu.py adapter list
     HOME="$profile_home" "$python_bin" smu.py adapter materialize --dry-run
+    "$python_bin" smu.py release-notes --from "$tmp_home/support.json" --output "$tmp_home/release-notes.md"
     tests/test_install_plan.sh
     tests/test_install_doctor.sh
     tests/test_install_guidance.sh

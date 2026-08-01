@@ -1,0 +1,39 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up universal plan contract",
+  "type": "object",
+  "required": ["blueprint", "provisioning", "packages", "dotfiles", "secrets", "trust", "rollback"],
+  "properties": {
+    "blueprint": {
+      "type": "object",
+      "required": ["path", "submodule_scope"]
+    },
+    "machine_profile": {
+      "type": ["object", "null"]
+    },
+    "provisioning": {
+      "type": "object",
+      "required": ["adapter", "modules", "plan"]
+    },
+    "packages": {
+      "type": "array"
+    },
+    "dotfiles": {
+      "type": "object",
+      "required": ["conflicted", "items"]
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["root", "findings", "ok"]
+    },
+    "trust": {
+      "type": "object",
+      "required": ["modules", "warnings"]
+    },
+    "rollback": {
+      "type": "object",
+      "required": ["coverage", "events", "total_events"]
+    }
+  }
+}

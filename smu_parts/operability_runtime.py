@@ -71,6 +71,10 @@ HELP_TOPICS = {
         "smu support bundle [--redact] [--output path]",
         "Emit telemetry-free diagnostics with secret-like fields redacted.",
     ],
+    "release-notes": [
+        "smu release-notes --from release-readiness.json [--output path]",
+        "Render Markdown release notes from release-readiness provenance.",
+    ],
     "contracts": [
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
         "Print, write, or validate stable JSON payloads for agent and fleet integrations.",
@@ -84,7 +88,7 @@ HELP_TOPICS = {
         "Generate shell completions for common commands and profile IDs.",
     ],
     "provisioning-adapter": [
-        "smu provisioning-adapter [list|doctor|modules|coverage|dashboard|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]",
+        "smu provisioning-adapter [list|doctor|modules|coverage|dashboard|issue|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]",
         "Show, validate, scaffold, plan, or run the selected provisioning engine.",
     ],
     "nix": [
@@ -117,6 +121,44 @@ def print_help_topic(topic=None):
 
 def json_contracts():
     return {
+        "plan": universal_plan_payload(["--machine", "vps"]),
+        "secrets-doctor": {"root": "/path/to/blueprint", "findings": [], "ok": True},
+        "trust-doctor": {
+            "modules": [
+                {
+                    "module": "base",
+                    "state": "ok",
+                    "trust": "first-party",
+                    "network": True,
+                    "requires_sudo": False,
+                    "writes": [],
+                    "rollback": "partial",
+                }
+            ],
+            "warnings": [],
+            "errors": [],
+        },
+        "support-bundle": {
+            "generated_at": "2026-08-01T00:00:00Z",
+            "versions": {"python": "3.14.0", "platform": "linux", "installer": "abc123", "blueprint": "def456"},
+            "health": {"ok": True},
+            "plan": {"machine_profiles": [], "coverage": {"nix_ready_percent": 100}},
+            "secrets": {"root": "/path/to/blueprint", "findings": [], "ok": True},
+            "status": {"modules": [], "adapters": [], "ledger": {}},
+        },
+        "conformance": {
+            "root": "/path/to/blueprint",
+            "checks": {
+                "install_surface_ready": True,
+                "rcm_ready": True,
+                "nix_ready": True,
+                "hybrid_ready": True,
+                "vps_ready": True,
+                "rollback_ready": True,
+                "ci_validated": True,
+            },
+            "ready": True,
+        },
         "bootstrap-plan": bootstrap_plan(["--theme", DEFAULT_THEME, "--prompt", DEFAULT_PROMPT]),
         "catalog-trust": {"path": catalog_trust_path, "trust": {"trusted_publishers": {}, "trusted_registries": {}}},
         "doctor": {
@@ -250,14 +292,15 @@ def contract_command(argv):
             with open(source, encoding="utf-8") as handle:
                 payload = json.load(handle)
         else:
-            contracts = json_contracts()
-            payload = contracts.get(name)
-            source = "runtime"
             example_path = os.path.join(contracts_path, f"{name}.example.json")
             if os.path.exists(example_path):
                 source = example_path
                 with open(example_path, encoding="utf-8") as handle:
                     payload = json.load(handle)
+            else:
+                contracts = json_contracts()
+                payload = contracts.get(name)
+                source = "runtime"
         if payload is None:
             die(f"Unknown contract: {name}")
         errors = smu_contract.json_contract_errors(name, payload)
@@ -336,7 +379,7 @@ def completion_words():
     return sorted(set([
         "adapter", "bootstrap", "catalog", "completion", "conformance", "contract", "diff",
         "doctor", "help", "init", "machine-profile", "plan", "profile", "prompt", "preset",
-        "rollback", "secrets", "state", "status", "support", "theme", "trust", "update",
+        "release-notes", "rollback", "secrets", "state", "status", "support", "theme", "trust", "update",
         *supported_themes(), *supported_prompts(), *supported_presets(),
     ]))
 

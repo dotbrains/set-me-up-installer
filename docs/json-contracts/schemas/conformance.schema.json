@@ -1,0 +1,23 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/conformance.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up conformance contract",
+  "type": "object",
+  "required": ["root", "checks", "ready"],
+  "properties": {
+    "root": { "type": "string" },
+    "checks": {
+      "type": "object",
+      "required": [
+        "install_surface_ready",
+        "rcm_ready",
+        "nix_ready",
+        "hybrid_ready",
+        "vps_ready",
+        "rollback_ready",
+        "ci_validated"
+      ]
+    },
+    "ready": { "type": "boolean" }
+  }
+}

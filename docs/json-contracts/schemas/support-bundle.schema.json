@@ -1,0 +1,15 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/support-bundle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up support bundle contract",
+  "type": "object",
+  "required": ["generated_at", "versions", "health", "plan", "secrets", "status"],
+  "properties": {
+    "generated_at": { "type": "string" },
+    "versions": { "type": "object" },
+    "health": { "type": "object" },
+    "plan": { "type": "object" },
+    "secrets": { "type": "object" },
+    "status": { "type": "object" }
+  }
+}

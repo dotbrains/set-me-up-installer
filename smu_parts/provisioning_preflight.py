@@ -56,11 +56,10 @@ def _preflight_hybrid_plan(modules, profile, strict, action):
     }
 
 
-def provisioning_adapter_preflight(
+def provisioning_adapter_preflight_payload(
     adapter_id=None,
     profile=None,
     modules=None,
-    json_output=False,
     strict=False,
     action="switch",
 ):
@@ -102,6 +101,27 @@ def provisioning_adapter_preflight(
         "plan": plan,
         "errors": errors,
     }
+    return payload
+
+
+def provisioning_adapter_preflight(
+    adapter_id=None,
+    profile=None,
+    modules=None,
+    json_output=False,
+    strict=False,
+    action="switch",
+):
+    payload = provisioning_adapter_preflight_payload(
+        adapter_id=adapter_id,
+        profile=profile,
+        modules=modules,
+        strict=strict,
+        action=action,
+    )
+    adapter_id = payload["adapter"]
+    plan = payload["plan"]
+    errors = payload["errors"]
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:

@@ -1,0 +1,39 @@
+{
+  "blueprint": {
+    "branch": "master",
+    "path": "/home/user/set-me-up",
+    "repository": "dotbrains/set-me-up-blueprint",
+    "submodule_scope": "platform"
+  },
+  "dotfiles": {
+    "conflicted": false,
+    "items": []
+  },
+  "machine_profile": {
+    "adapter": "rcm",
+    "id": "vps",
+    "modules": ["server/headless"],
+    "submodule_scope": "platform"
+  },
+  "packages": [],
+  "provisioning": {
+    "adapter": "rcm",
+    "modules": ["server/headless"],
+    "plan": []
+  },
+  "rollback": {
+    "coverage": "partial",
+    "events": [],
+    "path": "/home/user/.config/set-me-up/state/ledger.json",
+    "total_events": 0
+  },
+  "secrets": {
+    "findings": [],
+    "ok": true,
+    "root": "/home/user/set-me-up"
+  },
+  "trust": {
+    "modules": [],
+    "warnings": []
+  }
+}

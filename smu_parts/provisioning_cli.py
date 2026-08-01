@@ -208,7 +208,14 @@ def handle_provisioning_adapter_command(argv):
             modules=_module_args(args),
             json_output=parsed["json_output"],
         )
-    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|dashboard|capabilities|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]")
+    if command == "issue":
+        return write_provisioning_adapter_issue(
+            adapter_id=_adapter_arg(args, "home-manager"),
+            profile=parsed["profile"],
+            modules=_module_args(args),
+            output_path=parsed["output"],
+        )
+    die("Usage: smu provisioning-adapter [list|doctor|modules|coverage|dashboard|issue|capabilities|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]")
 
 
 def handle_nix_command(argv):

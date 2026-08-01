@@ -32,6 +32,8 @@ def main():
             raise SystemExit(support_command(command_args))
         if command == "conformance":
             raise SystemExit(conformance_command(command_args))
+        if command == "release-notes":
+            raise SystemExit(release_notes_command(command_args))
         if command == "completion":
             raise SystemExit(completion_command(command_args))
         if command == "contract":
@@ -73,6 +75,8 @@ def main():
             handle_adapter_command(command_args)
             return
         if command == "doctor":
+            if "--strict" in command_args:
+                raise SystemExit(print_strict_doctor(json_output="--json" in command_args))
             if "--json" in command_args:
                 raise SystemExit(print_doctor_json())
             raise SystemExit(doctor())

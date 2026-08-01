@@ -1,0 +1,18 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/trust-doctor.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up trust doctor contract",
+  "type": "object",
+  "required": ["modules", "warnings"],
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["module", "state", "trust", "network", "requires_sudo", "writes", "rollback"]
+      }
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  }
+}

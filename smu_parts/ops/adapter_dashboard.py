@@ -45,4 +45,17 @@ def print_provisioning_adapter_dashboard(adapter_id="home-manager", profile=None
     return 0
 
 
+def write_provisioning_adapter_issue(adapter_id="home-manager", profile=None, modules=None, output_path=None):
+    payload = provisioning_adapter_dashboard(adapter_id=adapter_id, profile=profile, modules=modules)
+    content = payload["github_issue"] + "\n"
+    if output_path:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        print(output_path)
+    else:
+        print(content, end="")
+    return 0
+
+
 __all__ = [name for name in globals() if not name.startswith("__")]

@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "ci_validated": true,
+    "hybrid_ready": true,
+    "install_surface_ready": true,
+    "nix_ready": true,
+    "rcm_ready": true,
+    "rollback_ready": true,
+    "vps_ready": true
+  },
+  "ready": true,
+  "root": "/home/user/set-me-up"
+}

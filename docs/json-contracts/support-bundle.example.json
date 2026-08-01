@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-08-01T00:00:00Z",
+  "health": {
+    "ok": true
+  },
+  "plan": {
+    "coverage": {
+      "nix_ready_percent": 100
+    },
+    "machine_profiles": []
+  },
+  "secrets": {
+    "findings": [],
+    "ok": true,
+    "root": "/home/user/set-me-up"
+  },
+  "status": {
+    "adapters": [],
+    "ledger": {},
+    "modules": []
+  },
+  "versions": {
+    "blueprint": "def456",
+    "installer": "abc123",
+    "platform": "linux",
+    "python": "3.14.0"
+  }
+}

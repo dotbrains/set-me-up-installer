@@ -1,0 +1,15 @@
+{
+  "errors": [],
+  "modules": [
+    {
+      "module": "server/headless",
+      "network": true,
+      "requires_sudo": true,
+      "rollback": "partial",
+      "state": "ok",
+      "trust": "first-party",
+      "writes": ["/etc/ssh/sshd_config"]
+    }
+  ],
+  "warnings": []
+}

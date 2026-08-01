@@ -19,6 +19,11 @@ PROVISIONING_BLUEPRINT_KEYS = (
 )
 PROVISIONING_ADAPTER_IDS = ("rcm", "home-manager", "nix-darwin", "nixos", "hybrid")
 JSON_SCHEMA_CONTRACTS = (
+    "plan",
+    "secrets-doctor",
+    "trust-doctor",
+    "support-bundle",
+    "conformance",
     "provisioning-preflight",
     "provisioning-capabilities",
     "blueprint-ci-readiness",
@@ -331,6 +336,7 @@ def _schema_type_matches(value, expected):
         "array": isinstance(value, list),
         "boolean": isinstance(value, bool),
         "integer": isinstance(value, int) and not isinstance(value, bool),
+        "null": value is None,
         "object": isinstance(value, dict),
         "string": isinstance(value, str),
     }.get(expected, True)
@@ -461,6 +467,11 @@ def dotfiles_compatibility_contract_errors(payload):
 
 
 JSON_CONTRACT_VALIDATORS = {
+    "plan": lambda payload: json_contract_schema_errors("plan", payload),
+    "secrets-doctor": lambda payload: json_contract_schema_errors("secrets-doctor", payload),
+    "trust-doctor": lambda payload: json_contract_schema_errors("trust-doctor", payload),
+    "support-bundle": lambda payload: json_contract_schema_errors("support-bundle", payload),
+    "conformance": lambda payload: json_contract_schema_errors("conformance", payload),
     "provisioning-preflight": provisioning_preflight_contract_errors,
     "provisioning-capabilities": provisioning_capabilities_contract_errors,
     "blueprint-ci-readiness": blueprint_ci_readiness_contract_errors,
