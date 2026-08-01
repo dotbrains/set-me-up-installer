@@ -31,6 +31,7 @@ from .ops import conformance_runtime
 from .ops import support_runtime
 from .ops import plan_runtime
 from .ops import release_notes_runtime
+from .ops import migration_pr_runtime
 from . import operability_runtime
 from . import cli
 
@@ -67,6 +68,7 @@ PARTS = (
     support_runtime,
     plan_runtime,
     release_notes_runtime,
+    migration_pr_runtime,
     operability_runtime,
     cli,
 )

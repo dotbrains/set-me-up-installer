@@ -37,7 +37,10 @@ NORMAL = '\033[0m'
 
 # set-me-up paths
 smu_home_dir = os.getenv("SMU_HOME_DIR", os.path.join(os.path.expanduser("~"), "set-me-up"))
-module_path = os.path.join(smu_home_dir, "dotfiles/modules")
+module_path = os.path.abspath(os.path.expanduser(os.environ.get(
+    "SMU_MODULE_PATH",
+    os.path.join(smu_home_dir, "dotfiles/modules"),
+)))
 profile_path = os.path.join(os.path.expanduser("~"), ".config", "set-me-up", "profile.env")
 config_dir = os.path.dirname(profile_path)
 resolved_profile_path = os.path.join(config_dir, "resolved.env")

@@ -16,7 +16,18 @@ def blueprint_conformance(root=None):
         "rollback_ready": bool(read_state_ledger()) or os.path.exists(os.path.join(root, "set-me-up-installer")),
         "ci_validated": ci == 0,
     }
-    return {"root": root, "checks": checks, "ready": all(checks.values())}
+    total = len(checks)
+    passed = sum(1 for ok in checks.values() if ok)
+    score = int(round((passed / total) * 100)) if total else 0
+    return {
+        "root": root,
+        "checks": checks,
+        "score": score,
+        "passed": passed,
+        "total": total,
+        "grade": "ready" if score == 100 else "partial" if score >= 50 else "blocked",
+        "ready": all(checks.values()),
+    }
 
 
 def _badge_markdown(payload):
@@ -24,6 +35,7 @@ def _badge_markdown(payload):
     for key, ok in payload["checks"].items():
         lines.append(f"| `{key}` | {'OK' if ok else 'TODO'} |")
     lines.append("")
+    lines.append(f"Score: {payload['score']}% ({payload['passed']}/{payload['total']})")
     lines.append(f"Overall: {'ready' if payload['ready'] else 'not ready'}")
     lines.append("")
     return "\n".join(lines)

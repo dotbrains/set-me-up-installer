@@ -58,9 +58,11 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py plan --machine vps --json
     HOME="$tmp_home" "$python_bin" smu.py secrets doctor --json
     HOME="$tmp_home" "$python_bin" smu.py trust doctor --json
+    HOME="$tmp_home" "$python_bin" smu.py trust enforce ci-shell --allow-network --allow-unknown --json
     HOME="$tmp_home" "$python_bin" smu.py doctor --strict --json || true
     HOME="$tmp_home" "$python_bin" smu.py support bundle --redact --output "$tmp_home/support.json"
     HOME="$tmp_home" "$python_bin" smu.py conformance --repo "$tmp_home/set-me-up" --markdown --output "$tmp_home/conformance.md" || true
+    HOME="$tmp_home" "$python_bin" smu.py migration-pr --repo "$tmp_home/set-me-up" --output "$tmp_home/migration-pr.json"
     for contract in plan secrets-doctor trust-doctor support-bundle conformance; do
         "$python_bin" smu.py contract schema "$contract" >/dev/null
         "$python_bin" smu.py contract validate "$contract" --json

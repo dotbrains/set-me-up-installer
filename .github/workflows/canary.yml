@@ -1,0 +1,49 @@
+name: Canary
+
+on:
+  push:
+    branches: [main, candidate]
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  install-surface:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [main, candidate]
+        mode: [rcm, nix, hybrid, vps]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Smoke profile
+        env:
+          HOME: ${{ runner.temp }}/home
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/set-me-up/dotfiles/modules/universal/ci-shell"
+          cat > "$HOME/set-me-up/dotfiles/modules/universal/ci-shell/module.toml" <<'EOF'
+          id = "ci-shell"
+          trust = "first-party"
+          network = false
+          requires_sudo = false
+          writes = []
+          rollback = "partial"
+
+          [adapters.home-manager]
+          path = "home-manager.nix"
+          EOF
+          printf '{ ... }:\n\n{\n}\n' > "$HOME/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
+          if [ "${{ matrix.mode }}" = "vps" ]; then
+            python3 smu.py plan --machine vps --json
+            python3 smu.py doctor --strict --json || true
+          else
+            python3 smu.py blueprint init --mode "${{ matrix.mode }}" --json
+            python3 smu.py provisioning-adapter preflight --json
+          fi

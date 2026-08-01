@@ -104,6 +104,41 @@ class TestTrustOps(unittest.TestCase):
             self.assertEqual(payload["suggested_next_port"], "base")
             self.assertIn("Port modules", payload["github_issue"])
 
+    def test_trust_enforcement_blocks_risky_modules(self):
+        with patch.object(smu, "trust_report", return_value={"modules": [{
+            "module": "server/headless",
+            "state": "ok",
+            "trust": "first-party",
+            "network": True,
+            "requires_sudo": True,
+            "rollback": "partial",
+            "writes": [],
+        }], "warnings": []}):
+            payload = smu.trust_enforcement_payload(["server/headless"])
+            self.assertFalse(payload["ok"])
+            self.assertIn("network access", payload["violations"][0])
+
+    def test_support_bundle_redacts_known_secret_shapes(self):
+        payload = smu._redact({
+            "github_token": "ghp_123456789012345678901234567890123456",
+            "line": "API_KEY=abc12345678901234567890",
+        })
+        self.assertEqual(payload["github_token"], "<redacted>")
+        self.assertEqual(payload["line"], "API_KEY=<redacted>")
+
+    def test_conformance_includes_score(self):
+        with patch.object(smu, "dotfiles_compatibility_contract", return_value={"readiness": {}}), \
+                patch.object(smu, "blueprint_ci_contract", return_value=0), \
+                patch.object(smu, "read_state_ledger", return_value=[]):
+            payload = smu.blueprint_conformance("/tmp/missing")
+            self.assertIn("score", payload)
+            self.assertEqual(payload["total"], len(payload["checks"]))
+
+    def test_migration_pr_payload_includes_pr_body(self):
+        payload = smu.blueprint_migration_pr_payload("/tmp/repo")
+        self.assertEqual(payload["pull_request"]["title"], "Adopt set-me-up install surface")
+        self.assertTrue(any("smu blueprint ci" in command for command in payload["commands"]))
+
     def test_release_notes_render_provenance(self):
         content = smu.release_notes_from_provenance({
             "provenance": {"timestamp": "2026-08-01T00:00:00Z", "installer": "abc123"},

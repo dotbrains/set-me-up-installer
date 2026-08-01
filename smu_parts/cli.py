@@ -34,6 +34,8 @@ def main():
             raise SystemExit(conformance_command(command_args))
         if command == "release-notes":
             raise SystemExit(release_notes_command(command_args))
+        if command == "migration-pr":
+            raise SystemExit(migration_pr_command(command_args))
         if command == "completion":
             raise SystemExit(completion_command(command_args))
         if command == "contract":

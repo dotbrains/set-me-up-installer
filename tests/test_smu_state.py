@@ -60,6 +60,34 @@ class TestSmuState(unittest.TestCase):
                     self.assertEqual(f.read(), "before")
                 self.assertEqual(smu.read_state_ledger(), [])
 
+    def test_rollback_to_event_preserves_other_events(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            ledger = os.path.join(tempdir, "state", "ledger.json")
+            first = os.path.join(tempdir, "first.txt")
+            second = os.path.join(tempdir, "second.txt")
+            for path in (first, second):
+                with open(path, "w") as f:
+                    f.write("before")
+            first_snapshot = smu.file_snapshot(first)
+            second_snapshot = smu.file_snapshot(second)
+            for path in (first, second):
+                with open(path, "w") as f:
+                    f.write("after")
+
+            with patch.object(smu, "state_dir", os.path.dirname(ledger)), \
+                    patch.object(smu, "state_ledger_path", ledger):
+                smu.write_state_ledger([
+                    {"id": "first", "operation": "materialize_adapters", "items": [{"before": first_snapshot}]},
+                    {"id": "second", "operation": "client_update", "items": [{"before": second_snapshot}]},
+                ])
+
+                self.assertTrue(smu.rollback_state_event(event_id="first"))
+                with open(first) as f:
+                    self.assertEqual(f.read(), "before")
+                with open(second) as f:
+                    self.assertEqual(f.read(), "after")
+                self.assertEqual([event["id"] for event in smu.read_state_ledger()], ["second"])
+
     def test_rollback_client_update_restores_generated_config(self):
         with tempfile.TemporaryDirectory() as tempdir:
             ledger = os.path.join(tempdir, "state", "ledger.json")

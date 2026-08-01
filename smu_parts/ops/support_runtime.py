@@ -1,7 +1,12 @@
 from ..core import *
 
 
-REDACT_KEYS = re.compile(r"(token|secret|password|credential|api[_-]?key)", re.IGNORECASE)
+REDACT_KEYS = re.compile(r"(token|secret|password|credential|api[_-]?key|private[_-]?key)", re.IGNORECASE)
+REDACT_VALUES = (
+    re.compile(r"gh[pousr]_[A-Za-z0-9_]{20,}"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL),
+    re.compile(r"(?i)(token|secret|password|api[_-]?key)=([^\\s]+)"),
+)
 
 
 def _redact(value):
@@ -9,8 +14,12 @@ def _redact(value):
         return {key: ("<redacted>" if REDACT_KEYS.search(str(key)) else _redact(item)) for key, item in value.items()}
     if isinstance(value, list):
         return [_redact(item) for item in value]
-    if isinstance(value, str) and SECRET_VALUE_PATTERN.search(value):
-        return "<redacted>"
+    if isinstance(value, str):
+        redacted = value
+        for pattern in REDACT_VALUES:
+            redacted = pattern.sub(lambda match: match.group(1) + "=<redacted>" if match.lastindex and match.lastindex >= 2 else "<redacted>", redacted)
+        if redacted != value or SECRET_VALUE_PATTERN.search(value):
+            return redacted if redacted != value else "<redacted>"
     return value
 
 

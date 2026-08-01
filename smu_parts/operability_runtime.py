@@ -63,6 +63,10 @@ HELP_TOPICS = {
         "smu trust doctor [module ...] [--json]",
         "Inspect module trust, network, sudo, write-target, and rollback metadata.",
     ],
+    "trust enforce": [
+        "smu trust enforce [module ...] [--profile id] [--allow-sudo] [--allow-network] [--json]",
+        "Fail when selected modules exceed the current trust policy.",
+    ],
     "conformance": [
         "smu conformance [--repo path] [--json|--markdown] [--output path]",
         "Generate downstream blueprint conformance JSON or Markdown badge output.",
@@ -74,6 +78,10 @@ HELP_TOPICS = {
     "release-notes": [
         "smu release-notes --from release-readiness.json [--output path]",
         "Render Markdown release notes from release-readiness provenance.",
+    ],
+    "migration-pr": [
+        "smu migration-pr --repo path [--mode hybrid] [--output path]",
+        "Generate a branch, command, and pull-request payload for blueprint adoption.",
     ],
     "contracts": [
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
@@ -378,8 +386,9 @@ def state_prune(argv):
 def completion_words():
     return sorted(set([
         "adapter", "bootstrap", "catalog", "completion", "conformance", "contract", "diff",
-        "doctor", "help", "init", "machine-profile", "plan", "profile", "prompt", "preset",
-        "release-notes", "rollback", "secrets", "state", "status", "support", "theme", "trust", "update",
+        "doctor", "help", "init", "machine-profile", "migration-pr", "plan", "profile",
+        "prompt", "preset", "release-notes", "rollback", "secrets", "state", "status",
+        "support", "theme", "trust", "update",
         *supported_themes(), *supported_prompts(), *supported_presets(),
     ]))
 
