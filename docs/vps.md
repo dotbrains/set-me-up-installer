@@ -15,7 +15,9 @@ Preview and install a blueprint with only platform-relevant submodules:
 INSTALL_URL="https://raw.githubusercontent.com/<OWNER>/<BLUEPRINT>/main/dotfiles/modules/install.sh"
 SMU_SUBMODULE_SCOPE=platform bash <(curl -s -L "$INSTALL_URL") --plan
 SMU_SUBMODULE_SCOPE=platform bash <(curl -s -L "$INSTALL_URL")
+smu plan --machine vps --json
 smu --setup-profile vps
+smu doctor --json
 ```
 
 `SMU_SUBMODULE_SCOPE=platform` initializes only the submodules needed by the
@@ -49,9 +51,11 @@ Operational commands after first install:
 
 ```bash
 smu rollback --json
+smu rollback doctor --json
 smu rollback
 smu update --all --dry-run
 smu update --all --validate
+smu support bundle --redact --output support-bundle.json
 ```
 
 Dotfiles repositories can validate the install surface without adopting the

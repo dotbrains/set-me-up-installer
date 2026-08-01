@@ -44,8 +44,32 @@ HELP_TOPICS = {
         "Write scheduler payloads plus launchd/systemd user-service files.",
     ],
     "rollback": [
-        "smu rollback --json",
-        "Preview the latest rollback event as JSON before applying rollback.",
+        "smu rollback [doctor|--json|--dry-run|--to event-id]",
+        "Preview, inspect guarantees for, or apply rollback events.",
+    ],
+    "plan": [
+        "smu plan [--machine profile] [--provisioning-adapter adapter] [--strict] [--json]",
+        "Universal dry-run for blueprint, modules, dotfiles, secrets, trust, and rollback.",
+    ],
+    "machine-profile": [
+        "smu machine-profile [list|show <profile>] [--json]",
+        "Show built-in laptop, workstation, VPS, CI, minimal, and agent-host defaults.",
+    ],
+    "secrets": [
+        "smu secrets doctor [--root path] [--json]",
+        "Scan a blueprint or module tree for secret-like files and token-like values.",
+    ],
+    "trust": [
+        "smu trust doctor [module ...] [--json]",
+        "Inspect module trust, network, sudo, write-target, and rollback metadata.",
+    ],
+    "conformance": [
+        "smu conformance [--repo path] [--json|--markdown] [--output path]",
+        "Generate downstream blueprint conformance JSON or Markdown badge output.",
+    ],
+    "support": [
+        "smu support bundle [--redact] [--output path]",
+        "Emit telemetry-free diagnostics with secret-like fields redacted.",
     ],
     "contracts": [
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
@@ -60,7 +84,7 @@ HELP_TOPICS = {
         "Generate shell completions for common commands and profile IDs.",
     ],
     "provisioning-adapter": [
-        "smu provisioning-adapter [list|doctor|modules|coverage|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]",
+        "smu provisioning-adapter [list|doctor|modules|coverage|dashboard|parity|docs|validate|profile|audit|preflight|bootstrap|migrate|scaffold|plan|apply] [--json]",
         "Show, validate, scaffold, plan, or run the selected provisioning engine.",
     ],
     "nix": [
@@ -310,9 +334,10 @@ def state_prune(argv):
 
 def completion_words():
     return sorted(set([
-        "adapter", "bootstrap", "catalog", "completion", "contract", "diff", "doctor",
-        "help", "init", "profile", "prompt", "preset", "rollback", "state", "status",
-        "theme", "update", *supported_themes(), *supported_prompts(), *supported_presets(),
+        "adapter", "bootstrap", "catalog", "completion", "conformance", "contract", "diff",
+        "doctor", "help", "init", "machine-profile", "plan", "profile", "prompt", "preset",
+        "rollback", "secrets", "state", "status", "support", "theme", "trust", "update",
+        *supported_themes(), *supported_prompts(), *supported_presets(),
     ]))
 
 

@@ -20,10 +20,11 @@ def adapter_conflict_report(theme=None, prompt=None):
     return {"conflicted": any(item["status"] == "conflict" for item in conflicts), "items": conflicts}
 
 
-def rollback_preview():
-    event = last_state_event()
+def rollback_preview(event_id=None):
+    event = state_event(event_id) if event_id else last_state_event()
     return {
         "event": event,
+        "guarantee": rollback_guarantee_for_event(event),
         "changes": [
             {"path": item.get("before", {}).get("path"), "restore": item.get("before", {}).get("exists", False)}
             for item in (event or {}).get("items", [])
@@ -31,8 +32,8 @@ def rollback_preview():
     }
 
 
-def print_rollback_preview(json_output=False):
-    preview = rollback_preview()
+def print_rollback_preview(json_output=False, event_id=None):
+    preview = rollback_preview(event_id)
     if json_output:
         print(json.dumps(preview, indent=2, sort_keys=True))
     else:

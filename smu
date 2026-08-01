@@ -76,7 +76,7 @@ is_setup_profile_command() {
 
 is_python_smu_command() {
 	case "${1:-}" in
-		adapter|blueprint|bootstrap|contract|doctor|help|home-manager|hm|init|nix|operability|preset|profile|prompt|provisioning-adapter|provisioning-adapters|rollback|state|status|theme|update|vps)
+		adapter|blueprint|bootstrap|conformance|contract|doctor|help|home-manager|hm|init|machine-profile|nix|operability|plan|preset|profile|prompt|provisioning-adapter|provisioning-adapters|rollback|secrets|state|status|support|theme|trust|update|vps)
 			return 0
 			;;
 	esac

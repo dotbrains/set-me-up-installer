@@ -20,6 +20,18 @@ def main():
             raise SystemExit(print_help_topic(command_args))
         if command in ("init", "bootstrap"):
             raise SystemExit(locked_call(command, bootstrap, command_args))
+        if command == "plan":
+            raise SystemExit(universal_plan(command_args))
+        if command == "machine-profile":
+            raise SystemExit(machine_profile_command(command_args))
+        if command == "secrets":
+            raise SystemExit(secrets_command(command_args))
+        if command == "trust":
+            raise SystemExit(trust_command(command_args))
+        if command == "support":
+            raise SystemExit(support_command(command_args))
+        if command == "conformance":
+            raise SystemExit(conformance_command(command_args))
         if command == "completion":
             raise SystemExit(completion_command(command_args))
         if command == "contract":
@@ -82,9 +94,12 @@ def main():
             return
         if command == "rollback":
             dry_run = "--dry-run" in command_args
+            if command_args and command_args[0] == "doctor":
+                raise SystemExit(print_rollback_doctor(json_output="--json" in command_args))
+            target = _option_value(command_args, "--to")
             if "--json" in command_args:
-                raise SystemExit(print_rollback_preview(json_output=True))
-            raise SystemExit(0 if rollback_last_state_event(dry_run=dry_run) else 1)
+                raise SystemExit(print_rollback_preview(json_output=True, event_id=target))
+            raise SystemExit(0 if rollback_state_event(event_id=target, dry_run=dry_run) else 1)
         if command == "update":
             dry_run = "--dry-run" in command_args
             json_output = "--json" in command_args

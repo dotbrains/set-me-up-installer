@@ -349,13 +349,39 @@ def last_state_event():
     return entries[-1] if entries else None
 
 
-def pop_last_state_event():
+def state_event(event_id=None):
     entries = read_state_ledger()
     if not entries:
         return None
-    event = entries.pop()
+    if event_id is None:
+        return entries[-1]
+    for entry in entries:
+        if entry.get("id") == event_id:
+            return entry
+    return None
+
+
+def pop_state_event(event_id=None):
+    entries = read_state_ledger()
+    if not entries:
+        return None
+    if event_id is None:
+        event = entries.pop()
+    else:
+        event = None
+        remaining = []
+        for entry in entries:
+            if entry.get("id") == event_id:
+                event = entry
+            else:
+                remaining.append(entry)
+        entries = remaining
     write_state_ledger(entries)
     return event
+
+
+def pop_last_state_event():
+    return pop_state_event()
 
 
 def file_snapshot(path):
@@ -470,31 +496,5 @@ def status_report(search=None, show_all=False, verbose=False):
 
 def print_status_json(search=None, show_all=False, verbose=False):
     print(json.dumps(status_report(search, show_all, verbose), indent=2, sort_keys=True))
-
-
-def rollback_last_state_event(dry_run=False):
-    event = last_state_event()
-    if not event:
-        warn("No state events to rollback.")
-        return False
-    if dry_run:
-        print(json.dumps(event, indent=2, sort_keys=True))
-        return True
-    operation = event.get("operation")
-    items = event.get("items", [])
-    if operation == "provision_modules":
-        for item in reversed(items):
-            uninstall_module(item["module"], dry_run=False)
-    elif operation in ("materialize_adapters", "client_update"):
-        for item in reversed(items):
-            restore_file_snapshot(item["before"])
-    elif operation == "uninstall_modules":
-        die("Rollback for uninstall events is not automatic.")
-    else:
-        die(f"Unknown rollback operation: {operation}")
-    pop_last_state_event()
-    success(f"Rolled back {operation}")
-    return True
-
 
 __all__ = [name for name in globals() if not name.startswith("__")]

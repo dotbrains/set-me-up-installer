@@ -12,15 +12,24 @@ from . import provisioning_preflight
 from . import blueprint_providers
 from . import blueprint_tools
 from . import vps_tools
+from . import adapter_dashboard
 from . import provisioning_cli
+from . import machine_profiles
+from . import setup_profiles
+from . import trust_runtime
+from . import secrets_runtime
 from . import doctors_and_system
 from . import module_discovery
 from . import module_lifecycle
 from . import state
+from . import rollback_runtime
 from . import client_update
 from . import repository_update
 from . import update_runtime
 from . import product_runtime
+from . import conformance_runtime
+from . import support_runtime
+from . import plan_runtime
 from . import operability_runtime
 from . import cli
 
@@ -38,15 +47,24 @@ PARTS = (
     blueprint_providers,
     blueprint_tools,
     vps_tools,
+    adapter_dashboard,
     provisioning_cli,
+    machine_profiles,
+    setup_profiles,
+    trust_runtime,
+    secrets_runtime,
     doctors_and_system,
     module_discovery,
     module_lifecycle,
     state,
+    rollback_runtime,
     client_update,
     repository_update,
     update_runtime,
     product_runtime,
+    conformance_runtime,
+    support_runtime,
+    plan_runtime,
     operability_runtime,
     cli,
 )
