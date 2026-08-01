@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotbrains.dev/set-me-up/contracts/provisioning-capabilities.schema.json",
+  "title": "set-me-up provisioning capabilities contract",
+  "type": "object",
+  "required": ["contract", "adapters"],
+  "properties": {
+    "contract": {
+      "type": "object",
+      "required": [
+        "version",
+        "blueprint_keys",
+        "module_manifest_table",
+        "module_adapter_required_keys"
+      ],
+      "properties": {
+        "version": { "const": 1 },
+        "blueprint_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "x-required-values": [
+            "provisioning.mode",
+            "provisioning.adapter",
+            "provisioning.nix_adapter"
+          ]
+        },
+        "module_manifest_table": { "const": "adapters" },
+        "module_adapter_required_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "x-required-values": ["path"]
+        }
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "mode": { "type": "string" },
+          "engine": { "type": "string" },
+          "scope": { "type": "string" },
+          "requires_nix": { "type": "boolean" },
+          "supports_fallback": { "type": "boolean" }
+        }
+      },
+      "x-required-item-ids": ["rcm", "home-manager", "nix-darwin", "nixos", "hybrid"]
+    }
+  }
+}

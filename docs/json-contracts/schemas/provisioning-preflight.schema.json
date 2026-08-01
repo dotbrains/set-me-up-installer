@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotbrains.dev/set-me-up/contracts/provisioning-preflight.schema.json",
+  "title": "set-me-up provisioning preflight contract",
+  "type": "object",
+  "required": [
+    "adapter",
+    "action",
+    "host_supported",
+    "can_apply",
+    "preflight",
+    "plan",
+    "errors"
+  ],
+  "properties": {
+    "adapter": { "type": "string" },
+    "action": { "type": "string" },
+    "profile": { "type": "string" },
+    "strict": { "type": "boolean" },
+    "modules": { "type": "array", "items": { "type": "string" } },
+    "capability": { "type": "object" },
+    "host_supported": { "type": "boolean" },
+    "can_apply": { "type": "boolean" },
+    "preflight": { "type": "string" },
+    "plan": {
+      "type": "object",
+      "required": ["commands"],
+      "properties": {
+        "kind": { "type": "string" },
+        "modules": { "type": "array" },
+        "missing": { "type": "array" },
+        "artifacts": { "type": "array" },
+        "commands": { "type": "array" },
+        "errors": { "type": "array" }
+      }
+    },
+    "errors": { "type": "array" }
+  }
+}

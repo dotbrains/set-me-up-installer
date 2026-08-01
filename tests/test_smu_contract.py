@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import pathlib
 import tempfile
 import unittest
 
@@ -149,6 +150,44 @@ class TestSmuContract(unittest.TestCase):
         })
 
         self.assertEqual(errors, [])
+
+    def test_json_contract_schema_loads_capabilities_schema(self):
+        schema = smu_contract.json_contract_schema("provisioning-capabilities")
+
+        self.assertEqual(schema["type"], "object")
+        self.assertIn("contract", schema["required"])
+        self.assertIn("rcm", schema["properties"]["adapters"]["x-required-item-ids"])
+
+    def test_json_contract_schema_files_parse(self):
+        schema_dir = pathlib.Path(__file__).resolve().parents[1] / "docs" / "json-contracts" / "schemas"
+        names = {path.name for path in schema_dir.glob("*.schema.json")}
+
+        self.assertIn("provisioning-preflight.schema.json", names)
+        self.assertIn("provisioning-capabilities.schema.json", names)
+        self.assertIn("blueprint-ci-readiness.schema.json", names)
+        for contract_name in smu_contract.JSON_SCHEMA_CONTRACTS:
+            self.assertIsInstance(smu_contract.json_contract_schema(contract_name), dict)
+
+    def test_json_contract_errors_include_schema_required_value_drift(self):
+        errors = smu_contract.json_contract_errors("provisioning-capabilities", {
+            "contract": {
+                "version": 1,
+                "blueprint_keys": ["provisioning.mode"],
+                "module_manifest_table": "adapters",
+                "module_adapter_required_keys": [],
+            },
+            "adapters": [{"id": "rcm"}],
+        })
+
+        self.assertIn(
+            "provisioning-capabilities.contract.blueprint_keys missing provisioning.adapter",
+            errors,
+        )
+        self.assertIn(
+            "provisioning-capabilities.contract.module_adapter_required_keys missing path",
+            errors,
+        )
+        self.assertIn("provisioning-capabilities.adapters missing home-manager", errors)
 
     def test_json_contract_errors_reject_blueprint_readiness_drift(self):
         errors = smu_contract.json_contract_errors("blueprint-ci-readiness", {

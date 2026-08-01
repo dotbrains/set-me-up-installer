@@ -48,7 +48,7 @@ HELP_TOPICS = {
         "Preview the latest rollback event as JSON before applying rollback.",
     ],
     "contracts": [
-        "smu contract [list|show <name>|write|validate <name> [--path path|-] [--json]]",
+        "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
         "Print, write, or validate stable JSON payloads for agent and fleet integrations.",
     ],
     "completion": [
@@ -157,17 +157,26 @@ def json_contracts():
 
 def contract_command(argv):
     command = argv[0] if argv else "list"
-    contracts = json_contracts()
     if command == "list":
-        for name in sorted(contracts):
+        for name in sorted(json_contracts()):
             print(name)
         return 0
     if command == "show":
+        contracts = json_contracts()
         if len(argv) < 2 or argv[1] not in contracts:
             die("Usage: smu contract show <name>")
         print(json.dumps(contracts[argv[1]], indent=2, sort_keys=True))
         return 0
+    if command == "schema":
+        if len(argv) < 2:
+            die("Usage: smu contract schema <name>")
+        schema = smu_contract.json_contract_schema(argv[1])
+        if not schema:
+            die(f"Unknown contract schema: {argv[1]}")
+        print(json.dumps(schema, indent=2, sort_keys=True))
+        return 0
     if command == "write":
+        contracts = json_contracts()
         os.makedirs(contracts_path, exist_ok=True)
         for name, payload in contracts.items():
             write_json_file(os.path.join(contracts_path, f"{name}.json"), payload)
@@ -187,6 +196,7 @@ def contract_command(argv):
             with open(source, encoding="utf-8") as handle:
                 payload = json.load(handle)
         else:
+            contracts = json_contracts()
             payload = contracts.get(name)
             source = "runtime"
             example_path = os.path.join(contracts_path, f"{name}.example.json")
@@ -210,7 +220,7 @@ def contract_command(argv):
             for error in errors:
                 print(f"invalid\t{name}\t{error}", file=sys.stderr)
         return 0 if not errors else 1
-    die("Usage: smu contract [list|show <name>|write|validate <name> [--path path|-] [--json]]")
+    die("Usage: smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]")
 
 
 def update_manifest_payload():

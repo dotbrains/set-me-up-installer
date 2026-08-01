@@ -37,6 +37,24 @@ class TestSmuOperabilityRuntime(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(buf.getvalue())["updates"]["preflight"], "passed")
 
+    def test_contract_schema_prints_json_schema(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = smu.contract_command(["schema", "provisioning-capabilities"])
+
+        schema = json.loads(buf.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(schema["type"], "object")
+        self.assertIn("adapters", schema["required"])
+
+    def test_contract_schema_does_not_build_runtime_contracts(self):
+        with patch.object(smu, "json_contracts", side_effect=AssertionError("runtime contracts loaded")):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                exit_code = smu.contract_command(["schema", "blueprint-ci-readiness"])
+
+        self.assertEqual(exit_code, 0)
+
     def test_contracts_include_provisioning_preflight_shape(self):
         with patch.object(smu, "status_report", return_value={}), \
                 patch.object(smu, "repository_update_doctor", return_value={}), \

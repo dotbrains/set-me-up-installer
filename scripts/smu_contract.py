@@ -2,6 +2,7 @@
 
 """Shared set-me-up manifest contract helpers."""
 
+import json
 import pathlib
 import re
 
@@ -17,6 +18,11 @@ PROVISIONING_BLUEPRINT_KEYS = (
     "provisioning.nix_adapter",
 )
 PROVISIONING_ADAPTER_IDS = ("rcm", "home-manager", "nix-darwin", "nixos", "hybrid")
+JSON_SCHEMA_CONTRACTS = (
+    "provisioning-preflight",
+    "provisioning-capabilities",
+    "blueprint-ci-readiness",
+)
 
 
 def parse_value(value):
@@ -304,14 +310,82 @@ def _require_list(errors, payload, key, label):
     return value
 
 
-def provisioning_preflight_contract_errors(payload):
+def json_contract_schema_path(name):
+    if name not in JSON_SCHEMA_CONTRACTS:
+        return None
+    return pathlib.Path(__file__).resolve().parents[1] / "docs" / "json-contracts" / "schemas" / f"{name}.schema.json"
+
+
+def json_contract_schema(name):
+    path = json_contract_schema_path(name)
+    if not path or not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _schema_type_matches(value, expected):
+    if isinstance(expected, list):
+        return any(_schema_type_matches(value, item) for item in expected)
+    return {
+        "array": isinstance(value, list),
+        "boolean": isinstance(value, bool),
+        "integer": isinstance(value, int) and not isinstance(value, bool),
+        "object": isinstance(value, dict),
+        "string": isinstance(value, str),
+    }.get(expected, True)
+
+
+def _json_schema_errors(schema, value, path):
     errors = []
+    if "type" in schema and not _schema_type_matches(value, schema["type"]):
+        errors.append(f"{path} must be {schema['type']}")
+        return errors
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path} must be {schema['const']!r}")
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path} must be one of {', '.join(map(str, schema['enum']))}")
+
+    if isinstance(value, dict):
+        for key in schema.get("required", []):
+            if key not in value:
+                errors.append(f"{path} missing {key}")
+        for key, child_schema in schema.get("properties", {}).items():
+            if key in value:
+                errors.extend(_json_schema_errors(child_schema, value[key], f"{path}.{key}"))
+
+    if isinstance(value, list):
+        if "items" in schema:
+            for index, item in enumerate(value):
+                errors.extend(_json_schema_errors(schema["items"], item, f"{path}[{index}]"))
+        for required_value in schema.get("x-required-values", []):
+            if required_value not in value:
+                errors.append(f"{path} missing {required_value}")
+        required_ids = schema.get("x-required-item-ids", [])
+        if required_ids:
+            item_ids = {item.get("id") for item in value if isinstance(item, dict)}
+            for required_id in required_ids:
+                if required_id not in item_ids:
+                    errors.append(f"{path} missing {required_id}")
+    return errors
+
+
+def json_contract_schema_errors(name, payload):
+    schema = json_contract_schema(name)
+    if not schema:
+        return [f"unknown JSON contract schema: {name}"]
+    return _json_schema_errors(schema, payload, name)
+
+
+def provisioning_preflight_contract_errors(payload):
+    errors = json_contract_schema_errors("provisioning-preflight", payload)
     if not isinstance(payload, dict):
-        return ["provisioning-preflight must be an object"]
+        return errors
 
     required = {"adapter", "action", "host_supported", "can_apply", "preflight", "plan", "errors"}
     for key in sorted(required - set(payload)):
-        errors.append(f"provisioning-preflight missing {key}")
+        message = f"provisioning-preflight missing {key}"
+        if message not in errors:
+            errors.append(message)
 
     if "preflight" in payload and not isinstance(payload["preflight"], str):
         errors.append("provisioning-preflight.preflight must be a string")
@@ -322,9 +396,9 @@ def provisioning_preflight_contract_errors(payload):
 
 
 def provisioning_capabilities_contract_errors(payload):
-    errors = []
+    errors = json_contract_schema_errors("provisioning-capabilities", payload)
     if not isinstance(payload, dict):
-        return ["provisioning-capabilities must be an object"]
+        return errors
 
     contract = _require_object(errors, payload, "contract", "provisioning-capabilities")
     if contract.get("version") != PROVISIONING_CONTRACT_VERSION:
@@ -349,9 +423,9 @@ def provisioning_capabilities_contract_errors(payload):
 
 
 def blueprint_ci_readiness_contract_errors(payload):
-    errors = []
+    errors = json_contract_schema_errors("blueprint-ci-readiness", payload)
     if not isinstance(payload, dict):
-        return ["blueprint-ci-readiness must be an object"]
+        return errors
 
     readiness = _require_object(errors, payload, "readiness", "blueprint-ci-readiness")
     summary = _require_object(errors, readiness, "summary", "blueprint-ci-readiness.readiness")

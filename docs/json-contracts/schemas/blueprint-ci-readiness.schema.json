@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotbrains.dev/set-me-up/contracts/blueprint-ci-readiness.schema.json",
+  "title": "set-me-up blueprint CI readiness contract",
+  "type": "object",
+  "required": ["valid", "errors", "readiness", "checks"],
+  "properties": {
+    "contract": { "type": "object" },
+    "path": { "type": "string" },
+    "valid": { "type": "boolean" },
+    "errors": { "type": "array" },
+    "readiness": {
+      "type": "object",
+      "required": ["preflight", "summary"],
+      "properties": {
+        "preflight": { "const": "passed" },
+        "summary": {
+          "type": "object",
+          "required": ["provider_examples", "workflow_preflight"],
+          "properties": {
+            "configs": { "type": "integer" },
+            "provider_examples": { "const": 6 },
+            "readiness_docs": { "type": "integer" },
+            "workflow_examples": { "type": "integer" },
+            "workflow_preflight": { "const": 3 }
+          }
+        }
+      }
+    },
+    "checks": { "type": "array" }
+  }
+}
