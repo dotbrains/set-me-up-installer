@@ -38,6 +38,9 @@ jobs:
 
           [adapters.home-manager]
           path = "home-manager.nix"
+
+          [adapters.rcm]
+          path = "."
           EOF
           printf '{ ... }:\n\n{\n}\n' > "$HOME/set-me-up/dotfiles/modules/universal/ci-shell/home-manager.nix"
           if [ "${{ matrix.mode }}" = "vps" ]; then
@@ -45,5 +48,12 @@ jobs:
             python3 smu.py doctor --strict --json || true
           else
             python3 smu.py blueprint init --mode "${{ matrix.mode }}" --json
+            python3 - <<'PY'
+from pathlib import Path
+path = Path.home() / "set-me-up" / "smu.toml"
+content = path.read_text()
+content = content.replace('modules = ["example"]', 'modules = ["ci-shell"]')
+path.write_text(content)
+PY
             python3 smu.py provisioning-adapter preflight --json
           fi
