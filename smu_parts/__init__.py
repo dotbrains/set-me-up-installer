@@ -34,6 +34,7 @@ from .ops import release_notes_runtime
 from .ops import migration_pr_runtime
 from .ops import nix_doctor_runtime
 from .ops import productization_runtime
+from .ops import product_ops_runtime
 from . import operability_runtime
 from . import cli
 
@@ -73,6 +74,7 @@ PARTS = (
     migration_pr_runtime,
     nix_doctor_runtime,
     productization_runtime,
+    product_ops_runtime,
     operability_runtime,
     cli,
 )

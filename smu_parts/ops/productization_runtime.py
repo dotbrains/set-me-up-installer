@@ -39,8 +39,11 @@ POLICY_PRESETS = {
 def _json_file(path, default):
     if not path or not os.path.exists(path):
         return default
-    with open(path) as f:
-        return json.load(f)
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return default
 
 
 def _fetch_json(url):
@@ -89,6 +92,13 @@ def release_package_payload(version=None, channel=None):
         "tag": {"name": f"v{version}" if version != "0.0.0-dev" else "", "signed_required": True},
         "changelog": {"path": "CHANGELOG.md", "generated": True},
         "latest_known_good": {"channel": channel, "requires_release_readiness": True},
+        "provenance": {
+            "installer_sha": _git_head(installer_root) if "_git_head" in globals() else None,
+            "workflow_run_url": os.getenv("GITHUB_RUN_ID"),
+            "candidate_branch": "candidate",
+            "root_readiness_run": os.getenv("SMU_ROOT_READINESS_RUN"),
+            "contract_schemas": list(smu_contract.JSON_SCHEMA_CONTRACTS),
+        },
     }
 
 

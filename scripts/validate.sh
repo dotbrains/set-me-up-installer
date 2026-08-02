@@ -64,6 +64,16 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py conformance --repo "$tmp_home/set-me-up" --markdown --output "$tmp_home/conformance.md" || true
     HOME="$tmp_home" "$python_bin" smu.py migration-pr --repo "$tmp_home/set-me-up" --output "$tmp_home/migration-pr.json"
     HOME="$tmp_home" "$python_bin" smu.py release-package --version 1.2.3 --json
+    HOME="$tmp_home" "$python_bin" smu.py inventory --json
+    HOME="$tmp_home" "$python_bin" smu.py facts collect --json
+    HOME="$tmp_home" "$python_bin" smu.py plan diff --from /dev/null --json
+    HOME="$tmp_home" "$python_bin" smu.py approval --preset strict --dry-run --json
+    HOME="$tmp_home" "$python_bin" smu.py state timeline --json
+    HOME="$tmp_home" "$python_bin" smu.py lock --output "$tmp_home/smu.lock" --json
+    HOME="$tmp_home" "$python_bin" smu.py bootstrap bundle --output "$tmp_home/bootstrap.zip" --json
+    HOME="$tmp_home" "$python_bin" smu.py policy explain --preset ci --json
+    HOME="$tmp_home" "$python_bin" smu.py golden-examples --json
+    HOME="$tmp_home" "$python_bin" smu.py provenance --version 1.2.3 --json
     printf 'app1 root\n' > "$tmp_home/hosts.txt"
     HOME="$tmp_home" "$python_bin" smu.py fleet plan --hosts "$tmp_home/hosts.txt" --profile vps --json
     HOME="$tmp_home" "$python_bin" smu.py blueprint-registry --json

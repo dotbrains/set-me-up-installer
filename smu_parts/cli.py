@@ -18,10 +18,26 @@ def main():
         command_args = sys.argv[2:]
         if command in ("help", "--help"):
             raise SystemExit(print_help_topic(command_args))
+        if command == "bootstrap" and command_args and command_args[0] == "bundle":
+            raise SystemExit(bootstrap_bundle_command(command_args[1:]))
         if command in ("init", "bootstrap"):
             raise SystemExit(locked_call(command, bootstrap, command_args))
         if command == "plan":
+            if command_args and command_args[0] == "diff":
+                raise SystemExit(plan_diff_command(command_args[1:]))
             raise SystemExit(universal_plan(command_args))
+        if command == "inventory":
+            raise SystemExit(inventory_command(command_args))
+        if command == "facts":
+            raise SystemExit(facts_command(command_args))
+        if command == "lock":
+            raise SystemExit(lock_command(command_args))
+        if command == "approval":
+            raise SystemExit(approval_command(command_args))
+        if command == "golden-examples":
+            raise SystemExit(golden_examples_command(command_args))
+        if command == "provenance":
+            raise SystemExit(provenance_command(command_args))
         if command == "machine-profile":
             raise SystemExit(machine_profile_command(command_args))
         if command == "secrets":
@@ -51,6 +67,8 @@ def main():
         if command == "post-install":
             raise SystemExit(post_install_command(command_args))
         if command == "policy":
+            if command_args and command_args[0] == "explain":
+                raise SystemExit(policy_explain_command(command_args[1:]))
             raise SystemExit(policy_command(command_args))
         if command == "rollback-test":
             raise SystemExit(rollback_restore_test_command(command_args))
@@ -61,9 +79,11 @@ def main():
         if command == "contract":
             raise SystemExit(contract_command(command_args))
         if command == "state":
+            if command_args and command_args[0] == "timeline":
+                raise SystemExit(state_timeline_command(command_args[1:]))
             if command_args and command_args[0] == "prune":
                 raise SystemExit(locked_call("state prune", state_prune, command_args[1:]))
-            die("Usage: smu state prune [--dry-run] [--json]")
+            die("Usage: smu state [timeline|prune] [--json]")
         if command == "profile":
             handle_profile_command(command_args)
             return
