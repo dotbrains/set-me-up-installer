@@ -18,6 +18,7 @@ PROVISIONING_BLUEPRINT_KEYS = (
     "provisioning.nix_adapter",
 )
 PROVISIONING_ADAPTER_IDS = ("rcm", "home-manager", "nix-darwin", "nixos", "hybrid")
+PRODUCT_OPS_JSON_SCHEMA_CONTRACTS = ("inventory", "host-facts", "plan-diff", "approval", "state-timeline", "blueprint-lock", "bootstrap-bundle", "policy-explain", "golden-examples", "release-provenance")
 JSON_SCHEMA_CONTRACTS = (
     "plan",
     "secrets-doctor",
@@ -33,7 +34,7 @@ JSON_SCHEMA_CONTRACTS = (
     "policy-check",
     "release-package",
     "module-graph",
-    "post-install",
+    "post-install", *PRODUCT_OPS_JSON_SCHEMA_CONTRACTS,
 )
 
 
@@ -489,6 +490,7 @@ JSON_CONTRACT_VALIDATORS = {
     "module-graph": lambda payload: json_contract_schema_errors("module-graph", payload),
     "post-install": lambda payload: json_contract_schema_errors("post-install", payload),
 }
+JSON_CONTRACT_VALIDATORS.update({name: (lambda payload, contract_name=name: json_contract_schema_errors(contract_name, payload)) for name in PRODUCT_OPS_JSON_SCHEMA_CONTRACTS})
 
 
 def json_contract_errors(name, payload):

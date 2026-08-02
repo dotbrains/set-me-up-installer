@@ -1,0 +1,16 @@
+{
+  "artifacts": [],
+  "changelog": {},
+  "channel": "latest-known-good",
+  "latest_known_good": {},
+  "provenance": {
+    "blueprint_sha": "def456",
+    "candidate_branch": "candidate",
+    "contract_schemas": ["plan", "release-provenance"],
+    "installer_sha": "abc123",
+    "root_readiness_run": null,
+    "workflow_run_url": "https://github.com/dotbrains/set-me-up/actions/runs/1"
+  },
+  "tag": {},
+  "version": "1.2.3"
+}

@@ -1,0 +1,15 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/approval.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up approval contract",
+  "type": "object",
+  "required": ["policy", "requires", "ci", "dry_run", "errors", "ok"],
+  "properties": {
+    "policy": {"type": "object"},
+    "requires": {"type": "object"},
+    "ci": {"type": "boolean"},
+    "dry_run": {"type": "boolean"},
+    "errors": {"type": "array"},
+    "ok": {"type": "boolean"}
+  }
+}

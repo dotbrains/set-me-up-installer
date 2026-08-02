@@ -1,0 +1,17 @@
+{
+  "adapter": "rcm",
+  "artifacts": [],
+  "blueprint": {
+    "head": "abc123",
+    "root": "/home/user/set-me-up"
+  },
+  "modules": ["base"],
+  "packages": {
+    "apt": true,
+    "nix": true
+  },
+  "registry": {
+    "blueprints": []
+  },
+  "schema_version": 1
+}

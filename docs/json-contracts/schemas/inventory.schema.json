@@ -1,0 +1,29 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/inventory.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up inventory contract",
+  "type": "object",
+  "required": ["schema_version", "source", "groups", "hosts", "count"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source": {"type": ["string", "null"]},
+    "groups": {"type": "object"},
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "host", "user", "labels", "profile", "adapter", "policy"],
+        "properties": {
+          "id": {"type": "string"},
+          "host": {"type": "string"},
+          "user": {"type": "string"},
+          "labels": {"type": "array"},
+          "profile": {"type": "string"},
+          "adapter": {"type": "string"},
+          "policy": {"type": "object"}
+        }
+      }
+    },
+    "count": {"type": "integer"}
+  }
+}

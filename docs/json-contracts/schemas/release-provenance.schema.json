@@ -1,0 +1,27 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/release-provenance.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up release provenance contract",
+  "type": "object",
+  "required": ["version", "channel", "artifacts", "tag", "changelog", "latest_known_good", "provenance"],
+  "properties": {
+    "version": {"type": "string"},
+    "channel": {"type": "string"},
+    "artifacts": {"type": "array"},
+    "tag": {"type": "object"},
+    "changelog": {"type": "object"},
+    "latest_known_good": {"type": "object"},
+    "provenance": {
+      "type": "object",
+      "required": ["installer_sha", "blueprint_sha", "workflow_run_url", "candidate_branch", "root_readiness_run", "contract_schemas"],
+      "properties": {
+        "installer_sha": {"type": ["string", "null"]},
+        "blueprint_sha": {"type": ["string", "null"]},
+        "workflow_run_url": {"type": "string"},
+        "candidate_branch": {"type": "string"},
+        "root_readiness_run": {"type": ["string", "null"]},
+        "contract_schemas": {"type": "array"}
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "count": 5,
+  "examples": [
+    {
+      "adapter": "rcm",
+      "commands": ["smu blueprint init --mode rcm", "smu fleet plan --profile vps --json"],
+      "id": "ubuntu-vps-rcm",
+      "mode": "rcm",
+      "target": "Ubuntu VPS"
+    },
+    {
+      "adapter": "home-manager",
+      "commands": ["smu blueprint init --mode nix", "smu nix switch --dry-run --json"],
+      "id": "ubuntu-vps-home-manager",
+      "mode": "nix",
+      "target": "Ubuntu VPS"
+    },
+    {
+      "adapter": "home-manager",
+      "commands": ["smu facts collect --json", "smu plan --machine workstation --json"],
+      "id": "arch-workstation",
+      "mode": "nix",
+      "target": "Arch workstation"
+    },
+    {
+      "adapter": "nix-darwin",
+      "commands": ["smu provisioning-adapter preflight --adapter nix-darwin --json"],
+      "id": "macos-nix-darwin",
+      "mode": "nix",
+      "target": "macOS"
+    },
+    {
+      "adapter": "hybrid",
+      "commands": ["smu blueprint migrate --mode hybrid --json"],
+      "id": "hybrid-migration",
+      "mode": "hybrid",
+      "target": "Migration"
+    }
+  ],
+  "schema_version": 1
+}

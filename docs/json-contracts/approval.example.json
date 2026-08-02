@@ -1,0 +1,19 @@
+{
+  "ci": false,
+  "dry_run": true,
+  "errors": [],
+  "ok": true,
+  "policy": {
+    "ok": true,
+    "policy": {
+      "network": false,
+      "sudo": false
+    },
+    "violations": []
+  },
+  "requires": {
+    "destructive_writes": false,
+    "network": false,
+    "sudo": false
+  }
+}

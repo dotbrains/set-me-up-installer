@@ -1,4 +1,5 @@
 from .product_runtime import *
+from .ops.product_ops_runtime import PRODUCT_OPS_HELP_TOPICS, product_ops_contract_examples
 
 
 @contextlib.contextmanager
@@ -152,6 +153,7 @@ HELP_TOPICS = {
         "Generate a pinned update manifest for release and fleet rollout publishing.",
     ],
 }
+HELP_TOPICS.update(PRODUCT_OPS_HELP_TOPICS)
 
 
 def print_help_topic(topic=None):
@@ -306,6 +308,7 @@ def json_contracts():
         "policy-check": policy_payload(["check", "--preset", "ci"]),
         "rollback-restore-test": rollback_restore_test_payload(),
         "product-docs": product_docs_payload(),
+        **product_ops_contract_examples(),
     }
 
 
@@ -435,10 +438,11 @@ def state_prune(argv):
 
 def completion_words():
     return sorted(set([
-        "adapter", "bootstrap", "catalog", "completion", "conformance", "contract", "diff",
-        "doctor", "help", "init", "machine-profile", "migration-pr", "plan", "profile",
-        "prompt", "preset", "release-notes", "rollback", "secrets", "state", "status",
-        "support", "theme", "trust", "update",
+        "adapter", "approval", "bootstrap", "bundle", "catalog", "completion", "conformance",
+        "contract", "diff", "doctor", "explain", "facts", "golden-examples", "help", "init",
+        "inventory", "lock", "machine-profile", "migration-pr", "plan", "profile", "prompt",
+        "preset", "provenance", "release-notes", "rollback", "secrets", "state", "status",
+        "support", "theme", "timeline", "trust", "update",
         *supported_themes(), *supported_prompts(), *supported_presets(),
     ]))
 

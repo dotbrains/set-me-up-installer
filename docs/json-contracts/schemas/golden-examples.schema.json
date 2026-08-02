@@ -1,0 +1,25 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/golden-examples.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up golden examples contract",
+  "type": "object",
+  "required": ["schema_version", "examples", "count"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "target", "mode", "adapter", "commands"],
+        "properties": {
+          "id": {"type": "string"},
+          "target": {"type": "string"},
+          "mode": {"type": "string"},
+          "adapter": {"type": "string"},
+          "commands": {"type": "array"}
+        }
+      }
+    },
+    "count": {"type": "integer"}
+  }
+}

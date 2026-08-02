@@ -1,0 +1,11 @@
+{
+  "files": [
+    "blueprint-registry.json",
+    "install.sh",
+    "plan.json",
+    "smu.lock"
+  ],
+  "output": "/tmp/smu-bootstrap-bundle.zip",
+  "profile": "vps",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

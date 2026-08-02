@@ -1,0 +1,26 @@
+{
+  "explanations": [
+    {
+      "allowed": false,
+      "reason": "not listed in policy adapters",
+      "subject": "adapter:home-manager"
+    },
+    {
+      "allowed": false,
+      "reason": "policy network setting",
+      "subject": "network"
+    },
+    {
+      "allowed": false,
+      "reason": "policy sudo setting",
+      "subject": "sudo"
+    }
+  ],
+  "ok": false,
+  "policy": {
+    "adapters": [],
+    "network": false,
+    "sudo": false
+  },
+  "violations": ["adapter home-manager is not allowed"]
+}

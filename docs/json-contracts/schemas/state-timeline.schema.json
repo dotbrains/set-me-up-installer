@@ -1,0 +1,24 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/state-timeline.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up state timeline contract",
+  "type": "object",
+  "required": ["schema_version", "events", "count"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "operation", "timestamp", "event"],
+        "properties": {
+          "source": {"type": "string"},
+          "operation": {"type": ["string", "null"]},
+          "timestamp": {"type": ["string", "null"]},
+          "event": {"type": "object"}
+        }
+      }
+    },
+    "count": {"type": "integer"}
+  }
+}

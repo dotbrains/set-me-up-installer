@@ -1,0 +1,27 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/host-facts.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up host facts contract",
+  "type": "object",
+  "required": ["schema_version", "facts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "facts": {
+      "type": "object",
+      "required": ["os", "package_managers", "shell", "sudo", "nix", "home_manager", "rcm", "disk", "memory", "ssh_user", "cloud"],
+      "properties": {
+        "os": {"type": "object"},
+        "package_managers": {"type": "object"},
+        "shell": {"type": ["string", "null"]},
+        "sudo": {"type": "boolean"},
+        "nix": {"type": "boolean"},
+        "home_manager": {"type": "boolean"},
+        "rcm": {"type": "boolean"},
+        "disk": {"type": "object"},
+        "memory": {"type": "object"},
+        "ssh_user": {"type": "string"},
+        "cloud": {"type": "object"}
+      }
+    }
+  }
+}

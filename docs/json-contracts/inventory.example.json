@@ -1,0 +1,19 @@
+{
+  "count": 1,
+  "groups": {
+    "default": ["localhost"]
+  },
+  "hosts": [
+    {
+      "adapter": "rcm",
+      "host": "localhost",
+      "id": "localhost",
+      "labels": [],
+      "policy": {},
+      "profile": "vps",
+      "user": "user"
+    }
+  ],
+  "schema_version": 1,
+  "source": null
+}

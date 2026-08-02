@@ -1,0 +1,33 @@
+{
+  "facts": {
+    "cloud": {
+      "provider": null,
+      "region": null
+    },
+    "disk": {
+      "free": 1,
+      "total": 1,
+      "used": 0
+    },
+    "home_manager": true,
+    "memory": {
+      "available": null
+    },
+    "nix": true,
+    "os": {
+      "id": "ubuntu",
+      "release": "6.0",
+      "system": "Linux"
+    },
+    "package_managers": {
+      "apt": true,
+      "brew": false,
+      "nix": true
+    },
+    "rcm": true,
+    "shell": "/bin/bash",
+    "ssh_user": "user",
+    "sudo": true
+  },
+  "schema_version": 1
+}

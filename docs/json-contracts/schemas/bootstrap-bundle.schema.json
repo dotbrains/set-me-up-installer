@@ -1,0 +1,16 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/bootstrap-bundle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up bootstrap bundle contract",
+  "type": "object",
+  "required": ["output", "profile", "files", "sha256"],
+  "properties": {
+    "output": {"type": "string"},
+    "profile": {"type": "string"},
+    "files": {
+      "type": "array",
+      "x-required-values": ["install.sh", "blueprint-registry.json", "plan.json", "smu.lock"]
+    },
+    "sha256": {"type": "string"}
+  }
+}

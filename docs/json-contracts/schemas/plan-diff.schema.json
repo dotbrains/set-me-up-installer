@@ -1,0 +1,24 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/plan-diff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up plan diff contract",
+  "type": "object",
+  "required": ["from", "to", "changes", "changed"],
+  "properties": {
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "before", "after"],
+        "properties": {
+          "path": {"type": "string"},
+          "before": {},
+          "after": {}
+        }
+      }
+    },
+    "changed": {"type": "boolean"}
+  }
+}

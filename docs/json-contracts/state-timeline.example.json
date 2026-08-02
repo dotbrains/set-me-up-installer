@@ -1,0 +1,14 @@
+{
+  "count": 1,
+  "events": [
+    {
+      "event": {
+        "ok": true
+      },
+      "operation": "drift-doctor",
+      "source": "drift",
+      "timestamp": null
+    }
+  ],
+  "schema_version": 1
+}

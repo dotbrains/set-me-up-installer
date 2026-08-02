@@ -1,0 +1,16 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/blueprint-lock.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up blueprint lock contract",
+  "type": "object",
+  "required": ["schema_version", "blueprint", "adapter", "modules", "registry", "packages", "artifacts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "blueprint": {"type": "object"},
+    "adapter": {"type": "string"},
+    "modules": {"type": "array"},
+    "registry": {"type": "object"},
+    "packages": {"type": "object"},
+    "artifacts": {"type": "array"}
+  }
+}

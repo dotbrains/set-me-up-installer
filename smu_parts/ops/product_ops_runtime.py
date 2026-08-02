@@ -1,6 +1,38 @@
 from ..core import *
 
 LOCKFILE_NAME = "smu.lock"
+PRODUCT_OPS_CONTRACTS = (
+    "inventory", "host-facts", "plan-diff", "approval", "state-timeline",
+    "blueprint-lock", "bootstrap-bundle", "policy-explain", "golden-examples",
+    "release-provenance",
+)
+PRODUCT_OPS_HELP_TOPICS = {
+    "inventory": ["smu inventory [--inventory path] [--profile profile] [--provisioning-adapter adapter] [--json]", "Normalize host inventory, groups, profiles, adapters, and per-host policy for fleet setup."],
+    "facts": ["smu facts collect [--json]", "Collect local OS, package-manager, shell, Nix, rcm, disk, user, and cloud facts."],
+    "plan diff": ["smu plan diff [--from path] [--to path] [--json]", "Compare two plan JSON payloads or compare an empty baseline with the current plan."],
+    "approval": ["smu approval [--preset id] [--dry-run] [--yes] [--approve-sudo] [--approve-network] [--json]", "Evaluate apply approval gates for CI, sudo, network, and destructive-write policy."],
+    "state timeline": ["smu state timeline [--limit count] [--json]", "Merge state-ledger, update-history, and drift-doctor events into a chronological timeline."],
+    "lock": ["smu lock [--root path] [--profile profile] [--output path] [--json]", "Generate a blueprint lockfile with source head, adapter, modules, registry, packages, and artifacts."],
+    "bootstrap bundle": ["smu bootstrap bundle [--profile profile] [--output path] [--json]", "Create an offline bootstrap archive with install shim, registry, plan, and lockfile payloads."],
+    "policy explain": ["smu policy explain [--preset id] [--provisioning-adapter adapter] [--json]", "Explain why policy allows or blocks adapters, network access, and sudo."],
+    "golden-examples": ["smu golden-examples [--json]", "List tested setup examples for Ubuntu VPS, Arch workstation, macOS, Nix, rcm, and hybrid migration."],
+    "provenance": ["smu provenance [--version semver] [--channel id] [--json]", "Emit release package provenance with source SHAs, workflow URL fields, channel, and contract schemas."],
+}
+
+
+def product_ops_contract_examples():
+    return {
+        "inventory": {"schema_version": 1, "source": None, "groups": {"default": ["localhost"]}, "hosts": [{"id": "localhost", "host": "localhost", "user": "user", "labels": [], "profile": "vps", "adapter": "rcm", "policy": {}}], "count": 1},
+        "host-facts": {"schema_version": 1, "facts": {"os": {"system": "Linux", "release": "6.0", "id": "ubuntu"}, "package_managers": {"apt": True, "brew": False, "nix": True}, "shell": "/bin/bash", "sudo": True, "nix": True, "home_manager": True, "rcm": True, "disk": {"total": 1, "used": 0, "free": 1}, "memory": {"available": None}, "ssh_user": "user", "cloud": {"provider": None, "region": None}}},
+        "plan-diff": plan_diff_payload([]),
+        "approval": approval_payload(["--preset", "strict", "--dry-run"]),
+        "state-timeline": state_timeline_payload(),
+        "blueprint-lock": blueprint_lock_payload(["--profile", "vps"]),
+        "bootstrap-bundle": {"output": "/tmp/smu-bootstrap-bundle.zip", "profile": "vps", "files": ["blueprint-registry.json", "install.sh", "plan.json", "smu.lock"], "sha256": "0" * 64},
+        "policy-explain": policy_explain_payload(["--preset", "ci", "--provisioning-adapter", "home-manager"]),
+        "golden-examples": golden_examples_payload(),
+        "release-provenance": release_provenance_payload(["--version", "1.2.3", "--channel", "latest-known-good"]),
+    }
 
 
 def inventory_payload(argv):

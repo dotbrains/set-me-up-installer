@@ -1,0 +1,24 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/policy-explain.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up policy explain contract",
+  "type": "object",
+  "required": ["policy", "violations", "ok", "explanations"],
+  "properties": {
+    "policy": {"type": "object"},
+    "violations": {"type": "array"},
+    "ok": {"type": "boolean"},
+    "explanations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["subject", "allowed", "reason"],
+        "properties": {
+          "subject": {"type": "string"},
+          "allowed": {"type": "boolean"},
+          "reason": {"type": "string"}
+        }
+      }
+    }
+  }
+}

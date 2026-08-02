@@ -84,7 +84,7 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py policy check --preset ci --json
     HOME="$tmp_home" "$python_bin" smu.py rollback-test restore --json
     HOME="$tmp_home" "$python_bin" smu.py product-docs generate --output "$tmp_home/product-docs.md" --json
-    for contract in plan secrets-doctor trust-doctor support-bundle conformance fleet-plan drift-doctor policy-check release-package module-graph post-install; do
+    for contract in plan secrets-doctor trust-doctor support-bundle conformance fleet-plan drift-doctor policy-check release-package module-graph post-install inventory host-facts plan-diff approval state-timeline blueprint-lock bootstrap-bundle policy-explain golden-examples release-provenance; do
         "$python_bin" smu.py contract schema "$contract" >/dev/null
         "$python_bin" smu.py contract validate "$contract" --json
     done

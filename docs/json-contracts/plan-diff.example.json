@@ -1,0 +1,16 @@
+{
+  "changed": true,
+  "changes": [
+    {
+      "after": {
+        "adapter": "home-manager"
+      },
+      "before": {
+        "adapter": "rcm"
+      },
+      "path": "provisioning"
+    }
+  ],
+  "from": "before.json",
+  "to": "after.json"
+}
