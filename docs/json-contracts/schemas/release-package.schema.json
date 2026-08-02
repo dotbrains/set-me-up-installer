@@ -1,0 +1,17 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/release-package.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up release package contract",
+  "type": "object",
+  "required": ["version", "channel", "artifacts", "tag", "changelog", "latest_known_good"],
+  "properties": {
+    "version": {"type": "string"},
+    "channel": {"type": "string"},
+    "artifacts": {"type": "array"},
+    "tag": {"type": "object"},
+    "changelog": {"type": "object"},
+    "latest_known_good": {"type": "object"},
+    "output": {"type": "string"},
+    "checksums": {"type": "string"}
+  }
+}

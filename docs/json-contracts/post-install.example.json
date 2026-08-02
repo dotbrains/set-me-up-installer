@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {"name": "shell", "ok": true},
+    {"name": "git", "ok": true},
+    {"name": "ssh", "ok": true}
+  ],
+  "ok": true,
+  "profile": "vps"
+}

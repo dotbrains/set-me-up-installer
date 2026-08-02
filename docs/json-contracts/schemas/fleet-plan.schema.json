@@ -1,0 +1,20 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/fleet-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up fleet plan contract",
+  "type": "object",
+  "required": ["profile", "adapter", "hosts", "commands", "mode", "executes_remote", "parallel", "continue_on_error", "resume", "run_id", "log_dir"],
+  "properties": {
+    "profile": {"type": "string"},
+    "adapter": {"type": "string"},
+    "hosts": {"type": "array"},
+    "commands": {"type": "array"},
+    "mode": {"type": "string"},
+    "executes_remote": {"type": "boolean"},
+    "parallel": {"type": "integer"},
+    "continue_on_error": {"type": "boolean"},
+    "resume": {"type": "boolean"},
+    "run_id": {"type": "string"},
+    "log_dir": {"type": "string"}
+  }
+}

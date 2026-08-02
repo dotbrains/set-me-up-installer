@@ -1,0 +1,11 @@
+{
+  "artifacts": [
+    {"kind": "installer", "name": "install.sh", "path": "install.sh"},
+    {"kind": "cli", "name": "smu", "path": "smu"}
+  ],
+  "changelog": {"generated": true, "path": "CHANGELOG.md"},
+  "channel": "latest-known-good",
+  "latest_known_good": {"channel": "latest-known-good", "requires_release_readiness": true},
+  "tag": {"name": "v1.2.3", "signed_required": true},
+  "version": "1.2.3"
+}

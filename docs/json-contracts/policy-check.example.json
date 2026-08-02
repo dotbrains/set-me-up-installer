@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "ok": true,
+  "policy": {"adapters": ["rcm", "home-manager", "hybrid"], "network": true, "sudo": false},
+  "policy_path": null,
+  "preset": "ci",
+  "trust": {"errors": [], "modules": [], "ok": true, "preset": "ci", "violations": []}
+}

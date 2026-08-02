@@ -1,0 +1,12 @@
+{
+  "config_drift": {"drifted": false, "items": []},
+  "generated_files": [],
+  "links": {"conflicted": false, "items": []},
+  "nix_profile": {"host_supported": true, "summary": {"missing": 0}},
+  "ok": true,
+  "packages": {"managers": [], "missing": [], "unexpected": []},
+  "root": "/tmp/blueprint",
+  "stale_config": [],
+  "state_ledger": {"events": []},
+  "unmanaged_files": []
+}

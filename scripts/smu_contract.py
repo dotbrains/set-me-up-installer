@@ -28,6 +28,12 @@ JSON_SCHEMA_CONTRACTS = (
     "provisioning-capabilities",
     "blueprint-ci-readiness",
     "dotfiles-compatibility",
+    "fleet-plan",
+    "drift-doctor",
+    "policy-check",
+    "release-package",
+    "module-graph",
+    "post-install",
 )
 
 
@@ -476,6 +482,12 @@ JSON_CONTRACT_VALIDATORS = {
     "provisioning-capabilities": provisioning_capabilities_contract_errors,
     "blueprint-ci-readiness": blueprint_ci_readiness_contract_errors,
     "dotfiles-compatibility": dotfiles_compatibility_contract_errors,
+    "fleet-plan": lambda payload: json_contract_schema_errors("fleet-plan", payload),
+    "drift-doctor": lambda payload: json_contract_schema_errors("drift-doctor", payload),
+    "policy-check": lambda payload: json_contract_schema_errors("policy-check", payload),
+    "release-package": lambda payload: json_contract_schema_errors("release-package", payload),
+    "module-graph": lambda payload: json_contract_schema_errors("module-graph", payload),
+    "post-install": lambda payload: json_contract_schema_errors("post-install", payload),
 }
 
 

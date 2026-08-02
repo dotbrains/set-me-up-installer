@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "dotbrains/default",
+      "url": "https://github.com/dotbrains/set-me-up-blueprint",
+      "modes": ["rcm", "nix", "hybrid"],
+      "vps_ready": true,
+      "rollback": "partial",
+      "oses": ["ubuntu", "debian", "arch", "macos"]
+    },
+    {
+      "id": "nicholasadamou/dotfiles",
+      "url": "https://github.com/nicholasadamou/dotfiles",
+      "modes": ["rcm", "hybrid"],
+      "vps_ready": true,
+      "rollback": "partial",
+      "oses": ["ubuntu", "debian", "arch", "macos"]
+    }
+  ]
+}

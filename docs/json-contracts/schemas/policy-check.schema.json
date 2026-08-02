@@ -1,0 +1,15 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/policy-check.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up policy check contract",
+  "type": "object",
+  "required": ["preset", "policy_path", "policy", "trust", "errors", "ok"],
+  "properties": {
+    "preset": {"type": "string"},
+    "policy_path": {"type": ["string", "null"]},
+    "policy": {"type": "object"},
+    "trust": {"type": "object"},
+    "errors": {"type": "array"},
+    "ok": {"type": "boolean"}
+  }
+}

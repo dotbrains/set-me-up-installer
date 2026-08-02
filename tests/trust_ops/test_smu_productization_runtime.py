@@ -50,7 +50,8 @@ class TestSmuProductizationRuntime(unittest.TestCase):
         self.assertIn("modules", payload["selected"])
 
     def test_drift_doctor_reports_adapter_conflicts(self):
-        with patch.object(smu, "adapter_conflict_report", return_value={"conflicted": False, "items": []}):
+        with patch.object(smu, "adapter_conflict_report", return_value={"conflicted": False, "items": []}), \
+                patch.object(smu, "config_drift_report", return_value={"drifted": False, "items": []}):
             payload = smu.drift_payload("/tmp/blueprint")
 
         self.assertTrue(payload["ok"])
@@ -99,6 +100,87 @@ class TestSmuProductizationRuntime(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(buf.getvalue())["version"], "1.2.3")
+
+    def test_release_package_writes_artifacts(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            exit_code = smu.release_package_command(["--version", "1.2.3", "--output", tempdir, "--json"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertTrue(os.path.exists(os.path.join(tempdir, "release-manifest.json")))
+            self.assertTrue(os.path.exists(os.path.join(tempdir, "checksums.txt")))
+
+    def test_blueprint_registry_loads_third_party_file(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = os.path.join(tempdir, "registry.json")
+            with open(registry, "w") as f:
+                json.dump({"entries": [{"id": "example/blueprint", "url": "https://example.com/bp", "modes": ["nix"]}]}, f)
+
+            payload = smu.blueprint_registry_payload("example", registry)
+
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["entries"][0]["id"], "example/blueprint")
+
+    def test_fleet_apply_runs_guarded_ssh_and_writes_logs(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            hosts = os.path.join(tempdir, "hosts.txt")
+            with open(hosts, "w") as f:
+                f.write("app1 deploy\n")
+            completed = smu.subprocess.CompletedProcess(["ssh"], 0, "ok\n", "")
+
+            with patch.object(smu.subprocess, "run", return_value=completed) as run:
+                payload = smu.fleet_plan_payload(["apply", "--apply", "--hosts", hosts, "--log-dir", tempdir])
+                payload = smu._fleet_apply(payload)
+                log_exists = os.path.exists(payload["results"][0]["log"])
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(run.call_args[0][0][0], "ssh")
+        self.assertTrue(log_exists)
+
+    def test_policy_file_overrides_preset(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            os.makedirs(os.path.join(tempdir, ".smu"))
+            with open(os.path.join(tempdir, ".smu", "policy.toml"), "w") as f:
+                f.write('adapters = ["rcm"]\nsudo = false\nnetwork = false\n')
+
+            payload = smu.policy_payload(["check", "--root", tempdir, "--provisioning-adapter", "home-manager"])
+
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["policy"]["adapters"], ["rcm"])
+
+    def test_module_graph_reads_manifest_blockers(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            module_dir = os.path.join(tempdir, "custom")
+            os.makedirs(module_dir)
+            with open(os.path.join(module_dir, "module.toml"), "w") as f:
+                f.write('depends_on = ["base"]\nconflicts_with = ["rcm"]\nprovides = ["custom"]\norder = 5\n')
+
+            with patch.object(smu, "module_path", tempdir):
+                payload = smu.module_graph_payload(["custom", "rcm"])
+
+        custom = [node for node in payload["nodes"] if node["module"] == "custom"][0]
+        self.assertEqual(custom["blockers"][0]["type"], "missing_dependency")
+        self.assertTrue([item for item in custom["blockers"] if item["type"] == "conflict"])
+
+    def test_drift_payload_includes_state_engines(self):
+        with patch.object(smu, "adapter_conflict_report", return_value={"conflicted": False, "items": []}), \
+                patch.object(smu, "config_drift_report", return_value={"drifted": False, "items": []}), \
+                patch.object(smu, "rollback_doctor_payload", return_value={"events": []}), \
+                patch.object(smu.shutil, "which", return_value=None):
+            payload = smu.drift_payload("/tmp/blueprint")
+
+        self.assertIn("generated_files", payload)
+        self.assertIn("state_ledger", payload)
+
+    def test_product_docs_reads_executable_workflow_sections(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            source = os.path.join(tempdir, "EXECUTABLE-WORKFLOWS.md")
+            output = os.path.join(tempdir, "out.md")
+            with open(source, "w") as f:
+                f.write("# Workflows\n\n## Fleet Apply\n\n```bash\nsmu fleet apply\n```\n")
+
+            payload = smu.product_docs_payload(output, source)
+
+        self.assertEqual(payload["workflows"], ["Fleet Apply"])
 
 
 if __name__ == "__main__":

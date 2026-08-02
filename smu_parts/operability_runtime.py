@@ -303,7 +303,7 @@ def json_contracts():
         "tui": tui_payload(["--profile", "vps"]),
         "drift-doctor": drift_payload("/path/to/blueprint"),
         "post-install": post_install_health_payload("vps"),
-        "policy": policy_payload(["check", "--preset", "ci"]),
+        "policy-check": policy_payload(["check", "--preset", "ci"]),
         "rollback-restore-test": rollback_restore_test_payload(),
         "product-docs": product_docs_payload(),
     }

@@ -1,0 +1,8 @@
+{
+  "explanations": ["rcm runs after base"],
+  "nodes": [
+    {"blockers": [], "capabilities": ["shell", "git"], "conflicts": [], "dependencies": [], "module": "base", "order": 10, "requires": []},
+    {"blockers": [], "capabilities": ["dotfiles"], "conflicts": [], "dependencies": ["base"], "module": "rcm", "order": 20, "requires": []}
+  ],
+  "order": ["base", "rcm"]
+}

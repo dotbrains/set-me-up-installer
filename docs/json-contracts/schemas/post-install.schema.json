@@ -1,0 +1,12 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/post-install.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up post-install health contract",
+  "type": "object",
+  "required": ["profile", "checks", "ok"],
+  "properties": {
+    "profile": {"type": "string"},
+    "checks": {"type": "array"},
+    "ok": {"type": "boolean"}
+  }
+}

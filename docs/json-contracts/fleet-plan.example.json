@@ -1,0 +1,20 @@
+{
+  "adapter": "home-manager",
+  "commands": [
+    {
+      "command": "smu plan --machine vps --provisioning-adapter home-manager --json",
+      "host": "localhost",
+      "log": "/tmp/smu-fleet/localhost.log",
+      "user": "root"
+    }
+  ],
+  "continue_on_error": false,
+  "executes_remote": false,
+  "hosts": [{"host": "localhost", "id": "localhost", "user": "root"}],
+  "log_dir": "/tmp/smu-fleet",
+  "mode": "plan",
+  "parallel": 1,
+  "profile": "vps",
+  "resume": false,
+  "run_id": "example"
+}

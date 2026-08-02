@@ -1,0 +1,17 @@
+{
+  "$id": "https://dotbrains.dev/set-me-up/contracts/drift-doctor.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "set-me-up drift doctor contract",
+  "type": "object",
+  "required": ["root", "packages", "links", "generated_files", "nix_profile", "state_ledger", "config_drift", "ok"],
+  "properties": {
+    "root": {"type": "string"},
+    "packages": {"type": "object"},
+    "links": {"type": "object"},
+    "generated_files": {"type": "array"},
+    "nix_profile": {"type": "object"},
+    "state_ledger": {"type": "object"},
+    "config_drift": {"type": "object"},
+    "ok": {"type": "boolean"}
+  }
+}
