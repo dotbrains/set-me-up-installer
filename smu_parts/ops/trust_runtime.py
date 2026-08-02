@@ -9,6 +9,13 @@ TRUST_DEFAULTS = {
     "rollback": "unknown",
 }
 
+TRUST_POLICY_PRESETS = {
+    "personal-laptop": {"allow_sudo": True, "allow_network": True, "allow_unknown": False},
+    "headless-vps": {"allow_sudo": True, "allow_network": True, "allow_unknown": False},
+    "ci": {"allow_sudo": False, "allow_network": True, "allow_unknown": False},
+    "strict": {"allow_sudo": False, "allow_network": False, "allow_unknown": False},
+}
+
 
 def module_trust_manifest(module_name):
     path = get_module_path(module_name)
@@ -58,9 +65,20 @@ def trust_report(modules=None):
     return {"modules": rows, "warnings": warnings}
 
 
-def trust_enforcement_payload(modules=None, profile=None, allow_sudo=False, allow_network=False, allow_unknown=False):
+def trust_policy_preset(name=None):
+    name = name or "strict"
+    if name not in TRUST_POLICY_PRESETS:
+        die(f"Unknown trust policy preset '{name}'. Supported presets: {', '.join(sorted(TRUST_POLICY_PRESETS))}.")
+    return TRUST_POLICY_PRESETS[name]
+
+
+def trust_enforcement_payload(modules=None, profile=None, preset=None, allow_sudo=False, allow_network=False, allow_unknown=False):
     if modules is None and profile:
         modules = list(blueprint_profile_modules(profile))
+    preset_policy = trust_policy_preset(preset)
+    allow_sudo = allow_sudo or preset_policy["allow_sudo"]
+    allow_network = allow_network or preset_policy["allow_network"]
+    allow_unknown = allow_unknown or preset_policy["allow_unknown"]
     rows = trust_report(modules)["modules"]
     violations = []
     for row in rows:
@@ -78,6 +96,12 @@ def trust_enforcement_payload(modules=None, profile=None, allow_sudo=False, allo
     return {
         "enforced": True,
         "profile": profile or "default",
+        "preset": preset or "strict",
+        "policy": {
+            "allow_sudo": allow_sudo,
+            "allow_network": allow_network,
+            "allow_unknown": allow_unknown,
+        },
         "ok": not violations,
         "modules": rows,
         "violations": violations,
@@ -88,11 +112,13 @@ def trust_command(argv):
     json_output = "--json" in argv
     enforce = bool(argv and argv[0] == "enforce")
     profile = _option_value(argv, "--profile")
+    preset = _option_value(argv, "--preset")
     modules = [arg for arg in argv if not arg.startswith("--") and arg not in ("doctor", "enforce")]
     if enforce:
         payload = trust_enforcement_payload(
             modules or None,
             profile=profile,
+            preset=preset,
             allow_sudo="--allow-sudo" in argv,
             allow_network="--allow-network" in argv,
             allow_unknown="--allow-unknown" in argv,

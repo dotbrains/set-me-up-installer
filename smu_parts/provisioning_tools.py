@@ -256,41 +256,6 @@ def check_provisioning_adapter_docs(output_path=None):
     return 0
 
 
-def nix_profile_doctor(profile=None, adapter_id="home-manager", json_output=False, strict=False):
-    modules = list(blueprint_profile_modules(profile))
-    audit_rows = [resolve_module_provisioning_adapter(module, adapter_id) for module in modules]
-    policy_errors = []
-    for row in audit_rows:
-        violation = _platform_policy_violation(row)
-        if violation:
-            policy_errors.append(violation)
-    payload = {
-        "adapter": adapter_id,
-        "profile": profile or "default",
-        "host_supported": provisioning_adapter_host_supported(adapter_id),
-        "binaries": nix_bootstrap_status(),
-        "modules": audit_rows,
-        "policy_errors": policy_errors,
-        "summary": {
-            "ready": sum(1 for row in audit_rows if row["state"] == "ready"),
-            "missing": sum(1 for row in audit_rows if row["state"] != "ready"),
-        },
-    }
-    if json_output:
-        print(json.dumps(payload, indent=2, sort_keys=True))
-    else:
-        print(f"adapter\t{adapter_id}")
-        print(f"profile\t{payload['profile']}")
-        print(f"host_supported\t{str(payload['host_supported']).lower()}")
-        print(f"ready\t{payload['summary']['ready']}")
-        print(f"missing\t{payload['summary']['missing']}")
-        for error in policy_errors:
-            print(f"{COL_RED}FAIL{COL_RESET} {error}")
-    if strict and (policy_errors or payload["summary"]["missing"] or not payload["host_supported"]):
-        return 1
-    return 0
-
-
 def print_provisioning_adapter_coverage(json_output=False):
     payload = provisioning_adapter_coverage()
     if json_output:

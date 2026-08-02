@@ -424,6 +424,11 @@ def provisioning_module_change_plan(modules, adapter_id=None):
             "resolved_adapter": resolution["resolved_adapter"],
             "adapter_state": resolution["state"],
             "available_adapters": resolution["available_adapters"],
+            "rollback": {
+                "coverage": "partial" if state != "installed" else "full",
+                "automatic": state != "installed",
+                "manual": [] if state == "installed" else ["Package manager side effects depend on module uninstall support."],
+            },
         })
     return plan
 

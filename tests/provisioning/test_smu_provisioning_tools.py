@@ -449,6 +449,30 @@ class TestProvisioningTools(unittest.TestCase):
         self.assertTrue(payload["nix"])
         self.assertFalse(payload["home-manager"])
 
+    def test_nix_profile_doctor_reports_flake_and_missing_binary(self):
+        with tempfile.TemporaryDirectory() as tempdir, \
+                patch.object(smu, "smu_home_dir", tempdir), \
+                patch.object(smu, "module_path", os.path.join(tempdir, "modules")), \
+                patch("smu.subprocess.call", return_value=1):
+            with open(os.path.join(tempdir, "flake.nix"), "w") as f:
+                f.write("{ outputs = { self }: {}; }\n")
+            with open(os.path.join(tempdir, "smu.toml"), "w") as f:
+                f.write('[profile.default]\nmodules = []\n')
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                result = smu.nix_profile_doctor(json_output=True)
+
+            payload = json.loads(output.getvalue())
+            self.assertEqual(result, 0)
+            self.assertTrue(payload["flake"]["present"])
+            self.assertIn("nix is not installed", payload["diagnostics"])
+
+    def test_downstream_conformance_workflow_template_mentions_checks(self):
+        content = smu.downstream_conformance_workflow_template()
+        self.assertIn("smu blueprint ci --path . --check-docs --json", content)
+        self.assertIn("smu conformance --repo . --json", content)
+
     def test_scaffold_module_adapter_all_writes_each_nix_adapter(self):
         with tempfile.TemporaryDirectory() as tempdir, \
                 patch.object(smu, "module_path", os.path.join(tempdir, "modules")):

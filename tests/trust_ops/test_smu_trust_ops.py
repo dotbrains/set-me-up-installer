@@ -52,6 +52,7 @@ class TestTrustOps(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual(payload["provisioning"]["modules"], ["server/headless"])
             self.assertEqual(payload["machine_profile"]["id"], "vps")
+            self.assertIn("coverage", payload["provisioning"]["plan"][0]["rollback"])
 
     def test_universal_plan_default_output_is_table(self):
         with patch.object(smu, "universal_plan_payload", return_value={
@@ -118,6 +119,20 @@ class TestTrustOps(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIn("network access", payload["violations"][0])
 
+    def test_trust_preset_allows_headless_vps_network_and_sudo(self):
+        with patch.object(smu, "trust_report", return_value={"modules": [{
+            "module": "server/headless",
+            "state": "ok",
+            "trust": "first-party",
+            "network": True,
+            "requires_sudo": True,
+            "rollback": "partial",
+            "writes": [],
+        }], "warnings": []}):
+            payload = smu.trust_enforcement_payload(["server/headless"], preset="headless-vps")
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["preset"], "headless-vps")
+
     def test_support_bundle_redacts_known_secret_shapes(self):
         payload = smu._redact({
             "github_token": "ghp_123456789012345678901234567890123456",
@@ -135,9 +150,20 @@ class TestTrustOps(unittest.TestCase):
             self.assertEqual(payload["total"], len(payload["checks"]))
 
     def test_migration_pr_payload_includes_pr_body(self):
-        payload = smu.blueprint_migration_pr_payload("/tmp/repo")
+        payload = smu.blueprint_migration_pr_payload("/tmp/repo", include_ci_template=True, include_badge=True)
         self.assertEqual(payload["pull_request"]["title"], "Adopt set-me-up install surface")
         self.assertTrue(any("smu blueprint ci" in command for command in payload["commands"]))
+        paths = {os.path.basename(item["path"]) for item in payload["files"]}
+        self.assertIn("smu.toml", paths)
+        self.assertIn("SET-ME-UP-CONFORMANCE.md", paths)
+        self.assertTrue(payload["ci_template"])
+
+    def test_migration_pr_apply_dry_run_reports_planned_files(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            payload = smu.apply_migration_pr_payload(tempdir, mode="nix", dry_run=True, include_badge=True)
+            self.assertTrue(payload["dry_run"])
+            self.assertFalse(os.path.exists(os.path.join(tempdir, "smu.toml")))
+            self.assertTrue(any(item["action"] == "write" for item in payload["planned"]))
 
     def test_release_notes_render_provenance(self):
         content = smu.release_notes_from_provenance({

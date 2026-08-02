@@ -64,8 +64,8 @@ HELP_TOPICS = {
         "Inspect module trust, network, sudo, write-target, and rollback metadata.",
     ],
     "trust enforce": [
-        "smu trust enforce [module ...] [--profile id] [--allow-sudo] [--allow-network] [--json]",
-        "Fail when selected modules exceed the current trust policy.",
+        "smu trust enforce [module ...] [--profile id] [--preset strict|ci|personal-laptop|headless-vps] [--allow-sudo] [--allow-network] [--json]",
+        "Fail when selected modules exceed the selected trust policy preset.",
     ],
     "conformance": [
         "smu conformance [--repo path] [--json|--markdown] [--output path]",
@@ -80,8 +80,8 @@ HELP_TOPICS = {
         "Render Markdown release notes from release-readiness provenance.",
     ],
     "migration-pr": [
-        "smu migration-pr --repo path [--mode hybrid] [--output path]",
-        "Generate a branch, command, and pull-request payload for blueprint adoption.",
+        "smu migration-pr --repo path [--mode hybrid] [--ci-template] [--badge] [--dry-run|--apply] [--output path]",
+        "Generate or apply a branch, file, command, and pull-request payload for blueprint adoption.",
     ],
     "contracts": [
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
