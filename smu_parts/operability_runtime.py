@@ -354,6 +354,8 @@ def contract_command(argv):
                 payload = json.load(handle)
         else:
             example_path = os.path.join(contracts_path, f"{name}.example.json")
+            if not os.path.exists(example_path):
+                example_path = os.path.join(contracts_path, "product-ops", f"{name}.example.json")
             if os.path.exists(example_path):
                 source = example_path
                 with open(example_path, encoding="utf-8") as handle:

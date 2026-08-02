@@ -54,6 +54,14 @@ class TestSmuSafetyRuntime(unittest.TestCase):
 
     def test_static_contract_examples_parse(self):
         contract_dir = os.path.join(smu.installer_root, "docs", "json-contracts")
+        for root, _, filenames in os.walk(contract_dir):
+            for filename in filenames:
+                if filename.endswith(".json"):
+                    with open(os.path.join(root, filename)) as f:
+                        self.assertIsInstance(json.load(f), dict)
+
+    def test_static_contract_examples_ignore_non_json(self):
+        contract_dir = os.path.join(smu.installer_root, "docs", "json-contracts")
         for filename in os.listdir(contract_dir):
             if filename.endswith(".json"):
                 with open(os.path.join(contract_dir, filename)) as f:

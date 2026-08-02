@@ -72,9 +72,13 @@ class TestTrustOps(unittest.TestCase):
             self.assertTrue(output.getvalue().startswith("section\titem\tstatus\tdetail"))
 
     def test_new_contract_examples_validate(self):
-        for name in ("plan", "secrets-doctor", "trust-doctor", "support-bundle", "conformance"):
+        names = ("plan", "secrets-doctor", "trust-doctor", "support-bundle", "conformance")
+        names += smu.smu_contract.PRODUCT_OPS_JSON_SCHEMA_CONTRACTS
+        for name in names:
             with self.subTest(name=name):
                 path = os.path.join(smu.contracts_path, f"{name}.example.json")
+                if not os.path.exists(path):
+                    path = os.path.join(smu.contracts_path, "product-ops", f"{name}.example.json")
                 with open(path, encoding="utf-8") as handle:
                     payload = json.load(handle)
                 self.assertFalse(smu.smu_contract.json_contract_errors(name, payload))
