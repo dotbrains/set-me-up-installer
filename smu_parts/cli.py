@@ -36,6 +36,26 @@ def main():
             raise SystemExit(release_notes_command(command_args))
         if command == "migration-pr":
             raise SystemExit(migration_pr_command(command_args))
+        if command == "release-package":
+            raise SystemExit(release_package_command(command_args))
+        if command == "fleet":
+            raise SystemExit(fleet_command(command_args))
+        if command == "blueprint-registry":
+            raise SystemExit(blueprint_registry_command(command_args))
+        if command == "module-graph":
+            raise SystemExit(module_graph_command(command_args))
+        if command == "tui":
+            raise SystemExit(tui_command(command_args))
+        if command == "drift":
+            raise SystemExit(drift_command(command_args))
+        if command == "post-install":
+            raise SystemExit(post_install_command(command_args))
+        if command == "policy":
+            raise SystemExit(policy_command(command_args))
+        if command == "rollback-test":
+            raise SystemExit(rollback_restore_test_command(command_args))
+        if command == "product-docs":
+            raise SystemExit(product_docs_command(command_args))
         if command == "completion":
             raise SystemExit(completion_command(command_args))
         if command == "contract":

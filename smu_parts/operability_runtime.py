@@ -83,6 +83,46 @@ HELP_TOPICS = {
         "smu migration-pr --repo path [--mode hybrid] [--ci-template] [--badge] [--dry-run|--apply] [--output path]",
         "Generate or apply a branch, file, command, and pull-request payload for blueprint adoption.",
     ],
+    "release-package": [
+        "smu release-package [--version semver] [--channel latest-known-good] [--json]",
+        "Plan versioned release artifacts, signed-tag readiness, changelog, and latest-known-good channel metadata.",
+    ],
+    "fleet": [
+        "smu fleet plan --hosts hosts.txt --profile vps [--provisioning-adapter adapter] [--json]",
+        "Plan SSH bootstrap commands across a host file without executing remote changes unless explicitly applied.",
+    ],
+    "blueprint-registry": [
+        "smu blueprint-registry [--search query] [--json]",
+        "List known-good blueprints with rcm, nix, hybrid, VPS, rollback, and OS compatibility metadata.",
+    ],
+    "module-graph": [
+        "smu module-graph [module ...] [--json]",
+        "Explain module dependencies, conflicts, capabilities, and execution order.",
+    ],
+    "tui": [
+        "smu tui [--profile vps] [--provisioning-adapter adapter] [--json]",
+        "Open or describe the interactive setup flow for profile, adapter, modules, trust, plan, and rollback review.",
+    ],
+    "drift": [
+        "smu drift doctor [--root path] [--json]",
+        "Compare desired blueprint state with package, link, unmanaged-file, and stale-config state.",
+    ],
+    "post-install": [
+        "smu post-install doctor [--profile vps] [--json]",
+        "Run post-install health checks for shell, git, SSH, rcm, Nix, and provisioning readiness.",
+    ],
+    "policy": [
+        "smu policy check [--preset ci|strict|personal|vps] [--provisioning-adapter adapter] [module ...] [--json]",
+        "Enforce policy-as-code limits for adapters, network, sudo, trust, and file writes.",
+    ],
+    "rollback-test": [
+        "smu rollback-test restore [--json]",
+        "Run the temp-home rollback restore fixture and report whether state can be restored.",
+    ],
+    "product-docs": [
+        "smu product-docs generate [--output path] [--json]",
+        "Generate product workflow docs from the executable workflow source set.",
+    ],
     "contracts": [
         "smu contract [list|show <name>|schema <name>|write|validate <name> [--path path|-] [--json]]",
         "Print, write, or validate stable JSON payloads for agent and fleet integrations.",
@@ -256,6 +296,16 @@ def json_contracts():
         "status": status_report(),
         "update-doctor": repository_update_doctor(),
         "update-preflight": client_update_preflight(),
+        "release-package": release_package_payload("1.2.3", "latest-known-good"),
+        "fleet-plan": fleet_plan_payload(["plan", "--profile", "vps"]),
+        "blueprint-registry": blueprint_registry_payload(),
+        "module-graph": module_graph_payload(["base", "rcm"]),
+        "tui": tui_payload(["--profile", "vps"]),
+        "drift-doctor": drift_payload("/path/to/blueprint"),
+        "post-install": post_install_health_payload("vps"),
+        "policy": policy_payload(["check", "--preset", "ci"]),
+        "rollback-restore-test": rollback_restore_test_payload(),
+        "product-docs": product_docs_payload(),
     }
 
 

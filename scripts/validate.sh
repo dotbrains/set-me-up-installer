@@ -63,6 +63,17 @@ cli_smoke() {
     HOME="$tmp_home" "$python_bin" smu.py support bundle --redact --output "$tmp_home/support.json"
     HOME="$tmp_home" "$python_bin" smu.py conformance --repo "$tmp_home/set-me-up" --markdown --output "$tmp_home/conformance.md" || true
     HOME="$tmp_home" "$python_bin" smu.py migration-pr --repo "$tmp_home/set-me-up" --output "$tmp_home/migration-pr.json"
+    HOME="$tmp_home" "$python_bin" smu.py release-package --version 1.2.3 --json
+    printf 'app1 root\n' > "$tmp_home/hosts.txt"
+    HOME="$tmp_home" "$python_bin" smu.py fleet plan --hosts "$tmp_home/hosts.txt" --profile vps --json
+    HOME="$tmp_home" "$python_bin" smu.py blueprint-registry --json
+    HOME="$tmp_home" "$python_bin" smu.py module-graph base rcm --json
+    HOME="$tmp_home" "$python_bin" smu.py tui --profile vps --json
+    HOME="$tmp_home" "$python_bin" smu.py drift doctor --json
+    HOME="$tmp_home" "$python_bin" smu.py post-install doctor --profile vps --json
+    HOME="$tmp_home" "$python_bin" smu.py policy check --preset ci --json
+    HOME="$tmp_home" "$python_bin" smu.py rollback-test restore --json
+    HOME="$tmp_home" "$python_bin" smu.py product-docs generate --output "$tmp_home/product-docs.md" --json
     for contract in plan secrets-doctor trust-doctor support-bundle conformance; do
         "$python_bin" smu.py contract schema "$contract" >/dev/null
         "$python_bin" smu.py contract validate "$contract" --json
